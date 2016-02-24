@@ -47,12 +47,19 @@ struct CODEC2 *rx_codec;
 int nr_samples;
 int16_t *samples_rx;
 int nr_rx;
+int squelch_level_c = 10000000;
+int squelch_level_o = 100000;
+int squelch_on_delay = 3;
+int squelch_off_delay = 10;
 
 void squelch(int16_t *samples, int nr)
 {
 	double total = 0;
-	double high = 0;
+	double high = 0, low = 0;
 	int i;
+	static int open_cnt = 0;
+	static int close_cnt = 0;
+	static bool state = false;
 	
 	for (i = 0; i < nr; i++) {
 		total += samples[i] * samples[i];
@@ -60,23 +67,51 @@ void squelch(int16_t *samples, int nr)
 			high += samples[i];
 		else
 			high -= samples[i];
+		if (i & 2)
+			low += samples[i];
+		else
+			low -= samples[i];
 	}
 	high = high * high;
+	low = low * low;
 	
-	printf("%f\t%f\t%f\n", total, high, total/high);
+	if ((!state && high < squelch_level_o) ||
+	    (state && high < squelch_level_c)) {
+		open_cnt++;
+		close_cnt = 0;
+	} else {
+		open_cnt = 0;
+		close_cnt++;
+	}
+	if (!state && open_cnt >= squelch_on_delay) {
+		printf("Open\t%f\t%f\t%f\n", high, low, high/low);
+		state = true;
+	}
+	if (state && close_cnt >= squelch_off_delay) {
+		printf("Close\t%f\t%f\t%f\n", high, low, high/low);
+		state = false;
+	}
+	
+//	static int cnt;
+//	cnt++;
+//	if ((cnt & 7) == 0)
+//		printf("%f\t%f\t%f\n", high, low, high/low);
 }
 
 
 static void cb_control(char *ctrl)
 {
+	printf("DTMF: %s\n", ctrl);
 	return;
 }
 
+
 static void cb_sound_in(int16_t *samples, int nr)
 {
-//	squelch(samples, nr);
-dtmf_decode(samples, nr, cb_control);
-	
+	squelch(samples, nr);
+
+	dtmf_rx(samples, nr, cb_control);
+
 	while (nr) {
 		int copy = nr_samples - nr_rx;
 		if (copy > nr)
@@ -376,6 +411,7 @@ int main(int argc, char **argv)
 	fd_int = interface_init(netname, mac);
 	sound_init(sounddev, cb_sound_in, nr_samples);
 	hl_init();
+	dtmf_init();
 
 	prio();
 	

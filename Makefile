@@ -8,8 +8,7 @@ SRCS = \
 	eth_ar.c \
 	interface.c \
 	sound.c \
-	dtmf_detect.c \
-	dtmf_gen.c
+	dsp.c
 
 OBJS = $(SRCS:.c=.o)
 
