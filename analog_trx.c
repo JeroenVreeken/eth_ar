@@ -52,7 +52,7 @@ int squelch_level_o = 100000;
 int squelch_on_delay = 3;
 int squelch_off_delay = 10;
 
-void squelch(int16_t *samples, int nr)
+bool squelch(int16_t *samples, int nr)
 {
 	double total = 0;
 	double high = 0, low = 0;
@@ -96,19 +96,23 @@ void squelch(int16_t *samples, int nr)
 //	cnt++;
 //	if ((cnt & 7) == 0)
 //		printf("%f\t%f\t%f\n", high, low, high/low);
+	return state;
 }
 
 
 static void cb_control(char *ctrl)
 {
+	uint8_t *msg = (uint8_t *)ctrl;
+	
 	printf("DTMF: %s\n", ctrl);
-	return;
+	
+	interface_rx(msg, strlen(ctrl), ETH_P_AR_CONTROL);
 }
 
 
 static void cb_sound_in(int16_t *samples, int nr)
 {
-	squelch(samples, nr);
+	bool rx_state = squelch(samples, nr);
 
 	dtmf_rx(samples, nr, cb_control);
 
@@ -123,13 +127,15 @@ static void cb_sound_in(int16_t *samples, int nr)
 		nr_rx += copy;
 		
 		if (nr_rx == nr_samples) {
-			int bytes_per_codec_frame = (codec2_bits_per_frame(rx_codec) + 7)/8;
-			unsigned char packed_codec_bits[bytes_per_codec_frame];
+			if (rx_state) {
+				int bytes_per_codec_frame = (codec2_bits_per_frame(rx_codec) + 7)/8;
+				unsigned char packed_codec_bits[bytes_per_codec_frame];
 			
-			codec2_encode(rx_codec, packed_codec_bits, samples_rx);
+				codec2_encode(rx_codec, packed_codec_bits, samples_rx);
 			
-			interface_rx(packed_codec_bits, bytes_per_codec_frame,
-			    ETH_P_CODEC2_3200);
+				interface_rx(packed_codec_bits, bytes_per_codec_frame,
+				    ETH_P_CODEC2_3200);
+			}
 			nr_rx = 0;
 		}
 	}
