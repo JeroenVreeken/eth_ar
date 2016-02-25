@@ -252,13 +252,19 @@ int main(int argc, char **argv)
 			case 'M':
 				if (!strcmp(optarg, "1600")) {
 					mode = FREEDV_MODE_1600;
-					type = ETH_P_CODEC2_1600;
+					type = ETH_P_CODEC2_1300;
 				} else if (!strcmp(optarg, "700")) {
 					mode = FREEDV_MODE_700;
 					type = ETH_P_CODEC2_700;
 				} else if (!strcmp(optarg, "700B")) {
 					mode = FREEDV_MODE_700B;
 					type = ETH_P_CODEC2_700B;
+				} else if (!strcmp(optarg, "2400A")) {
+					mode = FREEDV_MODE_2400A;
+					type = ETH_P_CODEC2_1300;
+				} else if (!strcmp(optarg, "2400B")) {
+					mode = FREEDV_MODE_2400B;
+					type = ETH_P_CODEC2_1300;
 				}
 				break;
 			case 'v':
@@ -320,16 +326,16 @@ int main(int argc, char **argv)
 	bytes_per_eth_frame += 7;
 	bytes_per_eth_frame /= 8;
 	printf("bytes per ethernet frame: %d\n", bytes_per_eth_frame);
-	int rat = 
-	    freedv_get_n_speech_samples(freedv) / 
-	    codec2_samples_per_frame(freedv_get_codec2(freedv));
+	int rat = freedv_get_n_codec_bits(freedv) / codec2_bits_per_frame(freedv_get_codec2(freedv));
 	printf("ehternet frames per freedv frame: %d\n", rat);
 	bytes_per_codec_frame = bytes_per_eth_frame * rat;
 	samples_rx = calloc(nr_samples, sizeof(samples_rx[0]));
 	tx_data = calloc(bytes_per_codec_frame, sizeof(uint8_t));
 
 	fd_int = interface_init(netname, mac, type);
-	sound_init(sounddev, cb_sound_in, nr_samples);
+	int rate = freedv_get_modem_sample_rate(freedv);
+	printf("sample rate: %d\n", rate);
+	sound_init(sounddev, cb_sound_in, nr_samples, rate);
 	hl_init();
 
 	prio();

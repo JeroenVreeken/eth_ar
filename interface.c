@@ -45,7 +45,7 @@ int interface_rx(uint8_t *data, size_t len)
 	memcpy(packet + 14, data, len);
 	
 //	printf("Packet to interface\n");
-	write(fd, data, len);
+	write(fd, packet, sizeof(packet));
 	return 0;
 }
 

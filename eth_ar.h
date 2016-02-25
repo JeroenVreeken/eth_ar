@@ -22,7 +22,7 @@
 #include <stdbool.h>
 
 #define ETH_P_CODEC2_3200	0x7300
-#define ETH_P_CODEC2_1600	0x7302
+#define ETH_P_CODEC2_1300	0x7304
 #define ETH_P_CODEC2_700	0x7306
 #define ETH_P_CODEC2_700B	0x7307
 
