@@ -211,6 +211,16 @@ void tx_tail_check(void)
 	}
 }
 
+static void vc_callback_rx(void *arg, char c)
+{
+	printf("Received 0x%x %d\n", c, c);
+}
+
+static char vc_callback_tx(void *arg)
+{
+	return 0;
+}
+
 static void usage(void)
 {
 	printf("Options:\n");
@@ -320,6 +330,8 @@ int main(int argc, char **argv)
 	eth_ar_call2mac(mac, call, ssid, false);
 	
 	freedv = freedv_open(mode);	
+
+	freedv_set_callback_txt(freedv, vc_callback_rx, vc_callback_tx, NULL);
 
 	nr_samples = freedv_get_n_max_modem_samples(freedv);
         bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));

@@ -1,5 +1,5 @@
 /*
-	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2015
+	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2016
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -22,9 +22,15 @@
 #include <stdbool.h>
 
 #define ETH_P_CODEC2_3200	0x7300
+#define ETH_P_CODEC2_2400	0x7301
+#define ETH_P_CODEC2_1600	0x7302
+#define ETH_P_CODEC2_1400	0x7303
 #define ETH_P_CODEC2_1300	0x7304
+#define ETH_P_CODEC2_1200	0x7305
 #define ETH_P_CODEC2_700	0x7306
 #define ETH_P_CODEC2_700B	0x7307
+
+#define ETH_P_AR_CONTROL	0x7342
 
 #define ETH_AR_CALL_LEN_MAX	8
 #define ETH_AR_CALL_SIZE	9
