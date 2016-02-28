@@ -39,6 +39,14 @@
 static bool verbose = false;
 static bool cdc = false;
 static bool fullduplex = false;
+static bool tty_rx = false;
+
+static RIG *rig;
+static rig_model_t rig_model;
+static char *ptt_file = NULL;
+static ptt_type_t ptt_type = RIG_PTT_NONE;
+static dcd_type_t dcd_type = RIG_DCD_NONE;
+
 
 int16_t *mod_silence;
 
@@ -52,7 +60,16 @@ int squelch_level_o = 100000;
 int squelch_on_delay = 3;
 int squelch_off_delay = 10;
 
-bool squelch(int16_t *samples, int nr)
+bool squelch(void)
+{
+	dcd_t dcd;
+	
+	rig_get_dcd(rig, RIG_VFO_CURR, &dcd);
+
+	return dcd == RIG_DCD_ON;
+}
+
+bool soft_squelch(int16_t *samples, int nr)
 {
 	double total = 0;
 	double high = 0, low = 0;
@@ -109,10 +126,25 @@ static void cb_control(char *ctrl)
 	interface_rx(msg, strlen(ctrl), ETH_P_AR_CONTROL);
 }
 
+void handle_tty(void)
+{
+	ssize_t r;
+	char buffer[2];
+	
+	r = read(0, buffer, 1);
+	if (r == 1) {
+		if (buffer[0] == '\n') {
+			tty_rx = ! tty_rx;
+		} else {
+			buffer[1] = 0;
+			cb_control(buffer);
+		}
+	}
+}
 
 static void cb_sound_in(int16_t *samples, int nr)
 {
-	bool rx_state = squelch(samples, nr);
+	bool rx_state = squelch() || tty_rx;
 
 	dtmf_rx(samples, nr, cb_control);
 
@@ -232,11 +264,6 @@ static int prio(void)
 }
 
 
-static RIG *rig;
-static rig_model_t rig_model;
-static char *ptt_file = NULL;
-static ptt_type_t ptt_type = RIG_PTT_NONE;
-
 static int hl_init(void)
 {
 	int retcode;
@@ -250,8 +277,13 @@ static int hl_init(void)
 	if (ptt_type != RIG_PTT_NONE)
 		rig->state.pttport.type.ptt = ptt_type;
 
+	if (dcd_type != RIG_DCD_NONE)
+		rig->state.dcdport.type.dcd = dcd_type;
+
 	if (ptt_file)
 		strncpy(rig->state.pttport.pathname, ptt_file, FILPATHLEN - 1);
+	if (ptt_file)
+		strncpy(rig->state.dcdport.pathname, ptt_file, FILPATHLEN - 1);
 
 	retcode = rig_open(rig);
 	if (retcode != RIG_OK) {
@@ -330,6 +362,7 @@ static void usage(void)
 	printf("-n [dev]\tNetwork device name (default: \"freedv\")\n");
 	printf("-m [model]\tHAMlib rig model\n");
 	printf("-P [type]\tHAMlib PTT type\n");
+	printf("-D [type]\tHAMlib DCD type\n");
 	printf("-p [dev]\tHAMlib PTT device file\n");
 	printf("-d [msec]\tTX delay\n");
 	printf("-t [msec]\tTX tail\n");
@@ -348,12 +381,13 @@ int main(int argc, char **argv)
 	int sound_fdc_rx;
 	int nfds;
 	int poll_int;
+	int poll_tty;
 	int opt;
 	int mode = CODEC2_MODE_3200;
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "vc:s:n:m:d:t:p:P:f")) != -1) {
+	while ((opt = getopt(argc, argv, "vc:s:n:m:d:t:p:P:D:f")) != -1) {
 		switch(opt) {
 			case 'v':
 				verbose = true;
@@ -388,6 +422,24 @@ int main(int argc, char **argv)
 					ptt_type = RIG_PTT_NONE;
 				else
 					ptt_type = atoi(optarg);
+				break;
+			case 'D':
+				if (!strcmp(optarg, "RIG"))
+					dcd_type = RIG_DCD_RIG;
+				else if (!strcmp(optarg, "DSR"))
+					dcd_type = RIG_DCD_SERIAL_DSR;
+				else if (!strcmp(optarg, "CTS"))
+					dcd_type = RIG_DCD_SERIAL_CTS;
+				else if (!strcmp(optarg, "CD"))
+					dcd_type = RIG_DCD_SERIAL_CAR;
+				else if (!strcmp(optarg, "PARALLEL"))
+					dcd_type = RIG_DCD_PARALLEL;
+				else if (!strcmp(optarg, "CM108"))
+					dcd_type = RIG_DCD_CM108;
+				else if (!strcmp(optarg, "NONE"))
+					dcd_type = RIG_DCD_NONE;
+				else
+					dcd_type = atoi(optarg);
 				break;
 			case 'd':
 				tx_delay = 1000000 * atoi(optarg);
@@ -428,7 +480,7 @@ int main(int argc, char **argv)
 
 	sound_fdc_tx = sound_poll_count_tx();
 	sound_fdc_rx = sound_poll_count_rx();
-	nfds = sound_fdc_tx + sound_fdc_rx + 1;
+	nfds = sound_fdc_tx + sound_fdc_rx + 1 + 1;
 	fds = calloc(sizeof(struct pollfd), nfds);
 	
 	sound_poll_fill_tx(fds, sound_fdc_tx);
@@ -436,6 +488,9 @@ int main(int argc, char **argv)
 	poll_int = sound_fdc_tx + sound_fdc_rx;
 	fds[poll_int].fd = fd_int;
 	fds[poll_int].events = POLLIN;
+	poll_tty = poll_int + 1;
+	fds[poll_tty].fd = 0;
+	fds[poll_tty].events = POLLIN;
 
 
 	do {
@@ -447,6 +502,9 @@ int main(int argc, char **argv)
 				interface_tx(cb_int_tx);
 				tx_tail_extend();
 			}
+		}
+		if (fds[poll_tty].revents & POLLIN) {
+			handle_tty();
 		}
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
 			sound_out(mod_silence, nr_samples);
