@@ -63,6 +63,8 @@ int squelch_off_delay = 10;
 bool squelch(void)
 {
 	dcd_t dcd;
+	if (dcd_type == RIG_DCD_NONE)
+		return false;
 	
 	rig_get_dcd(rig, RIG_VFO_CURR, &dcd);
 

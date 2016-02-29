@@ -1,7 +1,7 @@
 include build.mk
 
 CFLAGS += -Wall -Werror -O3
-LDFLAGS += -lm -lasound -lhamlib -lcodec2
+LDFLAGS += -lm -lasound -lhamlib -lcodec2 -lsamplerate
 
 SRCS = \
 	analog_trx.c \

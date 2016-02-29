@@ -20,14 +20,54 @@
 #include <endian.h>
 #include <alsa/asoundlib.h>
 
+#include <samplerate.h>
+
 /* Our device handle */
 static snd_pcm_t *pcm_handle_tx = NULL;
 static snd_pcm_t *pcm_handle_rx = NULL;
 static void (*sound_in_cb)(int16_t *samples, int nr);
 
+static SRC_STATE *src_out = NULL;
+static SRC_STATE *src_in = NULL;
+
+static double ratio_out = 1.0;
+static double ratio_in = 1.0;
+
+static int channels_out = 1;
+static int channels_in = 1;
+
 int sound_out(int16_t *samples, int nr)
 {
 	int r;
+	int play_nr = nr * ratio_out;
+	int16_t play_samples[play_nr * channels_out];
+	
+	if (src_out) {
+		int i;
+		float data_in[nr], data_out[play_nr];
+		SRC_DATA data;
+		data.data_in = data_in;
+		data.data_out = data_out;
+		data.input_frames = nr;
+		data.output_frames = play_nr;
+		data.end_of_input = 0;
+		data.src_ratio = ratio_out;
+
+		src_short_to_float_array(samples, data_in, nr);
+		
+		src_process(src_out, &data);
+		
+		src_float_to_short_array(data_out, play_samples, play_nr);
+
+		if (channels_out)
+			for (i = play_nr; i >= 0; i--) {
+				play_samples[i * 2 + 0] = play_samples[i];
+				play_samples[i * 2 + 1] = play_samples[i];
+			}
+
+		samples = play_samples;
+		nr = play_nr;
+	}
 	
 	r = snd_pcm_writei (pcm_handle_tx, samples, nr);
 //	printf("alsa: %d\n", r);
@@ -92,37 +132,98 @@ int sound_rx(void)
 {
 	int r;
 	int16_t samples[nr];
+	int rec_nr = nr * ratio_in;
+	int16_t rec_samples[rec_nr * channels_in];
 	
-	r = snd_pcm_readi(pcm_handle_rx, samples, nr);
+	r = snd_pcm_readi(pcm_handle_rx, rec_samples, rec_nr);
 	
-	if (r > 0) {
-		sound_in_cb(samples, r);
-	} else {
+	if (r <= 0) {
 		printf("recover input (nr=%d, r=%d)\n", nr, r);
 		snd_pcm_recover(pcm_handle_rx, r, 0);
 		snd_pcm_start(pcm_handle_rx);
+		
+		return -1;
+	}
+
+	
+	if (src_in) {
+		int i;
+		float data_in[rec_nr], data_out[nr];
+		SRC_DATA data;
+		data.data_in = data_in;
+		data.data_out = data_out;
+		data.input_frames = rec_nr;
+		data.output_frames = nr;
+		data.end_of_input = 0;
+		data.src_ratio = ratio_in;
+
+
+		if (channels_in)
+			for (i = 0; i < rec_nr; i++) {
+				rec_samples[i] = rec_samples[i * 2];
+			}
+
+		src_short_to_float_array(rec_samples, data_in, rec_nr);
+		
+		src_process(src_in, &data);
+		
+		src_float_to_short_array(data_out, samples, nr);
+
+		sound_in_cb(samples, nr);
+	} else {
+		sound_in_cb(samples, r);
 	}
 	
 	return 0;
 }
 
-int sound_param(snd_pcm_t *pcm_handle)
+int sound_param(snd_pcm_t *pcm_handle, bool is_tx)
 {
+	int channels = 1;
 	snd_pcm_hw_params_t *hw_params;
 	snd_pcm_hw_params_malloc (&hw_params);
 
 	snd_pcm_hw_params_any(pcm_handle, hw_params);
-	snd_pcm_hw_params_set_access (pcm_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
+	if (snd_pcm_hw_params_set_access (pcm_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) {
+		printf("Interleaved not supported\n");
+	}
 
 	if (htole16(0x1234) == 0x1234)
 		snd_pcm_hw_params_set_format (pcm_handle, hw_params, SND_PCM_FORMAT_S16_LE);
 	else
 		snd_pcm_hw_params_set_format (pcm_handle, hw_params, SND_PCM_FORMAT_S16_BE);
 	
-	unsigned int rrate = 8000;
+	unsigned int rate = 8000;
+	unsigned int rrate = rate;
 	
-	snd_pcm_hw_params_set_rate_near (pcm_handle, hw_params, &rrate, NULL);
-	snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 1);
+	if (snd_pcm_hw_params_set_rate_near (pcm_handle, hw_params, &rrate, NULL)) {
+		printf("Could not set rate %d\n", rrate);
+	}
+	printf("rate: %d got rate: %d\n", rate, rrate);
+	
+	if (snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 1)) {
+		printf("Could not set channels to 1\n");
+		if (snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 2)) {
+			printf("Could not set channels to 2\n");
+		} else {
+			channels = 2;
+		}
+	}
+	if (channels != 1 || rate != rrate) {
+		int err;
+		SRC_STATE *src = src_new(SRC_SINC_BEST_QUALITY, 1, &err);
+		double ratio = (double)rate / (double)rrate;
+		
+		if (is_tx) {
+			src_out = src;
+			ratio_out = 1.0/ratio;
+			channels_out = channels;
+		} else {
+			src_in = src;
+			ratio_in = ratio;
+			channels_in = channels;
+		}
+	}
 
 	snd_pcm_uframes_t buffer_size = nr * 2 * 10;
 	snd_pcm_uframes_t period_size = nr * 2;
@@ -140,7 +241,7 @@ int sound_param(snd_pcm_t *pcm_handle)
 	snd_pcm_sw_params_malloc (&sw_params);
 	snd_pcm_sw_params_current (pcm_handle, sw_params);
 
-	snd_pcm_sw_params_set_start_threshold(pcm_handle, sw_params, buffer_size - period_size);
+	snd_pcm_sw_params_set_start_threshold(pcm_handle, sw_params, period_size);
 	snd_pcm_sw_params_set_avail_min(pcm_handle, sw_params, period_size);
 
 	snd_pcm_sw_params(pcm_handle, sw_params);
@@ -167,13 +268,13 @@ int sound_init(char *device, void (*in_cb)(int16_t *samples, int nr), int inr)
 	if (err < 0)
 		return -1;
 
-	sound_param(pcm_handle_tx);
+	sound_param(pcm_handle_tx, true);
 
 	err = snd_pcm_open (&pcm_handle_rx, device_name, SND_PCM_STREAM_CAPTURE, 0);
 	if (err < 0)
 		return -1;
 	
-	sound_param(pcm_handle_rx);
+	sound_param(pcm_handle_rx, false);
 
 	snd_pcm_prepare(pcm_handle_tx);
 	snd_pcm_start(pcm_handle_rx);
