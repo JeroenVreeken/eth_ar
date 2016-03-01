@@ -171,17 +171,18 @@ static void cb_sound_in(int16_t *samples, int nr)
 				codec2_encode(rx_codec, packed_codec_bits, samples_rx);
 			
 				interface_rx(packed_codec_bits, bytes_per_codec_frame,
-				    ETH_P_CODEC2_3200);
+				    ETH_P_CODEC2_1600);
 			}
 			nr_rx = 0;
 		}
 	}
 }
 
-uint8_t *tx_data;
-size_t tx_data_len;
-int tx_mode = -1;
-struct CODEC2 *tx_codec = NULL;
+static uint8_t *tx_data;
+static size_t tx_data_len;
+static int tx_mode = -1;
+static struct CODEC2 *tx_codec = NULL;
+static int bytes_per_codec_frame = 8;
 
 static int cb_int_tx(uint8_t *data, size_t len, uint16_t eth_type)
 {
@@ -221,21 +222,20 @@ static int cb_int_tx(uint8_t *data, size_t len, uint16_t eth_type)
 		tx_codec = codec2_create(newmode);
 		tx_mode = newmode;
 		tx_data_len = 0;
-	}
-	
-	int bytes_per_codec_frame = (codec2_bits_per_frame(tx_codec) + 7)/8;
+		tx_bytes_per_codec_frame = (codec2_bits_per_frame(tx_codec) + 7)/8;
+	}	
 	
 	while (len) {
 		size_t copy = len;
-		if (copy + tx_data_len > bytes_per_codec_frame)
-			copy = bytes_per_codec_frame - tx_data_len;
+		if (copy + tx_data_len > tx_bytes_per_codec_frame)
+			copy = tx_bytes_per_codec_frame - tx_data_len;
 		
 		memcpy(tx_data + tx_data_len, data, copy);
 		tx_data_len += copy;
 		data += copy;
 		len -= copy;
 		
-		if (tx_data_len == bytes_per_codec_frame) {
+		if (tx_data_len == tx_bytes_per_codec_frame) {
 			int nr = codec2_samples_per_frame(tx_codec);
 			int16_t mod_out[nr];
 			
@@ -388,7 +388,7 @@ int main(int argc, char **argv)
 	int poll_int;
 	int poll_tty;
 	int opt;
-	int mode = CODEC2_MODE_3200;
+	int mode = CODEC2_MODE_1600;
 	
 	rig_model = 1; // set to dummy.
 	

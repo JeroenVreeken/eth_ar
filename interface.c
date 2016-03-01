@@ -60,7 +60,7 @@ int interface_tx(int (*cb)(uint8_t *data, size_t len, uint16_t eth_type))
 		
 		if ((data[12] == (eth_type >> 8)) &&
 		    (data[13] == (eth_type & 0xff))) {
-			printf("ETH packet of %zd bytes\n", len);
+//			printf("ETH packet of %zd bytes\n", len);
 		
 			return cb(data + 14, len - 14, eth_type);
 		}
