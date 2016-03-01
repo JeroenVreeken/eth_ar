@@ -80,6 +80,23 @@ int sound_out(int16_t *samples, int nr)
 	return 0;
 }
 
+int16_t *silence;
+int silence_nr;
+
+int sound_silence(void)
+{
+	int r;
+	
+	r = snd_pcm_writei (pcm_handle_tx, silence, silence_nr);
+//	printf("alsa: %d\n", r);
+	if (r < 0) {
+		printf("recover output\n");
+		snd_pcm_recover(pcm_handle_tx, r, 1);
+		snd_pcm_writei (pcm_handle_tx, silence, silence_nr);
+	}
+	return 0;
+}
+
 int sound_poll_count_tx(void)
 {
 	return snd_pcm_poll_descriptors_count(pcm_handle_tx);
@@ -211,7 +228,7 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx)
 	}
 	if (channels != 1 || rate != rrate) {
 		int err;
-		SRC_STATE *src = src_new(SRC_SINC_BEST_QUALITY, 1, &err);
+		SRC_STATE *src = src_new(SRC_LINEAR, 1, &err);
 		double ratio = (double)rate / (double)rrate;
 		
 		if (is_tx) {
@@ -275,6 +292,9 @@ int sound_init(char *device, void (*in_cb)(int16_t *samples, int nr), int inr)
 		return -1;
 	
 	sound_param(pcm_handle_rx, false);
+
+	silence_nr = nr * ratio_out;
+	silence = calloc(silence_nr * 2, sizeof(int16_t));
 
 	snd_pcm_prepare(pcm_handle_tx);
 	snd_pcm_start(pcm_handle_rx);

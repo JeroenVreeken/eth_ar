@@ -148,6 +148,9 @@ static void cb_sound_in(int16_t *samples, int nr)
 {
 	bool rx_state = squelch() || tty_rx;
 
+	if (!rx_state)
+		return;
+
 	dtmf_rx(samples, nr, cb_control);
 
 	while (nr) {
@@ -509,7 +512,8 @@ int main(int argc, char **argv)
 			handle_tty();
 		}
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
-			sound_out(mod_silence, nr_samples);
+			sound_silence();
+//			sound_out(mod_silence, nr_samples);
 		}
 		if (sound_poll_in_rx(fds + sound_fdc_tx, sound_fdc_rx)) {
 			sound_rx();
