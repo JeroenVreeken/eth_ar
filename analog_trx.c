@@ -182,7 +182,7 @@ static uint8_t *tx_data;
 static size_t tx_data_len;
 static int tx_mode = -1;
 static struct CODEC2 *tx_codec = NULL;
-static int bytes_per_codec_frame = 8;
+static int tx_bytes_per_codec_frame = 8;
 
 static int cb_int_tx(uint8_t *data, size_t len, uint16_t eth_type)
 {
