@@ -15,30 +15,13 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
  */
-#ifndef _INCLUDE_ETH_AR_H_
-#define _INCLUDE_ETH_AR_H_
+
+#ifndef _INCLUDE_ALAW_H_
+#define _INCLUDE_ALAW_H_
 
 #include <stdint.h>
-#include <stdbool.h>
 
-#define ETH_P_CODEC2_3200	0x7300
-#define ETH_P_CODEC2_2400	0x7301
-#define ETH_P_CODEC2_1600	0x7302
-#define ETH_P_CODEC2_1400	0x7303
-#define ETH_P_CODEC2_1300	0x7304
-#define ETH_P_CODEC2_1200	0x7305
-#define ETH_P_CODEC2_700	0x7306
-#define ETH_P_CODEC2_700B	0x7307
+void alaw_decode(int16_t *samples, uint8_t *alaw, int nr);
+void alaw_encode(uint8_t *alaw, int16_t *samples, int nr);
 
-#define ETH_P_AR_CONTROL	0x7342
-
-#define ETH_P_ALAW		0x7365
-
-#define ETH_AR_CALL_LEN_MAX	8
-#define ETH_AR_CALL_SIZE	9
-
-int eth_ar_call2mac(uint8_t mac[6], char *callsign, int ssid, bool multicast);
-int eth_ar_mac2call(char *callsign, int *ssid, bool *multicast, uint8_t mac[6]);
-
-
-#endif /* _INCLUDE_ETH_AR_H_ */
+#endif /* _INCLUDE_ALAW_H_ */

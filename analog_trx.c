@@ -34,6 +34,7 @@
 #include "eth_ar.h"
 #include "sound.h"
 #include "dtmf.h"
+#include "alaw.h"
 
 
 static bool verbose = false;
@@ -153,28 +154,36 @@ static void cb_sound_in(int16_t *samples, int nr)
 
 	dtmf_rx(samples, nr, cb_control);
 
-	while (nr) {
-		int copy = nr_samples - nr_rx;
-		if (copy > nr)
-			copy = nr;
+	if (rx_codec) {
+		while (nr) {
+			int copy = nr_samples - nr_rx;
+			if (copy > nr)
+				copy = nr;
 
-		memcpy(samples_rx + nr_rx, samples, copy);
-		samples += copy;
-		nr -= copy;
-		nr_rx += copy;
+			memcpy(samples_rx + nr_rx, samples, copy);
+			samples += copy;
+			nr -= copy;
+			nr_rx += copy;
 		
-		if (nr_rx == nr_samples) {
-			if (rx_state) {
-				int bytes_per_codec_frame = (codec2_bits_per_frame(rx_codec) + 7)/8;
-				unsigned char packed_codec_bits[bytes_per_codec_frame];
-			
-				codec2_encode(rx_codec, packed_codec_bits, samples_rx);
-			
-				interface_rx(packed_codec_bits, bytes_per_codec_frame,
-				    ETH_P_CODEC2_1600);
+			if (nr_rx == nr_samples) {
+				if (rx_state) {
+					int bytes_per_codec_frame = (codec2_bits_per_frame(rx_codec) + 7)/8;
+					unsigned char packed_codec_bits[bytes_per_codec_frame];
+				
+					codec2_encode(rx_codec, packed_codec_bits, samples_rx);
+				
+					interface_rx(packed_codec_bits, bytes_per_codec_frame,
+					    ETH_P_CODEC2_3200);
+				}
+				nr_rx = 0;
 			}
-			nr_rx = 0;
 		}
+	} else {
+		uint8_t alaw[nr];
+		
+		alaw_encode(alaw, samples, nr);
+		
+		interface_rx(alaw, nr, ETH_P_ALAW);
 	}
 }
 
@@ -187,6 +196,8 @@ static int tx_bytes_per_codec_frame = 8;
 static int cb_int_tx(uint8_t *data, size_t len, uint16_t eth_type)
 {
 	int newmode = 0;
+	bool is_c2 = true;
+	
 	switch (eth_type) {
 		case ETH_P_CODEC2_3200:
 			newmode = CODEC2_MODE_3200;
@@ -212,11 +223,14 @@ static int cb_int_tx(uint8_t *data, size_t len, uint16_t eth_type)
 		case ETH_P_CODEC2_700B:
 			newmode = CODEC2_MODE_700B;
 			break;
+		case ETH_P_ALAW:
+			is_c2 = false;
+			break;
 		default:
 			return 0;
 	}
 	
-	if (newmode != tx_mode) {
+	if (is_c2 && newmode != tx_mode) {
 		if (tx_codec)
 			codec2_destroy(tx_codec);
 		tx_codec = codec2_create(newmode);
@@ -225,28 +239,36 @@ static int cb_int_tx(uint8_t *data, size_t len, uint16_t eth_type)
 		tx_bytes_per_codec_frame = (codec2_bits_per_frame(tx_codec) + 7)/8;
 	}	
 	
-	while (len) {
-		size_t copy = len;
-		if (copy + tx_data_len > tx_bytes_per_codec_frame)
-			copy = tx_bytes_per_codec_frame - tx_data_len;
-		
-		memcpy(tx_data + tx_data_len, data, copy);
-		tx_data_len += copy;
-		data += copy;
-		len -= copy;
-		
-		if (tx_data_len == tx_bytes_per_codec_frame) {
-			int nr = codec2_samples_per_frame(tx_codec);
-			int16_t mod_out[nr];
+	if (is_c2) {
+		while (len) {
+			size_t copy = len;
+			if (copy + tx_data_len > tx_bytes_per_codec_frame)
+				copy = tx_bytes_per_codec_frame - tx_data_len;
 			
-			codec2_decode(tx_codec, mod_out, tx_data);
+			memcpy(tx_data + tx_data_len, data, copy);
+			tx_data_len += copy;
+			data += copy;
+			len -= copy;
 			
-			if (nr > 0) {
-				sound_out(mod_out, nr);
+			if (tx_data_len == tx_bytes_per_codec_frame) {
+				int nr = codec2_samples_per_frame(tx_codec);
+				int16_t mod_out[nr];
+				
+				codec2_decode(tx_codec, mod_out, tx_data);
+				
+				if (nr > 0) {
+					sound_out(mod_out, nr);
+				}
+				
+				tx_data_len = 0;
 			}
-			
-			tx_data_len = 0;
 		}
+	} else {
+		int16_t mod_out[len];
+		
+		alaw_decode(mod_out, data, len);
+		
+		sound_out(mod_out, len);
 	}
 
 	return 0;
@@ -361,6 +383,7 @@ static void usage(void)
 {
 	printf("Options:\n");
 	printf("-v\tverbose\n");
+	printf("-a\tUse A-Law encoding\n");
 	printf("-c [call]\town callsign\n");
 	printf("-f\tfull-duplex\n");
 	printf("-s [dev]\tSound device (default: \"default\")\n");
@@ -388,14 +411,18 @@ int main(int argc, char **argv)
 	int poll_int;
 	int poll_tty;
 	int opt;
-	int mode = CODEC2_MODE_1600;
+	int mode = CODEC2_MODE_3200;
+	bool is_c2 = true;
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "vc:s:n:m:d:t:p:P:D:f")) != -1) {
+	while ((opt = getopt(argc, argv, "vac:s:n:m:d:t:p:P:D:f")) != -1) {
 		switch(opt) {
 			case 'v':
 				verbose = true;
+				break;
+			case 'a':
+				is_c2 = false;
 				break;
 			case 'c':
 				call = optarg;
@@ -464,8 +491,13 @@ int main(int argc, char **argv)
 	
 	eth_ar_call2mac(mac, call, ssid, false);
 	
-	rx_codec = codec2_create(mode);
-	nr_samples = codec2_samples_per_frame(rx_codec);
+	if (is_c2) {
+		rx_codec = codec2_create(mode);
+		nr_samples = codec2_samples_per_frame(rx_codec);
+	} else {
+		rx_codec = NULL;
+		nr_samples = 160;
+	}
 	samples_rx = calloc(nr_samples, sizeof(samples_rx[0]));
 	tx_data = calloc(16, sizeof(uint8_t));
 

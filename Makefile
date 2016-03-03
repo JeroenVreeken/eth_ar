@@ -8,6 +8,7 @@ SRCS = \
 	eth_ar.c \
 	interface.c \
 	sound.c \
+	alaw.c \
 	dsp.c
 
 OBJS = $(SRCS:.c=.o)
