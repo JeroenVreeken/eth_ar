@@ -59,7 +59,7 @@ int sound_out(int16_t *samples, int nr)
 		
 		src_float_to_short_array(data_out, play_samples, play_nr);
 
-		if (channels_out)
+		if (channels_out != 1)
 			for (i = play_nr; i >= 0; i--) {
 				play_samples[i * 2 + 0] = play_samples[i];
 				play_samples[i * 2 + 1] = play_samples[i];
@@ -149,7 +149,7 @@ int sound_rx(void)
 {
 	int r;
 	int16_t samples[nr];
-	int rec_nr = nr * ratio_in;
+	int rec_nr = nr * 1.0/ratio_in;
 	int16_t rec_samples[rec_nr * channels_in];
 	
 	r = snd_pcm_readi(pcm_handle_rx, rec_samples, rec_nr);
@@ -165,30 +165,31 @@ int sound_rx(void)
 	
 	if (src_in) {
 		int i;
-		float data_in[rec_nr], data_out[nr];
+		int r_in = r * ratio_in;
+		float data_in[r], data_out[r_in];
 		SRC_DATA data;
 		data.data_in = data_in;
 		data.data_out = data_out;
-		data.input_frames = rec_nr;
-		data.output_frames = nr;
+		data.input_frames = r;
+		data.output_frames = r_in;
 		data.end_of_input = 0;
 		data.src_ratio = ratio_in;
 
 
-		if (channels_in)
-			for (i = 0; i < rec_nr; i++) {
+		if (channels_in != 1)
+			for (i = 0; i < r; i++) {
 				rec_samples[i] = rec_samples[i * 2];
 			}
 
-		src_short_to_float_array(rec_samples, data_in, rec_nr);
+		src_short_to_float_array(rec_samples, data_in, r);
 		
 		src_process(src_in, &data);
 		
-		src_float_to_short_array(data_out, samples, nr);
+		src_float_to_short_array(data_out, samples, r_in);
 
-		sound_in_cb(samples, nr);
+		sound_in_cb(samples, r_in);
 	} else {
-		sound_in_cb(samples, r);
+		sound_in_cb(rec_samples, r);
 	}
 	
 	return 0;
