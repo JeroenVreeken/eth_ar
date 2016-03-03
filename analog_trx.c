@@ -39,6 +39,7 @@
 
 static bool verbose = false;
 static bool cdc = false;
+static bool tx_state = false;
 static bool fullduplex = false;
 static bool tty_rx = false;
 
@@ -149,8 +150,16 @@ static void cb_sound_in(int16_t *samples, int nr)
 {
 	bool rx_state = squelch() || tty_rx;
 
-	if (!rx_state)
+	if (!rx_state) {
+		cdc = false;
 		return;
+	} else {
+		if (fullduplex || !tx_state) {
+			cdc = true;
+		} else {
+			return;
+		}
+	}
 
 	dtmf_rx(samples, nr, cb_control);
 
@@ -318,13 +327,14 @@ static int hl_init(void)
 		return -2;
 	}
 
+	rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
+
 	return 0;
 }
 
 uint64_t tx_delay = 10000000;
 uint64_t tx_tail = 100000000;
 int tx_tail_ms = 100;
-bool tx_state = false;
 bool tx_started = false;
 struct timespec tx_time;
 
