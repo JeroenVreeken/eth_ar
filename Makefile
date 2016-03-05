@@ -1,7 +1,7 @@
 include build.mk
 
-CFLAGS += -Wall -Werror -O3
-LDFLAGS += -lm -lasound -lhamlib -lcodec2
+CFLAGS += -Wall -Werror -g
+LDFLAGS += -lm -lasound -lhamlib -lcodec2 -lsamplerate
 
 SRCS = \
 	freedv_eth.c \

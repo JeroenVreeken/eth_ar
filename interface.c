@@ -30,26 +30,25 @@
 #include <linux/if_tun.h>
 
 static int fd;
-static uint16_t eth_type;
 static uint16_t eth_mac[6];
 
-int interface_rx(uint8_t *data, size_t len)
+int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
 {
 	uint8_t packet[len + 14];
 	
-	memset(packet, 0xff, 6);
-	memcpy(packet + 6, eth_mac, 6);
+	memcpy(packet, to, 6);
+	memcpy(packet + 6, from, 6);
 	packet[12] = eth_type >> 8;
 	packet[13] = eth_type & 0xff;
 	
 	memcpy(packet + 14, data, len);
 	
-//	printf("Packet to interface\n");
+//	printf("Packet to interface %zd\n", sizeof(packet));
 	write(fd, packet, sizeof(packet));
 	return 0;
 }
 
-int interface_tx(int (*cb)(uint8_t *data, size_t len))
+int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
 {
 	uint8_t data[2048];
 	size_t len;
@@ -57,13 +56,9 @@ int interface_tx(int (*cb)(uint8_t *data, size_t len))
 	len = read(fd, data, 2048);
 	if (len > 14) {
 //		int i;
+		uint16_t eth_type = (data[12] << 8) | data[13];
 		
-		if ((data[12] == (eth_type >> 8)) &&
-		    (data[13] == (eth_type & 0xff))) {
-			printf("ETH packet of %zd bytes\n", len);
-		
-			return cb(data + 14, len - 14);
-		}
+		return cb(data, data + 6, eth_type, data + 14, len - 14);
 	}
 	
 	return 0;
@@ -108,12 +103,11 @@ static int tap_alloc(char *dev, uint8_t mac[6])
 	return fd;
 }
 
-int interface_init(char *name, uint8_t mac[6], uint16_t type)
+int interface_init(char *name, uint8_t mac[6])
 {
 	if (name == NULL)
 		name = "freedv";
 	fd = tap_alloc(name, mac);
-	eth_type = type;
 	memcpy(eth_mac, mac, 6);
 	
 	return fd;

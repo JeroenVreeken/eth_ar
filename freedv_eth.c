@@ -39,12 +39,32 @@ static bool cdc = false;
 static bool fullduplex = false;
 
 static struct freedv *freedv;
-
+uint16_t eth_type_rx;
+ 
 int16_t *samples_rx;
 int nr_rx;
 
 int bytes_per_codec_frame;
 int bytes_per_eth_frame;
+
+enum tx_state {
+	TX_STATE_OFF,
+	TX_STATE_DELAY,
+	TX_STATE_ON,
+	TX_STATE_TAIL,
+};
+
+static int tx_delay = 100;
+static int tx_tail = 100;
+static int tx_header = 1000;
+static enum tx_state tx_state = TX_STATE_OFF;
+static int tx_state_cnt;
+static int tx_state_data_header_cnt;
+
+static uint8_t mac[6];
+static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+static uint8_t rx_add[6];
+static uint8_t tx_add[6];
 
 static void cb_sound_in(int16_t *samples, int nr)
 {
@@ -62,10 +82,12 @@ static void cb_sound_in(int16_t *samples, int nr)
 		if (nr_rx == nin) {
 			unsigned char packed_codec_bits[bytes_per_codec_frame];
 			int ret = freedv_codecrx(freedv, packed_codec_bits, samples_rx);
+
 			if (ret) {
 				int i;
 				for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
 					interface_rx(
+					    bcast, rx_add, eth_type_rx,
 					    packed_codec_bits + i * bytes_per_eth_frame,
 					    bytes_per_eth_frame);
 				}
@@ -75,11 +97,31 @@ static void cb_sound_in(int16_t *samples, int nr)
 	}
 }
 
+
+struct tx_packet {
+	uint8_t from[6];
+	uint8_t *data;
+	size_t len;
+	
+	struct tx_packet *next;
+};
+
+static struct tx_packet *queue_data = NULL;
+static struct tx_packet *queue_voice = NULL;
+
 uint8_t *tx_data;
 size_t tx_data_len;
 
-static int cb_int_tx(uint8_t *data, size_t len)
+static void dequeue_voice(void)
 {
+	uint8_t *data = queue_voice->data;
+	size_t len = queue_voice->len;
+	
+	if (memcmp(queue_voice->from, tx_add, 6)) {
+		memcpy(tx_add, queue_voice->from, 6);
+		freedv_set_data_header(freedv, tx_add);
+	}
+
 	while (len) {
 		size_t copy = len;
 		if (copy + tx_data_len > bytes_per_codec_frame)
@@ -102,8 +144,100 @@ static int cb_int_tx(uint8_t *data, size_t len)
 			tx_data_len = 0;
 		}
 	}
+	
+	free(queue_voice->data);
+	
+	struct tx_packet *old = queue_voice;
+	queue_voice = old->next;
+	
+	free(old->data);
+	free(old);
+}
+
+static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
+{
+	struct tx_packet *packet, **queuep;
+	
+	packet = malloc(sizeof(struct tx_packet));
+	if (!packet)
+		return -1;
+
+	if (eth_type == eth_type_rx) {
+		packet->data = malloc(len);
+		if (!packet->data) {
+			free(packet);
+			return -1;
+		}
+		packet->len = len;
+		memcpy(packet->data, data, len);
+		memcpy(packet->from, from, 6);
+		packet->next = NULL;
+printf("voice %zd\n", packet->len);
+		
+		for (queuep = &queue_voice; *queuep; queuep = &(*queuep)->next);
+		*queuep = packet;
+	} else {
+		packet->data = malloc(len + 6 + 6 + 2);
+		if (!packet->data) {
+			free(packet);
+			return -1;
+		}
+		packet->len = len + 6 + 6 + 2;
+		memcpy(packet->data + 0, to, 6);
+		memcpy(packet->data + 6, from, 6);
+		packet->data[12] = eth_type >> 8;
+		packet->data[13] = eth_type & 0xff;
+		memcpy(packet->data + 14, data, len);
+		packet->next = NULL;
+		
+		for (queuep = &queue_data; *queuep; queuep = &(*queuep)->next);
+		*queuep = packet;
+	}
 
 	return 0;
+}
+
+static void freedv_cb_datarx(void *arg, unsigned char *packet, size_t size)
+{
+	if (size == 6) {
+		memcpy(rx_add, packet + 6, 6);
+	} else if (size > 14) {
+		uint16_t type = (packet[12] << 8) | packet[13];
+		interface_rx(packet, packet+6, type, packet + 14, size - 14);
+	}
+}
+
+static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
+{
+	if (tx_state == TX_STATE_ON) {
+		if (!queue_data || tx_state_data_header_cnt >= tx_header) {
+			tx_state_data_header_cnt = 0;
+			*size = 0;
+		} else {
+			struct tx_packet *qp = queue_data;
+		
+			queue_data = qp->next;
+		
+			memcpy(packet, qp->data, qp->len);
+			*size = qp->len;
+		
+			free(qp->data);
+			free(qp);
+		}
+	} else {
+		*size = 0;
+	}
+}
+
+static void data_tx(void)
+{
+	int nr = freedv_get_n_nom_modem_samples(freedv);
+	int16_t mod_out[nr];
+	freedv_datatx(freedv, mod_out);
+	
+	if (nr > 0) {
+		sound_out(mod_out, nr);
+	}
 }
 
 static int prio(void)
@@ -111,12 +245,12 @@ static int prio(void)
 	struct sched_param param;
 
 	if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
-		printf("sched_setscheduler() failed: %s",
+		printf("sched_setscheduler() failed: %s\n",
 		    strerror(errno));
 	}
 
 	if (mlockall(MCL_CURRENT | MCL_FUTURE )) {
-		printf("mlockall failed: %s",
+		printf("mlockall failed: %s\n",
 		    strerror(errno));
 	}
 	return 0;
@@ -153,67 +287,63 @@ static int hl_init(void)
 	return 0;
 }
 
-uint64_t tx_delay = 10000000;
-uint64_t tx_tail = 100000000;
-int tx_tail_ms = 100;
-bool tx_state = false;
-bool tx_started = false;
-struct timespec tx_time;
 
-void tx_delay_start(void)
+void tx_state_machine(void)
 {
-	if (!tx_state) {
-		if (!tx_started) {
-			tx_started = true;
-			if (verbose)
-				printf("TX on\n");
-			rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
-			clock_gettime(CLOCK_MONOTONIC, &tx_time);
-		} else {
-			struct timespec now;
-			
-			clock_gettime(CLOCK_MONOTONIC, &now);
-			uint64_t ontime = now.tv_sec - tx_time.tv_sec;
-			ontime *= 1000000000;
-			ontime += now.tv_nsec - tx_time.tv_nsec;
-			
-			if (ontime >= tx_delay) {
-				if (verbose)
-					printf("TX-delay done\n");
-				tx_state = true;
+	tx_state_cnt++;
+	
+	switch (tx_state) {
+		case TX_STATE_OFF:
+			if ((queue_voice || queue_data) && (!cdc || fullduplex)) {
+				tx_state = TX_STATE_DELAY;
+				tx_state_cnt = 0;
+				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
+			} else {
+				sound_silence();
+				break;
 			}
-		}
+		case TX_STATE_DELAY:
+			if (tx_state_cnt >= tx_delay) {
+				tx_state = TX_STATE_ON;
+				tx_state_cnt = 0;
+				tx_state_data_header_cnt = 0;
+			}
+			data_tx();
+			break;
+		case TX_STATE_ON:
+			if (!queue_voice && ! queue_data && !freedv_data_ntxframes(freedv)) {
+				tx_state = TX_STATE_TAIL;
+				tx_state_cnt = 0;
+			} else {
+				tx_state_data_header_cnt++;
+				if (queue_voice) {
+					dequeue_voice();
+				} else {
+					data_tx();
+				}
+				break;
+			}
+		case TX_STATE_TAIL:
+			if (tx_state_cnt >= tx_tail) {
+				tx_state = TX_STATE_OFF;
+				tx_state_cnt = 0;
+				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
+			} else {
+				data_tx();
+				break;
+			}
 	}
 }
 
-void tx_tail_extend(void)
-{
-	clock_gettime(CLOCK_MONOTONIC, &tx_time);
-}
-
-void tx_tail_check(void)
-{
-	if (tx_state) {
-		struct timespec now;
-		
-		clock_gettime(CLOCK_MONOTONIC, &now);
-		uint64_t ontime = now.tv_sec - tx_time.tv_sec;
-		ontime *= 1000000000;
-		ontime += now.tv_nsec - tx_time.tv_nsec;
-			
-		if (ontime >= tx_tail) {
-			rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
-			tx_state = false;
-			tx_started = false;
-			if (verbose)
-				printf("TX tail done\n");
-		}
-	}
-}
 
 static void vc_callback_rx(void *arg, char c)
 {
+	uint8_t msg[2];
+	
 	printf("Received 0x%x %d\n", c, c);
+	msg[0] = c;
+	msg[1] = 0;
+	interface_rx(bcast, rx_add, ETH_P_AR_CONTROL, msg, 1);
 }
 
 static char vc_callback_tx(void *arg)
@@ -243,7 +373,6 @@ int main(int argc, char **argv)
 	char *sounddev = "default";
 	char *netname = "freedv";
 	int ssid = 0;
-	uint8_t mac[6];
 	int fd_int;
 	struct pollfd *fds;
 	int sound_fdc_tx;
@@ -312,11 +441,10 @@ int main(int argc, char **argv)
 					ptt_type = atoi(optarg);
 				break;
 			case 'd':
-				tx_delay = 1000000 * atoi(optarg);
+				tx_delay = atoi(optarg);
 				break;
 			case 't':
-				tx_tail = 1000000 * atoi(optarg);
-				tx_tail_ms = tx_tail / 1000000;
+				tx_tail = atoi(optarg);
 				break;
 			case 'f':
 				fullduplex = true;
@@ -328,10 +456,14 @@ int main(int argc, char **argv)
 	}
 	
 	eth_ar_call2mac(mac, call, ssid, false);
+	memcpy(rx_add, mac, 6);
+	memcpy(tx_add, mac, 6);
 	
 	freedv = freedv_open(mode);	
 
 	freedv_set_callback_txt(freedv, vc_callback_rx, vc_callback_tx, NULL);
+	freedv_set_callback_data(freedv, freedv_cb_datarx, freedv_cb_datatx, NULL);
+	freedv_set_data_header(freedv, mac);
 
 	nr_samples = freedv_get_n_max_modem_samples(freedv);
         bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
@@ -344,10 +476,23 @@ int main(int argc, char **argv)
 	samples_rx = calloc(nr_samples, sizeof(samples_rx[0]));
 	tx_data = calloc(bytes_per_codec_frame, sizeof(uint8_t));
 
-	fd_int = interface_init(netname, mac, type);
+	eth_type_rx = type;
+	fd_int = interface_init(netname, mac);
 	int rate = freedv_get_modem_sample_rate(freedv);
 	printf("sample rate: %d\n", rate);
 	sound_init(sounddev, cb_sound_in, nr_samples, rate);
+
+	int period_msec = 1000 / (rate / nr_samples);
+	printf("TX period: %d msec\n", period_msec);
+
+	tx_tail /= period_msec;
+	tx_delay /= period_msec;
+	tx_header /= period_msec;
+	
+	printf("TX delay: %d periods\n", tx_delay);
+	printf("TX tail: %d periods\n", tx_tail);
+	printf("TX header: %d periods\n", tx_header);
+
 	hl_init();
 
 	prio();
@@ -368,24 +513,17 @@ int main(int argc, char **argv)
 	fds[poll_int].fd = fd_int;
 	fds[poll_int].events = POLLIN;
 
-
 	do {
-		poll(fds, nfds, tx_state ? tx_tail_ms : -1);
+		poll(fds, nfds, -1);
 		if (fds[poll_int].revents & POLLIN) {
-			if (!tx_state && (!cdc || fullduplex)) {
-				tx_delay_start();
-			} else {
-				interface_tx(cb_int_tx);
-				tx_tail_extend();
-			}
+			interface_tx(cb_int_tx);
 		}
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
-//TODO send silence	packet_tx_info(&packet);
+			tx_state_machine();
 		}
 		if (sound_poll_in_rx(fds + sound_fdc_tx, sound_fdc_rx)) {
 			sound_rx();
 		}
-		tx_tail_check();
 	} while (1);
 	
 	
