@@ -398,6 +398,7 @@ static void usage(void)
 	printf("-f\tfull-duplex\n");
 	printf("-s [dev]\tSound device (default: \"default\")\n");
 	printf("-n [dev]\tNetwork device name (default: \"freedv\")\n");
+	printf("-S\tUse socket on existing network device\n");
 	printf("-m [model]\tHAMlib rig model\n");
 	printf("-P [type]\tHAMlib PTT type\n");
 	printf("-D [type]\tHAMlib DCD type\n");
@@ -423,10 +424,11 @@ int main(int argc, char **argv)
 	int opt;
 	int mode = CODEC2_MODE_3200;
 	bool is_c2 = true;
+	bool tap = true;
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "vac:s:n:m:d:t:p:P:D:f")) != -1) {
+	while ((opt = getopt(argc, argv, "vac:s:n:Sm:d:t:p:P:D:f")) != -1) {
 		switch(opt) {
 			case 'v':
 				verbose = true;
@@ -442,6 +444,9 @@ int main(int argc, char **argv)
 				break;
 			case 'n':
 				netname = optarg;
+				break;
+			case 'S':
+				tap = false;
 				break;
 			case 'm':
 				rig_model = atoi(optarg);
@@ -513,7 +518,7 @@ int main(int argc, char **argv)
 
 	mod_silence = calloc(nr_samples, sizeof(mod_silence[0]));
 
-	fd_int = interface_init(netname, mac);
+	fd_int = interface_init(netname, mac, tap);
 	sound_init(sounddev, cb_sound_in, nr_samples);
 	hl_init();
 	dtmf_init();

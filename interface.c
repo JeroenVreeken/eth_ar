@@ -17,6 +17,7 @@
  */
 #include "interface.h"
 
+#include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -58,17 +59,53 @@ int interface_tx(int (*cb)(uint8_t *data, size_t len, uint16_t eth_type))
 //		int i;
 		uint16_t eth_type = (data[12] << 8) | data[13];
 		
-		if ((data[12] == (eth_type >> 8)) &&
-		    (data[13] == (eth_type & 0xff))) {
-//			printf("ETH packet of %zd bytes\n", len);
-		
-			return cb(data + 14, len - 14, eth_type);
-		}
+		return cb(data + 14, len - 14, eth_type);
 	}
 	
 	return 0;
 }
 
+/* Create a socket on an existing device */
+static int sock_alloc(char *dev)
+{
+	short protocol = htons(ETH_P_ALL);
+	int sock;
+	
+	sock = socket(AF_PACKET, SOCK_RAW, protocol);
+	if (sock < 0)
+		goto err_socket;
+
+	struct ifreq ifr;
+
+	size_t if_name_len = strlen(dev);
+	if (if_name_len >= sizeof(ifr.ifr_name))
+		goto err_len;
+	strcpy(ifr.ifr_name, dev);
+
+	if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0)
+		goto err_ioctl;
+	
+	int ifindex = ifr.ifr_ifindex;
+
+	struct sockaddr_ll sll = { 0 };
+	
+	sll.sll_family = AF_PACKET; 
+	sll.sll_ifindex = ifindex;
+	sll.sll_protocol = protocol;
+	if(bind(sock, (struct sockaddr *)&sll , sizeof(sll)) < 0)
+		goto err_bind;
+
+	return sock;
+err_bind:
+err_ioctl:
+err_len:
+	close(sock);
+err_socket:
+
+	return -1;
+}
+
+/* Create a TAP device */
 static int tap_alloc(char *dev, uint8_t mac[6])
 {
 	struct ifreq ifr = { };
@@ -108,11 +145,14 @@ static int tap_alloc(char *dev, uint8_t mac[6])
 	return fd;
 }
 
-int interface_init(char *name, uint8_t mac[6])
+int interface_init(char *name, uint8_t mac[6], bool tap)
 {
 	if (name == NULL)
 		name = "freedv";
-	fd = tap_alloc(name, mac);
+	if (tap)
+		fd = tap_alloc(name, mac);
+	else
+		fd = sock_alloc(name);
 	memcpy(eth_mac, mac, 6);
 	
 	return fd;

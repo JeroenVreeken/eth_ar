@@ -20,9 +20,10 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 int interface_rx(uint8_t *data, size_t len, uint16_t eth_type);
 int interface_tx(int (*cb)(uint8_t *data, size_t len, uint16_t eth_type));
-int interface_init(char *name, uint8_t mac[6]);
+int interface_init(char *name, uint8_t mac[6], bool tap);
 
 #endif /* _INCLUDE_INTERFACE_H_ */
