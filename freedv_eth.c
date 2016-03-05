@@ -81,9 +81,14 @@ static void cb_sound_in(int16_t *samples, int nr)
 		
 		if (nr_rx == nin) {
 			unsigned char packed_codec_bits[bytes_per_codec_frame];
+			
+			cdc = false;
+			
 			int ret = freedv_codecrx(freedv, packed_codec_bits, samples_rx);
 
 			if (ret) {
+				cdc = true; /* may also be set by data callback */
+				
 				int i;
 				for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
 					interface_rx(
@@ -172,7 +177,6 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		memcpy(packet->data, data, len);
 		memcpy(packet->from, from, 6);
 		packet->next = NULL;
-printf("voice %zd\n", packet->len);
 		
 		for (queuep = &queue_voice; *queuep; queuep = &(*queuep)->next);
 		*queuep = packet;
@@ -199,6 +203,8 @@ printf("voice %zd\n", packet->len);
 
 static void freedv_cb_datarx(void *arg, unsigned char *packet, size_t size)
 {
+	cdc = true;
+	
 	if (size == 6) {
 		memcpy(rx_add, packet + 6, 6);
 	} else if (size > 14) {
@@ -329,6 +335,11 @@ void tx_state_machine(void)
 				tx_state_cnt = 0;
 				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
 			} else {
+				if (queue_voice || queue_data) {
+					tx_state = TX_STATE_ON;
+					tx_state_cnt = 0;
+					tx_state_data_header_cnt = 0;
+				}
 				data_tx();
 				break;
 			}
