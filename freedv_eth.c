@@ -74,7 +74,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 		if (copy > nr)
 			copy = nr;
 
-		memcpy(samples_rx + nr_rx, samples, copy);
+		memcpy(samples_rx + nr_rx, samples, copy * sizeof(int16_t));
 		samples += copy;
 		nr -= copy;
 		nr_rx += copy;
@@ -205,7 +205,7 @@ static void freedv_cb_datarx(void *arg, unsigned char *packet, size_t size)
 {
 	cdc = true;
 	
-	if (size == 6) {
+	if (size == 12) {
 		memcpy(rx_add, packet + 6, 6);
 	} else if (size > 14) {
 		uint16_t type = (packet[12] << 8) | packet[13];
@@ -297,7 +297,6 @@ static int hl_init(void)
 void tx_state_machine(void)
 {
 	tx_state_cnt++;
-	
 	switch (tx_state) {
 		case TX_STATE_OFF:
 			if ((queue_voice || queue_data) && (!cdc || fullduplex)) {

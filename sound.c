@@ -162,7 +162,6 @@ int sound_rx(void)
 		return -1;
 	}
 
-	
 	if (src_in) {
 		int i;
 		int r_in = r * ratio_in;
