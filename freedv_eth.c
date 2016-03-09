@@ -183,8 +183,6 @@ static void dequeue_voice(void)
 		}
 	}
 	
-	free(queue_voice->data);
-	
 	struct tx_packet *old = queue_voice;
 	queue_voice = old->next;
 	
