@@ -39,6 +39,7 @@ static bool cdc = false;
 static bool fullduplex = false;
 
 static struct freedv *freedv;
+static struct CODEC2 *codec2;
 uint16_t eth_type_rx;
  
 int16_t *samples_rx;
@@ -57,6 +58,7 @@ enum tx_state {
 static int tx_delay = 100;
 static int tx_tail = 100;
 static int tx_header = 1000;
+static int tx_header_max = 10000;
 static enum tx_state tx_state = TX_STATE_OFF;
 static int tx_state_cnt;
 static int tx_state_data_header_cnt;
@@ -82,6 +84,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 		if (nr_rx == nin) {
 			unsigned char packed_codec_bits[bytes_per_codec_frame];
 			
+			bool old_cdc = cdc;
 			cdc = false;
 			
 			int ret = freedv_codecrx(freedv, packed_codec_bits, samples_rx);
@@ -97,6 +100,12 @@ static void cb_sound_in(int16_t *samples, int nr)
 					    bytes_per_eth_frame);
 				}
 			}
+
+			/* Reset rx address for voice to our own mac */
+			if (!cdc && cdc != old_cdc)
+				memcpy(rx_add, mac, 6);
+
+
 			nr_rx = 0;
 		}
 	}
@@ -117,14 +126,32 @@ static struct tx_packet *queue_voice = NULL;
 uint8_t *tx_data;
 size_t tx_data_len;
 
+static void data_tx(void)
+{
+	int nr = freedv_get_n_nom_modem_samples(freedv);
+	int16_t mod_out[nr];
+	freedv_datatx(freedv, mod_out);
+	
+	if (nr > 0) {
+		sound_out(mod_out, nr);
+	}
+}
+
 static void dequeue_voice(void)
 {
 	uint8_t *data = queue_voice->data;
 	size_t len = queue_voice->len;
 	
 	if (memcmp(queue_voice->from, tx_add, 6)) {
+		char callstr[9];
+		int ssid;
+		bool multicast;
+		
 		memcpy(tx_add, queue_voice->from, 6);
 		freedv_set_data_header(freedv, tx_add);
+
+		eth_ar_mac2call(callstr, &ssid, &multicast, tx_add);
+		printf("Voice TX add: %s-%d%s\n", callstr, ssid, multicast ? "" : "*");
 	}
 
 	while (len) {
@@ -138,15 +165,21 @@ static void dequeue_voice(void)
 		len -= copy;
 		
 		if (tx_data_len == bytes_per_codec_frame) {
-			int nr = freedv_get_n_nom_modem_samples(freedv);
-			int16_t mod_out[nr];
-			freedv_codectx(freedv, mod_out, tx_data);
+			if (tx_state_data_header_cnt >= tx_header_max ||
+			    ((queue_data || tx_state_data_header_cnt >= tx_header) &&
+			    codec2_get_energy(codec2, tx_data) < 10.0)) {
+				data_tx();
+			} else {
+				int nr = freedv_get_n_nom_modem_samples(freedv);
+				int16_t mod_out[nr];
+				freedv_codectx(freedv, mod_out, tx_data);
 			
-			if (nr > 0) {
-				sound_out(mod_out, nr);
+				if (nr > 0) {
+					sound_out(mod_out, nr);
+				}
+			
+				tx_data_len = 0;
 			}
-			
-			tx_data_len = 0;
 		}
 	}
 	
@@ -206,7 +239,16 @@ static void freedv_cb_datarx(void *arg, unsigned char *packet, size_t size)
 	cdc = true;
 	
 	if (size == 12) {
-		memcpy(rx_add, packet + 6, 6);
+		if (memcmp(rx_add, packet + 6, 6)) {
+			char callstr[9];
+			int ssid;
+			bool multicast;
+		
+			memcpy(rx_add, packet + 6, 6);
+
+			eth_ar_mac2call(callstr, &ssid, &multicast, rx_add);
+			printf("Voice RX add: %s-%d%s\n", callstr, ssid, multicast ? "" : "*");
+		}
 	} else if (size > 14) {
 		uint16_t type = (packet[12] << 8) | packet[13];
 		interface_rx(packet, packet+6, type, packet + 14, size - 14);
@@ -232,17 +274,6 @@ static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 		}
 	} else {
 		*size = 0;
-	}
-}
-
-static void data_tx(void)
-{
-	int nr = freedv_get_n_nom_modem_samples(freedv);
-	int16_t mod_out[nr];
-	freedv_datatx(freedv, mod_out);
-	
-	if (nr > 0) {
-		sound_out(mod_out, nr);
 	}
 }
 
@@ -300,9 +331,19 @@ void tx_state_machine(void)
 	switch (tx_state) {
 		case TX_STATE_OFF:
 			if ((queue_voice || queue_data) && (!cdc || fullduplex)) {
+				char callstr[9];
+				int ssid;
+				bool multicast;
+
 				tx_state = TX_STATE_DELAY;
 				tx_state_cnt = 0;
 				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
+
+				memcpy(tx_add, mac, 6);
+				freedv_set_data_header(freedv, tx_add);
+
+				eth_ar_mac2call(callstr, &ssid, &multicast, tx_add);
+				printf("TX add: %s-%d%s\n", callstr, ssid, multicast ? "" : "*");
 			} else {
 				sound_silence();
 				break;
@@ -382,7 +423,6 @@ int main(int argc, char **argv)
 	char *call = "pirate";
 	char *sounddev = "default";
 	char *netname = "freedv";
-	int ssid = 0;
 	int fd_int;
 	struct pollfd *fds;
 	int sound_fdc_tx;
@@ -402,18 +442,23 @@ int main(int argc, char **argv)
 				if (!strcmp(optarg, "1600")) {
 					mode = FREEDV_MODE_1600;
 					type = ETH_P_CODEC2_1300;
+					codec2 = codec2_create(CODEC2_MODE_1300);
 				} else if (!strcmp(optarg, "700")) {
 					mode = FREEDV_MODE_700;
 					type = ETH_P_CODEC2_700;
+					codec2 = codec2_create(CODEC2_MODE_700);
 				} else if (!strcmp(optarg, "700B")) {
 					mode = FREEDV_MODE_700B;
 					type = ETH_P_CODEC2_700B;
+					codec2 = codec2_create(CODEC2_MODE_700B);
 				} else if (!strcmp(optarg, "2400A")) {
 					mode = FREEDV_MODE_2400A;
 					type = ETH_P_CODEC2_1300;
+					codec2 = codec2_create(CODEC2_MODE_1300);
 				} else if (!strcmp(optarg, "2400B")) {
 					mode = FREEDV_MODE_2400B;
 					type = ETH_P_CODEC2_1300;
+					codec2 = codec2_create(CODEC2_MODE_1300);
 				}
 				break;
 			case 'v':
@@ -465,7 +510,7 @@ int main(int argc, char **argv)
 		}
 	}
 	
-	eth_ar_call2mac(mac, call, ssid, false);
+	eth_ar_callssid2mac(mac, call, false);
 	memcpy(rx_add, mac, 6);
 	memcpy(tx_add, mac, 6);
 	
@@ -498,10 +543,12 @@ int main(int argc, char **argv)
 	tx_tail /= period_msec;
 	tx_delay /= period_msec;
 	tx_header /= period_msec;
+	tx_header_max /= period_msec;
 	
 	printf("TX delay: %d periods\n", tx_delay);
 	printf("TX tail: %d periods\n", tx_tail);
 	printf("TX header: %d periods\n", tx_header);
+	printf("TX header max: %d periods\n", tx_header_max);
 
 	hl_init();
 

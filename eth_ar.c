@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#include <stdlib.h>
 
 /*
 	8 character callsign, 4 bit ssid
@@ -77,6 +78,28 @@ int eth_ar_call2mac(uint8_t mac[6], char *callsign, int ssid, bool multicast)
 	mac[5] = add & 0xff;
 
 	return 0;
+}
+
+int eth_ar_callssid2mac(uint8_t mac[6], char *callsign, bool multicast)
+{
+	int ssid = 0;
+	char call[9];
+	int i;
+	
+	for (i = 0; i < 8; i++) {
+		if (callsign[i] == '-')
+			break;
+		if (callsign[i] == 0)
+			break;
+		call[i] = callsign[i];
+	}
+	call[i] = 0;
+	
+	if (callsign[i] == '-') {
+		ssid = atoi(callsign + i);
+	}
+	
+	return eth_ar_call2mac(mac, call, ssid, multicast);
 }
 
 int eth_ar_mac2call(char *callsign, int *ssid, bool *multicast, uint8_t mac[6])
