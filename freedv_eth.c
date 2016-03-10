@@ -137,22 +137,33 @@ static void data_tx(void)
 	}
 }
 
-static void dequeue_voice(void)
+static void check_tx_add(void)
 {
-	uint8_t *data = queue_voice->data;
-	size_t len = queue_voice->len;
+	char callstr[9];
+	int ssid;
+	bool multicast;
+	uint8_t *add;
 	
-	if (memcmp(queue_voice->from, tx_add, 6)) {
-		char callstr[9];
-		int ssid;
-		bool multicast;
-		
-		memcpy(tx_add, queue_voice->from, 6);
+	if (queue_voice)
+		add = queue_voice->from;
+	else
+		add = mac;
+	
+	if (memcmp(add, tx_add, 6)) {
+		memcpy(tx_add, add, 6);
 		freedv_set_data_header(freedv, tx_add);
 
 		eth_ar_mac2call(callstr, &ssid, &multicast, tx_add);
 		printf("Voice TX add: %s-%d%s\n", callstr, ssid, multicast ? "" : "*");
 	}
+}
+
+static void dequeue_voice(void)
+{
+	uint8_t *data = queue_voice->data;
+	size_t len = queue_voice->len;
+	
+	check_tx_add();
 
 	while (len) {
 		size_t copy = len;
@@ -329,19 +340,11 @@ void tx_state_machine(void)
 	switch (tx_state) {
 		case TX_STATE_OFF:
 			if ((queue_voice || queue_data) && (!cdc || fullduplex)) {
-				char callstr[9];
-				int ssid;
-				bool multicast;
-
 				tx_state = TX_STATE_DELAY;
 				tx_state_cnt = 0;
 				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
 
-				memcpy(tx_add, mac, 6);
-				freedv_set_data_header(freedv, tx_add);
-
-				eth_ar_mac2call(callstr, &ssid, &multicast, tx_add);
-				printf("TX add: %s-%d%s\n", callstr, ssid, multicast ? "" : "*");
+				check_tx_add();
 			} else {
 				sound_silence();
 				break;
@@ -377,6 +380,8 @@ void tx_state_machine(void)
 					tx_state = TX_STATE_ON;
 					tx_state_cnt = 0;
 					tx_state_data_header_cnt = 0;
+					
+					check_tx_add();
 				}
 				data_tx();
 				break;
@@ -508,7 +513,10 @@ int main(int argc, char **argv)
 		}
 	}
 	
-	eth_ar_callssid2mac(mac, call, false);
+	if (eth_ar_callssid2mac(mac, call, false)) {
+		printf("Callsign could not be converted to a valid MAC address\n");
+		return -1;
+	}
 	memcpy(rx_add, mac, 6);
 	memcpy(tx_add, mac, 6);
 	

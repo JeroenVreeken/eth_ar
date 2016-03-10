@@ -95,7 +95,9 @@ static int tap_alloc(char *dev, uint8_t mac[6])
 	memcpy(ifr.ifr_hwaddr.sa_data, mac, 6);
 
 	if (ioctl(fd, SIOCSIFHWADDR, &ifr) < 0) {
-		printf("Setting HWADDR failed\n");
+		printf("Setting HWADDR %02x:%02x:%02x:%02x:%02x:%02x failed\n",
+		    mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		
 		close(fd);
 		return -1;
 	}

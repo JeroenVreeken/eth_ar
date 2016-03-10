@@ -96,7 +96,7 @@ int eth_ar_callssid2mac(uint8_t mac[6], char *callsign, bool multicast)
 	call[i] = 0;
 	
 	if (callsign[i] == '-') {
-		ssid = atoi(callsign + i);
+		ssid = atoi(callsign + i + 1);
 	}
 	
 	return eth_ar_call2mac(mac, call, ssid, multicast);
