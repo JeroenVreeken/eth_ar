@@ -290,6 +290,8 @@ static int prio(void)
 {
 	struct sched_param param;
 
+	param.sched_priority = 90;
+
 	if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
 		printf("sched_setscheduler() failed: %s\n",
 		    strerror(errno));
