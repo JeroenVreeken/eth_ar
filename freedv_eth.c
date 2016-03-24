@@ -34,19 +34,21 @@
 #include "eth_ar.h"
 #include "sound.h"
 
+#define QUEUE_DATA_MAX 40
+
 static bool verbose = false;
 static bool cdc = false;
 static bool fullduplex = false;
 
 static struct freedv *freedv;
 static struct CODEC2 *codec2;
-uint16_t eth_type_rx;
+static uint16_t eth_type_rx;
  
-int16_t *samples_rx;
-int nr_rx;
+static int16_t *samples_rx;
+static int nr_rx;
 
-int bytes_per_codec_frame;
-int bytes_per_eth_frame;
+static int bytes_per_codec_frame;
+static int bytes_per_eth_frame;
 
 enum tx_state {
 	TX_STATE_OFF,
@@ -116,15 +118,18 @@ struct tx_packet {
 	uint8_t from[6];
 	uint8_t *data;
 	size_t len;
+	size_t off;
 	
 	struct tx_packet *next;
 };
 
 static struct tx_packet *queue_data = NULL;
+static int queue_data_len = 0;
 static struct tx_packet *queue_voice = NULL;
+static struct tx_packet *queue_control = NULL;
 
-uint8_t *tx_data;
-size_t tx_data_len;
+static uint8_t *tx_data;
+static size_t tx_data_len;
 
 static void data_tx(void)
 {
@@ -211,10 +216,9 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 
 	if (eth_type == eth_type_rx) {
 		packet->data = malloc(len);
-		if (!packet->data) {
-			free(packet);
-			return -1;
-		}
+		if (!packet->data)
+			goto err_packet;
+
 		packet->len = len;
 		memcpy(packet->data, data, len);
 		memcpy(packet->from, from, 6);
@@ -222,12 +226,25 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		
 		for (queuep = &queue_voice; *queuep; queuep = &(*queuep)->next);
 		*queuep = packet;
+	} else if (eth_type == ETH_P_AR_CONTROL) {
+		packet->data = malloc(len);
+		if (!packet->data)
+			goto err_packet;
+
+		memcpy(packet->data, data, len);
+		packet->len = len;
+		packet->off = 0;
+		
+		for (queuep = &queue_control; *queuep; queuep = &(*queuep)->next);
+		*queuep = packet;
 	} else {
+		if (queue_data_len >= QUEUE_DATA_MAX)
+			goto err_packet;
+			
 		packet->data = malloc(len + 6 + 6 + 2);
-		if (!packet->data) {
-			free(packet);
-			return -1;
-		}
+		if (!packet->data)
+			goto err_packet;
+
 		packet->len = len + 6 + 6 + 2;
 		memcpy(packet->data + 0, to, 6);
 		memcpy(packet->data + 6, from, 6);
@@ -235,12 +252,18 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		packet->data[13] = eth_type & 0xff;
 		memcpy(packet->data + 14, data, len);
 		packet->next = NULL;
-		
+
 		for (queuep = &queue_data; *queuep; queuep = &(*queuep)->next);
+		
+		queue_data_len++;
 		*queuep = packet;
 	}
 
 	return 0;
+
+err_packet:
+	free(packet);
+	return -1;
 }
 
 static void freedv_cb_datarx(void *arg, unsigned char *packet, size_t size)
@@ -277,6 +300,7 @@ static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 		
 			memcpy(packet, qp->data, qp->len);
 			*size = qp->len;
+			queue_data_len--;
 		
 			free(qp->data);
 			free(qp);
@@ -404,7 +428,23 @@ static void vc_callback_rx(void *arg, char c)
 
 static char vc_callback_tx(void *arg)
 {
-	return 0;
+	char c;
+	
+	if (queue_control) {
+		struct tx_packet *qp = queue_control;
+		
+		c = qp->data[qp->off++];
+		if (qp->off >= qp->len) {
+			queue_control = qp->next;
+		
+			free(qp->data);
+			free(qp);
+		}
+	} else {
+		c = 0;
+	}
+	
+	return c;
 }
 
 static void usage(void)
