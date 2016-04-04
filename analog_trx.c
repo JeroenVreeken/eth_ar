@@ -178,7 +178,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 			if (copy > nr)
 				copy = nr;
 
-			memcpy(samples_rx + nr_rx, samples, copy);
+			memcpy(samples_rx + nr_rx, samples, copy * 2);
 			samples += copy;
 			nr -= copy;
 			nr_rx += copy;
@@ -189,7 +189,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 					unsigned char packed_codec_bits[bytes_per_codec_frame];
 				
 					codec2_encode(rx_codec, packed_codec_bits, samples_rx);
-				
+
 					interface_rx(packed_codec_bits, bytes_per_codec_frame,
 					    ETH_P_CODEC2_3200);
 				}
