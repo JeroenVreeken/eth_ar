@@ -9,7 +9,8 @@ SRCS = \
 	interface.c \
 	sound.c \
 	alaw.c \
-	dsp.c
+	dsp.c \
+	input.c
 
 OBJS = $(SRCS:.c=.o)
 

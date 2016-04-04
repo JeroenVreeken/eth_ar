@@ -35,6 +35,7 @@
 #include "sound.h"
 #include "dtmf.h"
 #include "alaw.h"
+#include "input.h"
 
 
 static bool verbose = false;
@@ -62,15 +63,23 @@ int squelch_level_o = 100000;
 int squelch_on_delay = 3;
 int squelch_off_delay = 10;
 
+bool squelch_input = false;
+
 bool squelch(void)
 {
 	dcd_t dcd;
 	if (dcd_type == RIG_DCD_NONE)
-		return false;
+		return squelch_input;
 	
 	rig_get_dcd(rig, RIG_VFO_CURR, &dcd);
 
 	return dcd == RIG_DCD_ON;
+}
+
+void input_cb(bool state)
+{
+	printf("DCD input: %d\n", state);
+	squelch_input = state;
 }
 
 bool soft_squelch(int16_t *samples, int nr)
@@ -405,6 +414,8 @@ static void usage(void)
 	printf("-p [dev]\tHAMlib PTT device file\n");
 	printf("-d [msec]\tTX delay\n");
 	printf("-t [msec]\tTX tail\n");
+	printf("-i [dev]\tUse input device instead of DCD\n");
+	printf("-r ]rate]\tSound rate\n");
 }
 
 int main(int argc, char **argv)
@@ -412,23 +423,27 @@ int main(int argc, char **argv)
 	char *call = "pirate";
 	char *sounddev = "default";
 	char *netname = "analog";
+	char *inputdev = NULL;
 	int ssid = 0;
 	uint8_t mac[6];
 	int fd_int;
+	int fd_input = -1;
 	struct pollfd *fds;
 	int sound_fdc_tx;
 	int sound_fdc_rx;
 	int nfds;
 	int poll_int;
 	int poll_tty;
+	int poll_input;
 	int opt;
 	int mode = CODEC2_MODE_3200;
 	bool is_c2 = true;
 	bool tap = true;
+	int rate = 8000;
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "vac:s:n:Sm:d:t:p:P:D:f")) != -1) {
+	while ((opt = getopt(argc, argv, "vac:i:s:n:Sm:d:t:p:P:D:fr:")) != -1) {
 		switch(opt) {
 			case 'v':
 				verbose = true;
@@ -438,6 +453,9 @@ int main(int argc, char **argv)
 				break;
 			case 'c':
 				call = optarg;
+				break;
+			case 'i':
+				inputdev = optarg;
 				break;
 			case 's':
 				sounddev = optarg;
@@ -495,6 +513,9 @@ int main(int argc, char **argv)
 				tx_tail = 1000000 * atoi(optarg);
 				tx_tail_ms = tx_tail / 1000000;
 				break;
+			case 'r':
+				rate = atoi(optarg);
+				break;
 			case 'f':
 				fullduplex = true;
 				break;
@@ -519,9 +540,11 @@ int main(int argc, char **argv)
 	mod_silence = calloc(nr_samples, sizeof(mod_silence[0]));
 
 	fd_int = interface_init(netname, mac, tap);
-	sound_init(sounddev, cb_sound_in, nr_samples);
+	sound_init(sounddev, cb_sound_in, nr_samples, rate);
 	hl_init();
 	dtmf_init();
+	if (inputdev)
+		fd_input = input_init(inputdev);
 
 	prio();
 	
@@ -532,7 +555,7 @@ int main(int argc, char **argv)
 
 	sound_fdc_tx = sound_poll_count_tx();
 	sound_fdc_rx = sound_poll_count_rx();
-	nfds = sound_fdc_tx + sound_fdc_rx + 1 + 1;
+	nfds = sound_fdc_tx + sound_fdc_rx + 1 + 1 + 1;
 	fds = calloc(sizeof(struct pollfd), nfds);
 	
 	sound_poll_fill_tx(fds, sound_fdc_tx);
@@ -543,12 +566,15 @@ int main(int argc, char **argv)
 	poll_tty = poll_int + 1;
 	fds[poll_tty].fd = 0;
 	fds[poll_tty].events = POLLIN;
+	poll_input = poll_tty + 1;
+	fds[poll_input].fd = fd_input;
+	fds[poll_input].events = POLLIN;
 
 
 	do {
 		poll(fds, nfds, tx_state ? tx_tail_ms : -1);
 		if (fds[poll_int].revents & POLLIN) {
-			if (!tx_state && (!cdc || fullduplex)) {
+			if (!tx_state && (!cdc || fullduplex) && tx_delay) {
 				tx_delay_start();
 			} else {
 				interface_tx(cb_int_tx);
@@ -557,6 +583,9 @@ int main(int argc, char **argv)
 		}
 		if (fds[poll_tty].revents & POLLIN) {
 			handle_tty();
+		}
+		if (fds[poll_input].revents & POLLIN) {
+			input_handle(fd_input, input_cb);
 		}
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
 			sound_silence();

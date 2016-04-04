@@ -195,7 +195,7 @@ int sound_rx(void)
 	return 0;
 }
 
-int sound_param(snd_pcm_t *pcm_handle, bool is_tx)
+int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int force_rate)
 {
 	int channels = 1;
 	snd_pcm_hw_params_t *hw_params;
@@ -212,7 +212,7 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx)
 		snd_pcm_hw_params_set_format (pcm_handle, hw_params, SND_PCM_FORMAT_S16_BE);
 	
 	unsigned int rate = 8000;
-	unsigned int rrate = rate;
+	unsigned int rrate = force_rate;
 	
 	if (snd_pcm_hw_params_set_rate_near (pcm_handle, hw_params, &rrate, NULL)) {
 		printf("Could not set rate %d\n", rrate);
@@ -267,7 +267,7 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx)
 	return 0;
 }
 
-int sound_init(char *device, void (*in_cb)(int16_t *samples, int nr), int inr)
+int sound_init(char *device, void (*in_cb)(int16_t *samples, int nr), int inr, int rate)
 {
 	int err;
 
@@ -286,13 +286,13 @@ int sound_init(char *device, void (*in_cb)(int16_t *samples, int nr), int inr)
 	if (err < 0)
 		return -1;
 
-	sound_param(pcm_handle_tx, true);
+	sound_param(pcm_handle_tx, true, rate);
 
 	err = snd_pcm_open (&pcm_handle_rx, device_name, SND_PCM_STREAM_CAPTURE, 0);
 	if (err < 0)
 		return -1;
 	
-	sound_param(pcm_handle_rx, false);
+	sound_param(pcm_handle_rx, false, rate);
 
 	silence_nr = nr * ratio_out;
 	silence = calloc(silence_nr * 2, sizeof(int16_t));

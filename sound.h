@@ -24,7 +24,7 @@
 
 int sound_out(int16_t *samples, int nr);
 int sound_silence(void);
-int sound_init(char *device, void (*in_cb)(int16_t *samples, int nr), int nr);
+int sound_init(char *device, void (*in_cb)(int16_t *samples, int nr), int nr, int rate);
 int sound_poll_count_tx(void);
 int sound_poll_fill_tx(struct pollfd *fds, int count);
 bool sound_poll_out_tx(struct pollfd *fds, int count);
