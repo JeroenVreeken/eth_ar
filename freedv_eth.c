@@ -69,6 +69,9 @@ static uint8_t mac[6];
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static uint8_t rx_add[6];
 static uint8_t tx_add[6];
+static int rx_sync = 0;
+
+#define RX_SYNC_THRESHOLD 20
 
 static void cb_sound_in(int16_t *samples, int nr)
 {
@@ -91,9 +94,20 @@ static void cb_sound_in(int16_t *samples, int nr)
 			
 			int ret = freedv_codecrx(freedv, packed_codec_bits, samples_rx);
 
-			if (ret) {
-				cdc = true; /* may also be set by data callback */
-				
+			/* Don't 'detect' a voide signal to soon. 
+			   Might be nice to have some SNR number from the
+			   2400B mode so we can take it into account */
+			int sync = freedv_get_sync(freedv);
+			if (!sync) {
+				rx_sync = 0;
+			} else {
+				rx_sync++;
+				if (ret)
+					rx_sync++;
+			}
+			
+			cdc = (rx_sync > RX_SYNC_THRESHOLD);
+			if (ret && cdc) {
 				int i;
 				for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
 					interface_rx(
@@ -268,8 +282,6 @@ err_packet:
 
 static void freedv_cb_datarx(void *arg, unsigned char *packet, size_t size)
 {
-	cdc = true;
-	
 	if (size == 12) {
 		if (memcmp(rx_add, packet + 6, 6)) {
 			char callstr[9];
