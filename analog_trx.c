@@ -54,6 +54,7 @@ static dcd_type_t dcd_type = RIG_DCD_NONE;
 int16_t *mod_silence;
 
 struct CODEC2 *rx_codec;
+uint16_t rx_type;
 
 int nr_samples;
 int16_t *samples_rx;
@@ -190,8 +191,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 				
 					codec2_encode(rx_codec, packed_codec_bits, samples_rx);
 
-					interface_rx(packed_codec_bits, bytes_per_codec_frame,
-					    ETH_P_CODEC2_3200);
+					interface_rx(packed_codec_bits, bytes_per_codec_frame, rx_type);
 				}
 				nr_rx = 0;
 			}
@@ -416,6 +416,7 @@ static void usage(void)
 	printf("-t [msec]\tTX tail\n");
 	printf("-i [dev]\tUse input device instead of DCD\n");
 	printf("-r ]rate]\tSound rate\n");
+	printf("-M [mode]\tCodec2 mode\n");
 }
 
 int main(int argc, char **argv)
@@ -424,7 +425,6 @@ int main(int argc, char **argv)
 	char *sounddev = "default";
 	char *netname = "analog";
 	char *inputdev = NULL;
-	int ssid = 0;
 	uint8_t mac[6];
 	int fd_int;
 	int fd_input = -1;
@@ -443,7 +443,7 @@ int main(int argc, char **argv)
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "vac:i:s:n:Sm:d:t:p:P:D:fr:")) != -1) {
+	while ((opt = getopt(argc, argv, "vac:i:s:n:Sm:d:t:p:P:D:fr:M:")) != -1) {
 		switch(opt) {
 			case 'v':
 				verbose = true;
@@ -519,17 +519,65 @@ int main(int argc, char **argv)
 			case 'f':
 				fullduplex = true;
 				break;
+			case 'M':
+				if (!strcmp(optarg, "3200")) {
+					mode = CODEC2_MODE_3200;
+				} else if (!strcmp(optarg, "2400")) {
+					mode = CODEC2_MODE_2400;
+				} else if (!strcmp(optarg, "1600")) {
+					mode = CODEC2_MODE_1600;
+				} else if (!strcmp(optarg, "1400")) {
+					mode = CODEC2_MODE_1400;
+				} else if (!strcmp(optarg, "1300")) {
+					mode = CODEC2_MODE_1300;
+				} else if (!strcmp(optarg, "1200")) {
+					mode = CODEC2_MODE_1200;
+				} else if (!strcmp(optarg, "700")) {
+					mode = CODEC2_MODE_700;
+				} else if (!strcmp(optarg, "700B")) {
+					mode = CODEC2_MODE_700B;
+				}
+				break;
 			default:
 				usage();
 				return -1;
 		}
 	}
 	
-	eth_ar_call2mac(mac, call, ssid, false);
+	if (eth_ar_callssid2mac(mac, call, false)) {
+		printf("Callsign could not be converted to a valid MAC address\n");
+		return -1;
+	}
 	
 	if (is_c2) {
 		rx_codec = codec2_create(mode);
 		nr_samples = codec2_samples_per_frame(rx_codec);
+		switch(mode) {
+			case CODEC2_MODE_3200:
+				rx_type = ETH_P_CODEC2_3200;
+				break;
+			case CODEC2_MODE_2400:
+				rx_type = ETH_P_CODEC2_2400;
+				break;
+			case CODEC2_MODE_1600:
+				rx_type = ETH_P_CODEC2_1600;
+				break;
+			case CODEC2_MODE_1400:
+				rx_type = ETH_P_CODEC2_1400;
+				break;
+			case CODEC2_MODE_1300:
+				rx_type = ETH_P_CODEC2_1300;
+				break;
+			case CODEC2_MODE_1200:
+				rx_type = ETH_P_CODEC2_1200;
+				break;
+			case CODEC2_MODE_700:
+				rx_type = ETH_P_CODEC2_700;
+				break;
+			case CODEC2_MODE_700B:
+				rx_type = ETH_P_CODEC2_700B;
+				break;
+		}
 	} else {
 		rx_codec = NULL;
 		nr_samples = 160;
