@@ -75,6 +75,9 @@ static int rx_sync = 0;
 
 static void cb_sound_in(int16_t *samples, int nr)
 {
+	if (tx_state != TX_STATE_OFF && !fullduplex)
+		return;
+
 	while (nr) {
 		int nin = freedv_nin(freedv);
 		int copy = nin - nr_rx;
@@ -393,7 +396,11 @@ void tx_state_machine(void)
 				tx_state_cnt = 0;
 				tx_state_data_header_cnt = 0;
 			}
-			data_tx();
+			if (queue_voice) {
+				dequeue_voice();
+			} else {
+				data_tx();
+			}
 			break;
 		case TX_STATE_ON:
 			if (!queue_voice && ! queue_data && !freedv_data_ntxframes(freedv)) {
@@ -421,7 +428,11 @@ void tx_state_machine(void)
 					
 					check_tx_add();
 				}
-				data_tx();
+				if (queue_voice) {
+					dequeue_voice();
+				} else {
+					data_tx();
+				}
 				break;
 			}
 	}
