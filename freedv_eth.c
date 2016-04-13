@@ -603,10 +603,10 @@ int main(int argc, char **argv)
 	tx_data = calloc(bytes_per_codec_frame, sizeof(uint8_t));
 
 	eth_type_rx = type;
-	fd_int = interface_init(netname, mac);
+	fd_int = interface_init(netname, mac, true);
 	int rate = freedv_get_modem_sample_rate(freedv);
 	printf("sample rate: %d\n", rate);
-	sound_init(sounddev, cb_sound_in, nr_samples, rate);
+	sound_init(sounddev, cb_sound_in, nr_samples, rate, rate);
 
 	int period_msec = 1000 / (rate / nr_samples);
 	printf("TX period: %d msec\n", period_msec);

@@ -17,6 +17,7 @@
  */
 #include "interface.h"
 
+#include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -64,6 +65,47 @@ int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, ui
 	return 0;
 }
 
+/* Create a socket on an existing device */
+static int sock_alloc(char *dev)
+{
+	short protocol = htons(ETH_P_ALL);
+	int sock;
+	
+	sock = socket(AF_PACKET, SOCK_RAW, protocol);
+	if (sock < 0)
+		goto err_socket;
+
+	struct ifreq ifr;
+
+	size_t if_name_len = strlen(dev);
+	if (if_name_len >= sizeof(ifr.ifr_name))
+		goto err_len;
+	strcpy(ifr.ifr_name, dev);
+
+	if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0)
+		goto err_ioctl;
+	
+	int ifindex = ifr.ifr_ifindex;
+
+	struct sockaddr_ll sll = { 0 };
+	
+	sll.sll_family = AF_PACKET; 
+	sll.sll_ifindex = ifindex;
+	sll.sll_protocol = protocol;
+	if(bind(sock, (struct sockaddr *)&sll , sizeof(sll)) < 0)
+		goto err_bind;
+
+	return sock;
+err_bind:
+err_ioctl:
+err_len:
+	close(sock);
+err_socket:
+
+	return -1;
+}
+
+/* Create a TAP device */
 static int tap_alloc(char *dev, uint8_t mac[6])
 {
 	struct ifreq ifr = { };
@@ -97,7 +139,7 @@ static int tap_alloc(char *dev, uint8_t mac[6])
 	if (ioctl(fd, SIOCSIFHWADDR, &ifr) < 0) {
 		printf("Setting HWADDR %02x:%02x:%02x:%02x:%02x:%02x failed\n",
 		    mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-		
+
 		close(fd);
 		return -1;
 	}
@@ -105,11 +147,14 @@ static int tap_alloc(char *dev, uint8_t mac[6])
 	return fd;
 }
 
-int interface_init(char *name, uint8_t mac[6])
+int interface_init(char *name, uint8_t mac[6], bool tap)
 {
 	if (name == NULL)
 		name = "freedv";
-	fd = tap_alloc(name, mac);
+	if (tap)
+		fd = tap_alloc(name, mac);
+	else
+		fd = sock_alloc(name);
 	memcpy(eth_mac, mac, 6);
 	
 	return fd;
