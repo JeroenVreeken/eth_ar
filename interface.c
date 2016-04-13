@@ -33,12 +33,12 @@
 static int fd;
 static uint16_t eth_mac[6];
 
-int interface_rx(uint8_t *data, size_t len, uint16_t eth_type)
+int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
 {
 	uint8_t packet[len + 14];
 	
-	memset(packet, 0xff, 6);
-	memcpy(packet + 6, eth_mac, 6);
+	memcpy(packet, to, 6);
+	memcpy(packet + 6, from, 6);
 	packet[12] = eth_type >> 8;
 	packet[13] = eth_type & 0xff;
 	
@@ -49,7 +49,7 @@ int interface_rx(uint8_t *data, size_t len, uint16_t eth_type)
 	return 0;
 }
 
-int interface_tx(int (*cb)(uint8_t *data, size_t len, uint16_t eth_type))
+int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
 {
 	uint8_t data[2048];
 	size_t len;
@@ -59,7 +59,7 @@ int interface_tx(int (*cb)(uint8_t *data, size_t len, uint16_t eth_type))
 //		int i;
 		uint16_t eth_type = (data[12] << 8) | data[13];
 		
-		return cb(data + 14, len - 14, eth_type);
+		return cb(data, data + 6, eth_type, data + 14, len - 14);
 	}
 	
 	return 0;
@@ -137,7 +137,9 @@ static int tap_alloc(char *dev, uint8_t mac[6])
 	memcpy(ifr.ifr_hwaddr.sa_data, mac, 6);
 
 	if (ioctl(fd, SIOCSIFHWADDR, &ifr) < 0) {
-		printf("Setting HWADDR failed\n");
+		printf("Setting HWADDR %02x:%02x:%02x:%02x:%02x:%02x failed\n",
+		    mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
 		close(fd);
 		return -1;
 	}

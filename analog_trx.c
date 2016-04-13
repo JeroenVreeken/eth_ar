@@ -64,6 +64,9 @@ int squelch_level_o = 100000;
 int squelch_on_delay = 3;
 int squelch_off_delay = 10;
 
+uint8_t mac[6];
+uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+
 bool squelch_input = false;
 
 bool squelch(void)
@@ -137,7 +140,7 @@ static void cb_control(char *ctrl)
 	
 	printf("DTMF: %s\n", ctrl);
 	
-	interface_rx(msg, strlen(ctrl), ETH_P_AR_CONTROL);
+	interface_rx(bcast, mac, ETH_P_AR_CONTROL, msg, strlen(ctrl));
 }
 
 void handle_tty(void)
@@ -191,7 +194,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 				
 					codec2_encode(rx_codec, packed_codec_bits, samples_rx);
 
-					interface_rx(packed_codec_bits, bytes_per_codec_frame, rx_type);
+					interface_rx(bcast, mac, rx_type, packed_codec_bits, bytes_per_codec_frame);
 				}
 				nr_rx = 0;
 			}
@@ -201,7 +204,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 		
 		alaw_encode(alaw, samples, nr);
 		
-		interface_rx(alaw, nr, ETH_P_ALAW);
+		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr);
 	}
 }
 
@@ -211,7 +214,8 @@ static int tx_mode = -1;
 static struct CODEC2 *tx_codec = NULL;
 static int tx_bytes_per_codec_frame = 8;
 
-static int cb_int_tx(uint8_t *data, size_t len, uint16_t eth_type)
+
+static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
 {
 	int newmode = 0;
 	bool is_c2 = true;
@@ -425,7 +429,6 @@ int main(int argc, char **argv)
 	char *sounddev = "default";
 	char *netname = "analog";
 	char *inputdev = NULL;
-	uint8_t mac[6];
 	int fd_int;
 	int fd_input = -1;
 	struct pollfd *fds;
@@ -588,7 +591,7 @@ int main(int argc, char **argv)
 	mod_silence = calloc(nr_samples, sizeof(mod_silence[0]));
 
 	fd_int = interface_init(netname, mac, tap);
-	sound_init(sounddev, cb_sound_in, nr_samples, rate);
+	sound_init(sounddev, cb_sound_in, nr_samples, 8000, rate);
 	hl_init();
 	dtmf_init();
 	if (inputdev)
