@@ -231,6 +231,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	packet = malloc(sizeof(struct tx_packet));
 	if (!packet)
 		return -1;
+	packet->next = NULL;
 
 	if (eth_type == eth_type_rx) {
 		packet->data = malloc(len);
@@ -240,7 +241,6 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		packet->len = len;
 		memcpy(packet->data, data, len);
 		memcpy(packet->from, from, 6);
-		packet->next = NULL;
 		
 		for (queuep = &queue_voice; *queuep; queuep = &(*queuep)->next);
 		*queuep = packet;
@@ -269,7 +269,6 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		packet->data[12] = eth_type >> 8;
 		packet->data[13] = eth_type & 0xff;
 		memcpy(packet->data + 14, data, len);
-		packet->next = NULL;
 
 		for (queuep = &queue_data; *queuep; queuep = &(*queuep)->next);
 		
