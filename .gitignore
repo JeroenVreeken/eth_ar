@@ -1,3 +1,4 @@
 *.o
 *.d
 analog_trx
+freedv_eth
