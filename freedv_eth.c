@@ -102,6 +102,8 @@ static void cb_sound_in(int16_t *samples, int nr)
 			   2400B mode so we can take it into account */
 			int sync = freedv_get_sync(freedv);
 			if (!sync) {
+				if (rx_sync)
+					printf("RX sync lost\n");
 				rx_sync = 0;
 			} else {
 				rx_sync++;
@@ -210,9 +212,8 @@ static void dequeue_voice(void)
 				if (nr > 0) {
 					sound_out(mod_out, nr);
 				}
-			
-				tx_data_len = 0;
 			}
+			tx_data_len = 0;
 		}
 	}
 	
@@ -381,6 +382,7 @@ void tx_state_machine(void)
 	switch (tx_state) {
 		case TX_STATE_OFF:
 			if ((queue_voice || queue_data) && (!cdc || fullduplex)) {
+//				printf("OFF -> DELAY\n");
 				tx_state = TX_STATE_DELAY;
 				tx_state_cnt = 0;
 				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
@@ -391,7 +393,9 @@ void tx_state_machine(void)
 				break;
 			}
 		case TX_STATE_DELAY:
+//			printf("%d %d\n", tx_state_cnt, tx_delay);
 			if (tx_state_cnt >= tx_delay) {
+//				printf("DELAY -> ON\n");
 				tx_state = TX_STATE_ON;
 				tx_state_cnt = 0;
 				tx_state_data_header_cnt = 0;
@@ -404,6 +408,7 @@ void tx_state_machine(void)
 			break;
 		case TX_STATE_ON:
 			if (!queue_voice && ! queue_data && !freedv_data_ntxframes(freedv)) {
+//				printf("ON -> TAIL\n");
 				tx_state = TX_STATE_TAIL;
 				tx_state_cnt = 0;
 			} else {
@@ -417,11 +422,13 @@ void tx_state_machine(void)
 			}
 		case TX_STATE_TAIL:
 			if (tx_state_cnt >= tx_tail) {
+//				printf("TAIL -> OFF\n");
 				tx_state = TX_STATE_OFF;
 				tx_state_cnt = 0;
 				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
 			} else {
 				if (queue_voice || queue_data) {
+//					printf("TAIL -> ON\n");
 					tx_state = TX_STATE_ON;
 					tx_state_cnt = 0;
 					tx_state_data_header_cnt = 0;
@@ -457,6 +464,8 @@ static char vc_callback_tx(void *arg)
 		struct tx_packet *qp = queue_control;
 		
 		c = qp->data[qp->off++];
+		if (c < 0)
+			c = 0;
 		if (qp->off >= qp->len) {
 			queue_control = qp->next;
 		
