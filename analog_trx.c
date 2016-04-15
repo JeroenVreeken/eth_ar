@@ -40,7 +40,6 @@
 
 static bool verbose = false;
 static bool cdc = false;
-static bool tx_state = false;
 static bool fullduplex = false;
 static bool tty_rx = false;
 
@@ -66,6 +65,25 @@ int squelch_off_delay = 10;
 
 uint8_t mac[6];
 uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+
+enum tx_state {
+	TX_STATE_OFF,
+	TX_STATE_ON,
+	TX_STATE_TAIL,
+};
+
+static enum tx_state tx_state = TX_STATE_OFF;
+
+struct tx_packet {
+	int16_t *samples;
+	int nr_samples;
+	
+	struct tx_packet *next;
+};
+
+static struct tx_packet *queue_voice = NULL;
+
+
 
 bool squelch_input = false;
 
@@ -167,7 +185,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 		cdc = false;
 		return;
 	} else {
-		if (fullduplex || !tx_state) {
+		if (fullduplex || tx_state == TX_STATE_OFF) {
 			cdc = true;
 		} else {
 			return;
@@ -208,6 +226,28 @@ static void cb_sound_in(int16_t *samples, int nr)
 	}
 }
 
+static void queue_add(int16_t *samples, int nr_samples)
+{
+	struct tx_packet *p, **q;
+	
+	p = malloc(sizeof(struct tx_packet));
+	if (!p)
+		return;
+	
+	p->samples = malloc(sizeof(uint16_t) * nr_samples);
+	if (!p->samples) {
+		free(p);
+		return;
+	}
+	
+	p->next = NULL;
+	memcpy(p->samples, samples, sizeof(uint16_t) * nr_samples);
+	
+	for (q = &queue_voice; *q; q = &(*q)->next);
+	*q = p;
+}
+
+
 static uint8_t *tx_data;
 static size_t tx_data_len;
 static int tx_mode = -1;
@@ -219,6 +259,9 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 {
 	int newmode = 0;
 	bool is_c2 = true;
+
+	if (tx_state == TX_STATE_OFF && (cdc && !fullduplex))
+		return 0;
 	
 	switch (eth_type) {
 		case ETH_P_CODEC2_3200:
@@ -279,7 +322,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 				codec2_decode(tx_codec, mod_out, tx_data);
 				
 				if (nr > 0) {
-					sound_out(mod_out, nr);
+					queue_add(mod_out, nr);
 				}
 				
 				tx_data_len = 0;
@@ -290,7 +333,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		
 		alaw_decode(mod_out, data, len);
 		
-		sound_out(mod_out, len);
+		queue_add(mod_out, len);
 	}
 
 	return 0;
@@ -345,62 +388,62 @@ static int hl_init(void)
 	return 0;
 }
 
-uint64_t tx_delay = 10000000;
-uint64_t tx_tail = 100000000;
-int tx_tail_ms = 100;
-bool tx_started = false;
-struct timespec tx_time;
 
-void tx_delay_start(void)
+static void dequeue_voice(void)
 {
-	if (!tx_state) {
-		if (!tx_started) {
-			tx_started = true;
-			if (verbose)
-				printf("TX on\n");
-			rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
-			clock_gettime(CLOCK_MONOTONIC, &tx_time);
-		} else {
-			struct timespec now;
-			
-			clock_gettime(CLOCK_MONOTONIC, &now);
-			uint64_t ontime = now.tv_sec - tx_time.tv_sec;
-			ontime *= 1000000000;
-			ontime += now.tv_nsec - tx_time.tv_nsec;
-			
-			if (ontime >= tx_delay) {
-				if (verbose)
-					printf("TX-delay done\n");
-				tx_state = true;
+	struct tx_packet *p = queue_voice;
+	queue_voice = p->next;
+	
+	sound_out(p->samples, p->nr_samples);
+
+	free(p->samples);
+	free(p);
+}
+
+static int tx_tail = 100;
+static int tx_state_cnt;
+
+static void tx_state_machine(void)
+{
+	tx_state_cnt++;
+	switch (tx_state) {
+		case TX_STATE_OFF:
+			if (queue_voice) {
+				tx_state = TX_STATE_ON;
+				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
+				tx_state_cnt = 0;
+			} else {
+				sound_silence();
+				break;
 			}
-		}
+		case TX_STATE_ON:
+			if (!queue_voice) {
+				tx_state = TX_STATE_TAIL;
+				tx_state_cnt = 0;
+			} else {
+				dequeue_voice();
+				break;
+			}
+		case TX_STATE_TAIL:
+			if (tx_state_cnt >= tx_tail) {
+				tx_state = TX_STATE_OFF;
+				tx_state_cnt = 0;
+				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
+				
+				sound_silence();
+			} else {
+				if (queue_voice) {
+					tx_state = TX_STATE_ON;
+					tx_state_cnt = 0;
+					
+					dequeue_voice();
+				} else {
+					sound_silence();
+				}
+			}
 	}
 }
 
-void tx_tail_extend(void)
-{
-	clock_gettime(CLOCK_MONOTONIC, &tx_time);
-}
-
-void tx_tail_check(void)
-{
-	if (tx_state) {
-		struct timespec now;
-		
-		clock_gettime(CLOCK_MONOTONIC, &now);
-		uint64_t ontime = now.tv_sec - tx_time.tv_sec;
-		ontime *= 1000000000;
-		ontime += now.tv_nsec - tx_time.tv_nsec;
-			
-		if (ontime >= tx_tail) {
-			rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
-			tx_state = false;
-			tx_started = false;
-			if (verbose)
-				printf("TX tail done\n");
-		}
-	}
-}
 
 static void usage(void)
 {
@@ -416,7 +459,6 @@ static void usage(void)
 	printf("-P [type]\tHAMlib PTT type\n");
 	printf("-D [type]\tHAMlib DCD type\n");
 	printf("-p [dev]\tHAMlib PTT device file\n");
-	printf("-d [msec]\tTX delay\n");
 	printf("-t [msec]\tTX tail\n");
 	printf("-i [dev]\tUse input device instead of DCD\n");
 	printf("-r ]rate]\tSound rate\n");
@@ -509,12 +551,8 @@ int main(int argc, char **argv)
 				else
 					dcd_type = atoi(optarg);
 				break;
-			case 'd':
-				tx_delay = 1000000 * atoi(optarg);
-				break;
 			case 't':
-				tx_tail = 1000000 * atoi(optarg);
-				tx_tail_ms = tx_tail / 1000000;
+				tx_tail = atoi(optarg);
 				break;
 			case 'r':
 				rate = atoi(optarg);
@@ -592,6 +630,9 @@ int main(int argc, char **argv)
 
 	fd_int = interface_init(netname, mac, tap);
 	sound_init(sounddev, cb_sound_in, nr_samples, 8000, rate);
+
+	tx_tail /= 1000 / (8000 / nr_samples);
+
 	hl_init();
 	dtmf_init();
 	if (inputdev)
@@ -623,14 +664,9 @@ int main(int argc, char **argv)
 
 
 	do {
-		poll(fds, nfds, tx_state ? tx_tail_ms : -1);
+		poll(fds, nfds, -1);
 		if (fds[poll_int].revents & POLLIN) {
-			if (!tx_state && (!cdc || fullduplex) && tx_delay) {
-				tx_delay_start();
-			} else {
-				interface_tx(cb_int_tx);
-				tx_tail_extend();
-			}
+			interface_tx(cb_int_tx);
 		}
 		if (fds[poll_tty].revents & POLLIN) {
 			handle_tty();
@@ -639,13 +675,11 @@ int main(int argc, char **argv)
 			input_handle(fd_input, input_cb);
 		}
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
-			sound_silence();
-//			sound_out(mod_silence, nr_samples);
+			tx_state_machine();
 		}
 		if (sound_poll_in_rx(fds + sound_fdc_tx, sound_fdc_rx)) {
 			sound_rx();
 		}
-		tx_tail_check();
 	} while (1);
 	
 	
