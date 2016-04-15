@@ -241,6 +241,7 @@ static void queue_add(int16_t *samples, int nr_samples)
 	}
 	
 	p->next = NULL;
+	p->nr_samples = nr_samples;
 	memcpy(p->samples, samples, sizeof(uint16_t) * nr_samples);
 	
 	for (q = &queue_voice; *q; q = &(*q)->next);
