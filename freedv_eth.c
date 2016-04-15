@@ -449,7 +449,7 @@ static void vc_callback_rx(void *arg, char c)
 {
 	uint8_t msg[2];
 	
-	printf("Received 0x%x %d\n", c, c);
+	printf("VC RX: 0x%x %c\n", c, c);
 	msg[0] = c;
 	msg[1] = 0;
 	interface_rx(bcast, rx_add, ETH_P_AR_CONTROL, msg, 1);
@@ -459,7 +459,7 @@ static char vc_callback_tx(void *arg)
 {
 	char c;
 	
-	if (queue_control) {
+	if (queue_control && tx_state == TX_STATE_ON) {
 		struct tx_packet *qp = queue_control;
 		
 		c = qp->data[qp->off++];
@@ -471,6 +471,7 @@ static char vc_callback_tx(void *arg)
 			free(qp->data);
 			free(qp);
 		}
+		printf("VC TX: 0x%x %c\n", c, c);
 	} else {
 		c = 0;
 	}
