@@ -343,6 +343,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 static int prio(void)
 {
 	struct sched_param param;
+	param.sched_priority = 90;
 
 	if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
 		printf("sched_setscheduler() failed: %s",
