@@ -38,6 +38,7 @@
 
 static bool verbose = false;
 static bool cdc = false;
+static bool cdc_voice = false;
 static bool fullduplex = false;
 
 static struct freedv *freedv;
@@ -97,7 +98,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 			
 			int ret = freedv_codecrx(freedv, packed_codec_bits, samples_rx);
 
-			/* Don't 'detect' a voide signal to soon. 
+			/* Don't 'detect' a voice signal to soon. 
 			   Might be nice to have some SNR number from the
 			   2400B mode so we can take it into account */
 			int sync = freedv_get_sync(freedv);
@@ -120,12 +121,25 @@ static void cb_sound_in(int16_t *samples, int nr)
 					    packed_codec_bits + i * bytes_per_eth_frame,
 					    bytes_per_eth_frame);
 				}
+				cdc_voice = 0;
+			} else if (cdc) {
+				/* Data frame between voice data? */
+				uint8_t silence[bytes_per_eth_frame];
+				int i;
+				memset(silence, 0, bytes_per_eth_frame);
+				for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
+					interface_rx(
+					    bcast, rx_add, eth_type_rx,
+					    silence,
+					    bytes_per_eth_frame);
+				}
 			}
 
 			/* Reset rx address for voice to our own mac */
 			if (!cdc && cdc != old_cdc) {
 				printf("Reset RX add\n");
 				memcpy(rx_add, mac, 6);
+				cdc_voice = false;
 			}
 
 
