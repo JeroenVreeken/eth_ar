@@ -49,7 +49,7 @@ int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *dat
 	return 0;
 }
 
-int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
+static int interface_tx_tap(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
 {
 	uint8_t data[2048];
 	size_t len;
@@ -64,6 +64,38 @@ int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, ui
 	
 	return 0;
 }
+
+
+static int interface_tx_sock(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
+{
+	uint8_t data[2048];
+	size_t len;
+	
+	struct sockaddr_ll addr;
+        socklen_t addr_len = sizeof(addr);
+        
+	len = recvfrom(fd, data, 2048, 0, (struct sockaddr*)&addr, &addr_len);
+
+//	len = read(fd, data, 2048);
+	if (len > 14) {
+//		int i;
+		
+	        if (addr.sll_pkttype != PACKET_OUTGOING) {
+			uint16_t eth_type = (data[12] << 8) | data[13];
+		
+			return cb(data, data + 6, eth_type, data + 14, len - 14);
+		}
+	}
+	
+	return 0;
+}
+
+static int (*interface_tx_func)(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len));
+int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
+{
+	return interface_tx_func(cb);
+}
+
 
 /* Create a socket on an existing device */
 static int sock_alloc(char *dev)
@@ -94,6 +126,7 @@ static int sock_alloc(char *dev)
 	sll.sll_protocol = protocol;
 	if(bind(sock, (struct sockaddr *)&sll , sizeof(sll)) < 0)
 		goto err_bind;
+	interface_tx_func = interface_tx_sock;
 
 	return sock;
 err_bind:
@@ -143,6 +176,30 @@ static int tap_alloc(char *dev, uint8_t mac[6])
 		close(fd);
 		return -1;
 	}
+
+	interface_tx_func = interface_tx_tap;
+
+	int sock;
+	
+	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock < 0)
+		return -1;
+
+	if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
+		perror("Getting flags failed");
+		close(sock);
+		close(fd);
+		return -1;
+	}
+	ifr.ifr_flags |= IFF_UP || IFF_RUNNING;
+	if (ioctl(sock, SIOCSIFFLAGS, &ifr) < 0) {
+		perror("Setting flags failed");
+		close(sock);
+		close(fd);
+		return -1;
+	}
+
+	close(sock);
 
 	return fd;
 }

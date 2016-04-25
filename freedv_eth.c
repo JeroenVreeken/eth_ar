@@ -59,8 +59,8 @@ enum tx_state {
 
 static int tx_delay = 100;
 static int tx_tail = 100;
-static int tx_header = 1000;
-static int tx_header_max = 10000;
+static int tx_header = 500;
+static int tx_header_max = 5000;
 static enum tx_state tx_state = TX_STATE_OFF;
 static int tx_state_cnt;
 static int tx_state_data_header_cnt;
@@ -123,8 +123,10 @@ static void cb_sound_in(int16_t *samples, int nr)
 			}
 
 			/* Reset rx address for voice to our own mac */
-			if (!cdc && cdc != old_cdc)
+			if (!cdc && cdc != old_cdc) {
+				printf("Reset RX add\n");
 				memcpy(rx_add, mac, 6);
+			}
 
 
 			nr_rx = 0;
@@ -200,9 +202,11 @@ static void dequeue_voice(void)
 		len -= copy;
 		
 		if (tx_data_len == bytes_per_codec_frame) {
+			double energy = codec2_get_energy(codec2, tx_data);
+//			printf("e: %f\n", energy);
 			if (tx_state_data_header_cnt >= tx_header_max ||
-			    ((queue_data || tx_state_data_header_cnt >= tx_header) &&
-			    codec2_get_energy(codec2, tx_data) < 10.0)) {
+			    ((queue_data || tx_state_data_header_cnt >= tx_header) && energy < 50.0) ||
+			    energy < 1.0) {
 				data_tx();
 			} else {
 				int nr = freedv_get_n_nom_modem_samples(freedv);
@@ -321,6 +325,7 @@ static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 			free(qp);
 		}
 	} else {
+		/* TX not on, just send header frames as filler */
 		*size = 0;
 	}
 }
@@ -601,6 +606,7 @@ int main(int argc, char **argv)
 	freedv_set_data_header(freedv, mac);
 
 	nr_samples = freedv_get_n_max_modem_samples(freedv);
+	printf("max number of modem samples: %d\n", nr_samples);
         bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
 	bytes_per_eth_frame += 7;
 	bytes_per_eth_frame /= 8;
