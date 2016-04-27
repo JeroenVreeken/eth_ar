@@ -98,10 +98,15 @@ int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, ui
 
 
 /* Create a socket on an existing device */
-static int sock_alloc(char *dev)
+static int sock_alloc(char *dev, uint16_t filter_type)
 {
-	short protocol = htons(ETH_P_ALL);
+	short protocol;
 	int sock;
+	
+	if (!filter_type)
+		protocol = htons(ETH_P_ALL);
+	else
+		protocol = htons(filter_type);
 	
 	sock = socket(AF_PACKET, SOCK_RAW, protocol);
 	if (sock < 0)
@@ -204,14 +209,14 @@ static int tap_alloc(char *dev, uint8_t mac[6])
 	return fd;
 }
 
-int interface_init(char *name, uint8_t mac[6], bool tap)
+int interface_init(char *name, uint8_t mac[6], bool tap, uint16_t filter_type)
 {
 	if (name == NULL)
 		name = "freedv";
 	if (tap)
 		fd = tap_alloc(name, mac);
 	else
-		fd = sock_alloc(name);
+		fd = sock_alloc(name, filter_type);
 	memcpy(eth_mac, mac, 6);
 	
 	return fd;

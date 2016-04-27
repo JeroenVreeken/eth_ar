@@ -33,6 +33,7 @@
 #define ETH_P_AR_CONTROL	0x7342
 
 #define ETH_P_ALAW		0x7365
+#define ETH_P_FPRS		0x7370
 
 #define ETH_AR_CALL_LEN_MAX	8
 #define ETH_AR_CALL_SIZE	9

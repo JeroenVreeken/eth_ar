@@ -24,6 +24,6 @@
 
 int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len);
 int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len));
-int interface_init(char *name, uint8_t mac[6], bool tap);
+int interface_init(char *name, uint8_t mac[6], bool tap, uint16_t filter_type);
 
 #endif /* _INCLUDE_INTERFACE_H_ */

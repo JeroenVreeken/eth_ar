@@ -468,7 +468,8 @@ static void vc_callback_rx(void *arg, char c)
 {
 	uint8_t msg[2];
 	
-	printf("VC RX: 0x%x %c\n", c, c);
+	if (c)
+		printf("VC RX: 0x%x %c\n", c, c);
 	msg[0] = c;
 	msg[1] = 0;
 	interface_rx(bcast, rx_add, ETH_P_AR_CONTROL, msg, 1);
@@ -632,7 +633,7 @@ int main(int argc, char **argv)
 	tx_data = calloc(bytes_per_codec_frame, sizeof(uint8_t));
 
 	eth_type_rx = type;
-	fd_int = interface_init(netname, mac, true);
+	fd_int = interface_init(netname, mac, true, 0);
 	int rate = freedv_get_modem_sample_rate(freedv);
 	printf("sample rate: %d\n", rate);
 	sound_init(sounddev, cb_sound_in, nr_samples, rate, rate);

@@ -2,3 +2,5 @@
 *.d
 analog_trx
 freedv_eth
+fprs2aprs_gate
+fprs_test
