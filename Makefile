@@ -23,12 +23,13 @@ INTERFACE_OBJS = $(INTERFACE_SRCS:.c=.o)
 
 FPRS_SRCS = \
 	fprs.c \
-	fprs2aprs.c
+	fprs2aprs.c \
+	nmea.c
 
 FPRS_OBJS = $(FPRS_SRCS:.c=.o)
 
 ANALOG_TRX_OBJS = $(OBJS) $(ETH_AR_OBJS) $(INTERFACE_OBJS) analog_trx.o
-FREEDV_ETH_OBJS = $(OBJS) $(ETH_AR_OBJS) $(INTERFACE_OBJS) freedv_eth.o
+FREEDV_ETH_OBJS = $(OBJS) $(ETH_AR_OBJS) $(INTERFACE_OBJS) $(FPRS_OBJS) freedv_eth.o
 
 all: analog_trx freedv_eth fprs_test fprs2aprs_gate
 

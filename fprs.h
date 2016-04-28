@@ -49,6 +49,8 @@ int fprs_frame_data_set(struct fprs_frame *, uint8_t *data, size_t size);
  */
 int fprs_frame_data_get(struct fprs_frame *, uint8_t *data, size_t *size);
 
+size_t fprs_frame_data_size(struct fprs_frame *);
+
 uint8_t *fprs_frame_element_get(struct fprs_frame *, uint8_t *prev);
 
 /*

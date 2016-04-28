@@ -33,6 +33,8 @@
 #include "interface.h"
 #include "eth_ar.h"
 #include "sound.h"
+#include "fprs.h"
+#include "nmea.h"
 
 #define QUEUE_DATA_MAX 40
 
@@ -62,15 +64,19 @@ static int tx_delay = 100;
 static int tx_tail = 100;
 static int tx_header = 500;
 static int tx_header_max = 5000;
+static int tx_fprs = 30000;
 static enum tx_state tx_state = TX_STATE_OFF;
 static int tx_state_cnt;
 static int tx_state_data_header_cnt;
+static int tx_state_fprs_cnt;
 
 static uint8_t mac[6];
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static uint8_t rx_add[6];
 static uint8_t tx_add[6];
 static int rx_sync = 0;
+
+struct nmea_state nmea;
 
 #define RX_SYNC_THRESHOLD 20
 
@@ -323,9 +329,32 @@ static void freedv_cb_datarx(void *arg, unsigned char *packet, size_t size)
 static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 {
 	if (tx_state == TX_STATE_ON) {
-		if (!queue_data || tx_state_data_header_cnt >= tx_header) {
+		bool fprs_late = tx_state_fprs_cnt >= tx_fprs;
+		
+		if ((!queue_data && !fprs_late) || 
+		    tx_state_data_header_cnt >= tx_header) {
 			tx_state_data_header_cnt = 0;
 			*size = 0;
+		} else if (fprs_late && nmea.position_valid) {
+			/* Send fprs frame */
+			struct fprs_frame *frame = fprs_frame_create();
+			fprs_frame_add_position(frame, 
+			    nmea.longitude, nmea.latitude, false);
+			if (nmea.altitude_valid)
+				fprs_frame_add_altitude(frame, nmea.latitude);
+			if (nmea.speed_valid && nmea.course_valid)
+				fprs_frame_add_vector(frame, nmea.course, 0.0, nmea.speed);
+			
+			size_t fprs_size = *size - 14;
+			uint16_t eth_type = ETH_P_FPRS;
+			
+			fprs_frame_data_get(frame, packet + 14, &fprs_size);
+			memcpy(packet + 0, bcast, 6);
+			memcpy(packet + 6, tx_add, 6);
+			packet[12] = eth_type >> 8;
+			packet[13] = eth_type & 0xff;
+			
+			fprs_frame_destroy(frame);
 		} else {
 			struct tx_packet *qp = queue_data;
 		
@@ -417,6 +446,7 @@ void tx_state_machine(void)
 				tx_state = TX_STATE_ON;
 				tx_state_cnt = 0;
 				tx_state_data_header_cnt = 0;
+				tx_state_fprs_cnt = tx_fprs - tx_header * 2;
 			}
 			if (queue_voice) {
 				dequeue_voice();
@@ -431,6 +461,7 @@ void tx_state_machine(void)
 				tx_state_cnt = 0;
 			} else {
 				tx_state_data_header_cnt++;
+				tx_state_fprs_cnt++;
 				if (queue_voice) {
 					dequeue_voice();
 				} else {
@@ -449,7 +480,6 @@ void tx_state_machine(void)
 //					printf("TAIL -> ON\n");
 					tx_state = TX_STATE_ON;
 					tx_state_cnt = 0;
-					tx_state_data_header_cnt = 0;
 					
 					check_tx_add();
 				}
@@ -506,6 +536,7 @@ static void usage(void)
 	printf("-v\tverbose\n");
 	printf("-c [call]\town callsign\n");
 	printf("-f\tfull-duplex\n");
+	printf("-F [dev]\tNMEA device\n");
 	printf("-s [dev]\tSound device (default: \"default\")\n");
 	printf("-n [dev]\tNetwork device name (default: \"freedv\")\n");
 	printf("-m [model]\tHAMlib rig model\n");
@@ -520,6 +551,7 @@ int main(int argc, char **argv)
 	char *call = "pirate";
 	char *sounddev = "default";
 	char *netname = "freedv";
+	char *nmeadev = NULL;
 	int fd_int;
 	struct pollfd *fds;
 	int sound_fdc_tx;
@@ -533,7 +565,7 @@ int main(int argc, char **argv)
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "M:vc:s:n:m:d:t:p:P:f")) != -1) {
+	while ((opt = getopt(argc, argv, "c:d:fF:M:m:n:P:p:s:t:v")) != -1) {
 		switch(opt) {
 			case 'M':
 				if (!strcmp(optarg, "1600")) {
@@ -563,6 +595,9 @@ int main(int argc, char **argv)
 				break;
 			case 'c':
 				call = optarg;
+				break;
+			case 'F':
+				nmeadev = optarg;
 				break;
 			case 's':
 				sounddev = optarg;
@@ -645,11 +680,26 @@ int main(int argc, char **argv)
 	tx_delay /= period_msec;
 	tx_header /= period_msec;
 	tx_header_max /= period_msec;
+	tx_fprs /= period_msec;
 	
 	printf("TX delay: %d periods\n", tx_delay);
 	printf("TX tail: %d periods\n", tx_tail);
 	printf("TX header: %d periods\n", tx_header);
 	printf("TX header max: %d periods\n", tx_header_max);
+
+	if (nmeadev) {
+		nmea.position_valid = true;
+		nmea.longitude = 5.44397;
+		nmea.latitude = 51.3528;
+		
+		nmea.altitude_valid = true;
+		nmea.altitude = 25.0;
+		
+		nmea.speed_valid = true;
+		nmea.speed = 0;
+		nmea.course_valid = true;
+		nmea.course = 0;
+	}
 
 	hl_init();
 

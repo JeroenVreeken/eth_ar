@@ -17,6 +17,7 @@
  */
 
 #include "fprs.h"
+#include "nmea.h"
 #include "eth_ar.h"
 
 #include <stdlib.h>
@@ -457,6 +458,41 @@ static int test_fprs2aprs(void)
 	return 0;
 }
 
+static int test_nmea(void)
+{
+	struct nmea_state state;
+	
+	if (nmea_parse(&state, "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47")) {
+		printf("Parsing NMEA GGA line failed\n");
+		return -1;
+	}
+	
+	printf("%d %f %f %d %f\n", 
+	    state.position_valid, state.latitude, state.longitude,
+	    state.altitude_valid, state.altitude);
+
+	if (nmea_parse(&state, "$GPVTG,054.7,T,034.4,M,005.5,N,010.2,K*48")) {
+		printf("Parsing NMEA VTG line failed\n");
+		return -1;
+	}
+	
+	printf("%d %f %d %f\n", 
+	    state.course_valid, state.course,
+	    state.speed_valid, state.speed);
+	
+	if (nmea_parse(&state, "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A")) {
+		printf("Parsing NMEA RMC line failed\n");
+		return -1;
+	}
+	
+	printf("%d %f %f %d %f %d %f\n", 
+	    state.position_valid, state.latitude, state.longitude,
+	    state.course_valid, state.course,
+	    state.speed_valid, state.speed);
+	
+	return 0;
+}
+
 struct fprs_test {
 	char *name;
 	int (*func)(void);
@@ -470,6 +506,7 @@ struct fprs_test {
 	{ "Objectname", test_objectname },
 	{ "vector", test_vector },
 	{ "fprs2aprs", test_fprs2aprs },
+	{ "nmea", test_nmea },
 };
 
 int main(int argc, char **argv)

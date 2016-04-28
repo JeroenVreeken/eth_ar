@@ -57,6 +57,11 @@ int fprs_frame_data_get(struct fprs_frame *frame, uint8_t *data, size_t *size)
 	return 0;
 }
 
+size_t fprs_frame_data_size(struct fprs_frame *frame)
+{
+	return frame->size;
+}
+
 
 static size_t fprs_element_size_total(struct fprs_frame *frame, uint8_t *element)
 {
