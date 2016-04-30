@@ -223,9 +223,13 @@ static void dequeue_voice(void)
 		
 		if (tx_data_len == bytes_per_codec_frame) {
 			double energy = codec2_get_energy(codec2, tx_data);
+			bool fprs_late = tx_state_fprs_cnt >= tx_fprs && nmea.position_valid;
+			bool header_late = tx_state_data_header_cnt >= tx_header;
+			bool have_data = fprs_late || queue_data || header_late;
 //			printf("e: %f\n", energy);
+
 			if (tx_state_data_header_cnt >= tx_header_max ||
-			    ((queue_data || tx_state_data_header_cnt >= tx_header) && energy < 50.0) ||
+			    (have_data && energy < 50.0) ||
 			    energy < 1.0) {
 				data_tx();
 			} else {
@@ -329,19 +333,21 @@ static void freedv_cb_datarx(void *arg, unsigned char *packet, size_t size)
 static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 {
 	if (tx_state == TX_STATE_ON) {
-		bool fprs_late = tx_state_fprs_cnt >= tx_fprs;
+		bool fprs_late = tx_state_fprs_cnt >= tx_fprs && nmea.position_valid;
+		printf("data %d %d %d\n", tx_state_fprs_cnt, fprs_late, tx_state_data_header_cnt);
 		
 		if ((!queue_data && !fprs_late) || 
 		    tx_state_data_header_cnt >= tx_header) {
 			tx_state_data_header_cnt = 0;
 			*size = 0;
-		} else if (fprs_late && nmea.position_valid) {
+		} else if (fprs_late) {
+			printf("fprs\n");
 			/* Send fprs frame */
 			struct fprs_frame *frame = fprs_frame_create();
 			fprs_frame_add_position(frame, 
 			    nmea.longitude, nmea.latitude, false);
 			if (nmea.altitude_valid)
-				fprs_frame_add_altitude(frame, nmea.latitude);
+				fprs_frame_add_altitude(frame, nmea.altitude);
 			if (nmea.speed_valid && nmea.course_valid)
 				fprs_frame_add_vector(frame, nmea.course, 0.0, nmea.speed);
 			
@@ -355,8 +361,10 @@ static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 			memcpy(packet + 6, tx_add, 6);
 			packet[12] = eth_type >> 8;
 			packet[13] = eth_type & 0xff;
+			*size = fprs_size + 14;
 			
 			fprs_frame_destroy(frame);
+			tx_state_fprs_cnt = 0;
 		} else {
 			struct tx_packet *qp = queue_data;
 		
@@ -448,7 +456,7 @@ void tx_state_machine(void)
 				tx_state = TX_STATE_ON;
 				tx_state_cnt = 0;
 				tx_state_data_header_cnt = 0;
-				tx_state_fprs_cnt = tx_fprs - tx_header * 2;
+				tx_state_fprs_cnt = tx_fprs - tx_header - 1;
 			}
 			if (queue_voice) {
 				dequeue_voice();

@@ -60,6 +60,10 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 				fprs_vector_dec(&az, &el, &speed, fprs_element_data(element));
 				have_vector = true;
 				break;
+			case FPRS_SYMBOL:
+				memcpy(symbol, fprs_element_data(element), 2);
+				have_symbol = true;
+				break;
 			default:
 				break;
 		}
@@ -73,8 +77,7 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 	eth_ar_mac2call(sender_call, &sender_ssid, &sender_mcast, origin);
 
 	if (!have_symbol) {
-		/* Use the car symbol */
-		symbol[0] = 'D';
+		symbol[0] = 'F';
 		symbol[1] = 'A';
 	}
 	
