@@ -351,7 +351,7 @@ static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 			if (nmea.speed_valid && nmea.course_valid)
 				fprs_frame_add_vector(frame, nmea.course, 0.0, nmea.speed);
 			
-			fprs_frame_add_symbol(frame, (uint8_t[2]){'/','>'});
+			fprs_frame_add_symbol(frame, (uint8_t[2]){'F','#'});
 			
 			size_t fprs_size = *size - 14;
 			uint16_t eth_type = ETH_P_FPRS;
