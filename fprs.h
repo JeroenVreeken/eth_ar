@@ -94,6 +94,8 @@ int fprs_position_dec(double *lon, double *lat, bool *fixed, uint8_t dec[7]);
 
 int fprs_frame_add_callsign(struct fprs_frame *, uint8_t callsign[6]);
 
+int fprs_frame_add_symbol(struct fprs_frame *frame, uint8_t symbol[2]);
+
 int fprs_frame_add_altitude(struct fprs_frame *, double altitude);
 int fprs_altitude_enc(uint8_t enc[2], double altitude);
 int fprs_altitude_dec(double *altitude, uint8_t dec[2]);

@@ -235,6 +235,19 @@ int fprs_frame_add_callsign(struct fprs_frame *frame, uint8_t callsign[6])
 	return 0;
 }
 
+int fprs_frame_add_symbol(struct fprs_frame *frame, uint8_t symbol[2])
+{
+	uint8_t *element;
+	
+	element = fprs_frame_element_add(frame, FPRS_SYMBOL, 2);
+	if (!element)
+		return -1;
+
+	memcpy(fprs_element_data(element), symbol, 2);
+
+	return 0;
+}
+
 int fprs_frame_add_objectname(struct fprs_frame *frame, char *obj)
 {
 	uint8_t *element;

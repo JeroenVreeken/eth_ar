@@ -19,14 +19,132 @@
 #include "fprs.h"
 #include "eth_ar.h"
 
-#include <unistd.h>
-#include <stdio.h>
 #include <poll.h>
 #include <errno.h>
+#include <ctype.h>
+#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <netdb.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/select.h>
+
+#ifdef __linux__
+#include <linux/sockios.h>
+#endif
 
 
-char *call = "FPRSGATE";
+char *call = NULL;
+int fd_is;
+
+int tcp_connect(char *host, int port)
+{
+	struct addrinfo *result;
+	struct addrinfo *entry;
+	struct addrinfo hints = { 0 };
+	int error;
+	int sock = -1;
+	char port_str[10];
+	int tcp_connect_timeout = 1;
+	
+	sprintf(port_str, "%d", port);
+
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	
+	error = getaddrinfo(host, port_str, &hints, &result);
+	if (error) {
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
+		return -1;
+	}
+	
+	for (entry = result; entry; entry = entry->ai_next) {
+		int flags;
+		
+		sock = socket(entry->ai_family, entry->ai_socktype,
+		    entry->ai_protocol);
+		flags = fcntl(sock, F_GETFL, 0);
+		fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+		if (sock >= 0) {
+			fd_set fdset_tx, fdset_err;
+			struct timeval tv;
+			
+			tv.tv_sec = tcp_connect_timeout;
+			tv.tv_usec = 0;
+			
+			if (connect(sock, entry->ai_addr, entry->ai_addrlen)) {
+				int ret;
+				do {
+				    errno = 0;
+				    FD_ZERO(&fdset_tx);
+				    FD_ZERO(&fdset_err);
+				    FD_SET(sock, &fdset_tx);
+				    FD_SET(sock, &fdset_err);
+				    tv.tv_sec = tcp_connect_timeout;
+				    tv.tv_usec = 0;
+				    ret = select(sock+1, NULL, &fdset_tx, NULL,
+				    &tv);
+				} while (
+				    ret < 0 
+				    &&
+				    (errno == EAGAIN || errno == EINTR ||
+				     errno == EINPROGRESS));
+				
+				int error = 0;
+				socklen_t len = sizeof (error);
+				int retval = getsockopt (sock, SOL_SOCKET, SO_ERROR,
+				    &error, &len );
+				if (!retval && error) {
+					close(sock);
+					sock = -1;
+				}
+			}
+
+			if (sock >= 0) {
+				flags = fcntl(sock, F_GETFL, 0);
+				fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+				
+				setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE,
+				    &(int){1}, sizeof(int));
+
+#ifndef __FreeBSD__
+				/* number of probes which may fail */
+				setsockopt(sock, SOL_TCP, TCP_KEEPCNT,
+				    &(int){5}, sizeof(int));
+				/* Idle time before starting with probes */
+				setsockopt(sock, SOL_TCP, TCP_KEEPIDLE,
+				    &(int){10}, sizeof(int));
+				/* interval between probes */
+				setsockopt(sock, SOL_TCP, TCP_KEEPINTVL,
+				    &(int){2}, sizeof(int));
+#endif
+				
+				break;
+			}
+		}
+	}
+	freeaddrinfo(result);
+	
+	return sock;
+}
+
+static void aprs_is_in(void)
+{
+	char buffer[256];
+	ssize_t r;
+	
+	r = read(fd_is, buffer, 256);
+	if (r > 0) {
+		write(2, buffer, r);
+	}
+}
 
 static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
 {
@@ -41,69 +159,141 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		return -1;
 
 	printf("%s", aprs);
+	write(fd_is, aprs, strlen(aprs));
 
 	fprs_frame_destroy(frame);
 
 	return 0;
 }
 
+
+#define kKey 0x73e2 // This is the seed for the key
+
+static void login(void)
+{
+	char loginline[256];
+	char rootCall[10]; // need to copy call to remove ssid from parse
+	char *p0 = call;
+	char *p1 = rootCall;
+	short hash;
+	short i,len;
+	char *ptr = rootCall;
+
+	while ((*p0 != '-') && (*p0 != '\0'))
+		*p1++ = *p0++;
+	*p1 = '\0';
+
+	hash = kKey; // Initialize with the key value
+	i = 0;
+	len = (short)strlen(rootCall);
+
+	while (i<len) {// Loop through the string two bytes at a time
+		hash ^= (unsigned char)(*ptr++)<<8; // xor high byte with accumulated hash
+		hash ^= (*ptr++); // xor low byte with accumulated hash
+		i += 2;
+	}
+	hash = (short)(hash & 0x7fff); // mask off the high bit so number is always positive
+	
+	printf("Call: %s\n", rootCall);
+	printf("Pass: %d\n", hash);
+
+	sprintf(loginline, "user %s pass %d vers fprs2aprs_gate 0.1\r\n",
+	    call, hash);
+
+	write(fd_is, loginline, strlen(loginline));
+}
+
+char *netname = "freedv";
+char *host = "euro.aprs2.net";
+int port = 14580;
+
 static void usage(void)
 {
 	printf("Options:\n");
 	printf("-v\tverbose\n");
 	printf("-c [call]\town callsign\n");
-	printf("-n [dev]\tNetwork device name (default: \"freedv\")\n");
+	printf("-h [host]\tAPRS-IS server (default: \"%s\")\n", host);
+	printf("-n [dev]\tNetwork device name (default: \"%s\")\n", netname);
+	printf("-p [port]\tAPRS-IS port (default: %d)\n", port);
 }
 
 int main(int argc, char **argv)
 {
-	char *call = "FPRSGATE";
-	char *netname = "freedv";
 	int fd_int;
 	struct pollfd *fds;
 	int nfds;
-	int poll_int;
+	int poll_int, poll_is;
 	uint8_t mac[6];
 	int opt;
 	
-	while ((opt = getopt(argc, argv, "vc:n:")) != -1) {
+	while ((opt = getopt(argc, argv, "vc:n:h:p:")) != -1) {
 		switch(opt) {
 			case 'c':
 				call = optarg;
+				break;
+			case 'h':
+				host = optarg;
+				break;
+			case 'p':
+				port = atoi(optarg);
 				break;
 			case 'n':
 				netname = optarg;
 				break;
 			default:
-				usage();
-				return -1;
+				goto err_usage;
+		}
+	}
+	
+	if (!call) {
+		printf("No callsign given\n");
+		goto err_usage;
+	} else {
+		int i;
+		
+		for (i = 0; i < strlen(call); i++) {
+			call[i] = toupper(call[i]);
 		}
 	}
 
 	if (eth_ar_callssid2mac(mac, call, false)) {
 		printf("Callsign could not be converted to a valid MAC address\n");
-		return -1;
+		goto err_usage;
 	}
 
 	fd_int = interface_init(netname, mac, false, ETH_P_FPRS);
 	if (fd_int < 0) {
 		printf("Could not open interface: %s\n", strerror(errno));
-		return -1;
+		goto err_usage;
 	}
 
-	nfds = 1;
+	fd_is = tcp_connect(host, port);
+	login();
+
+	nfds = 1 + 1;
 	fds = calloc(sizeof(struct pollfd), nfds);
 
 	poll_int = 0;
 	fds[poll_int].fd = fd_int;
 	fds[poll_int].events = POLLIN;
+	poll_is = 1;
+	fds[poll_is].fd = fd_is;
+	fds[poll_is].events = POLLIN;
+	
 
 	do {
 		poll(fds, nfds, -1);
 		if (fds[poll_int].revents & POLLIN) {
 			interface_tx(cb_int_tx);
 		}
+		if (fds[poll_is].revents & POLLIN) {
+			aprs_is_in();
+		}
 	} while (1);
 
 	return 0;
+
+err_usage:
+	usage();
+	return -1;
 }

@@ -73,15 +73,9 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 	eth_ar_mac2call(sender_call, &sender_ssid, &sender_mcast, origin);
 
 	if (!have_symbol) {
-		if (pos_fixed) {
-			/* Use the house symbol */
-			symbol[0] = '/';
-			symbol[1] = '-';
-		} else {
-			/* Use the car symbol */
-			symbol[0] = '/';
-			symbol[1] = '>';
-		}
+		/* Use the car symbol */
+		symbol[0] = 'D';
+		symbol[1] = 'A';
 	}
 	
 	char lonstr[10] = { 0 };
