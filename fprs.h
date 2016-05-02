@@ -104,6 +104,8 @@ int fprs_frame_add_vector(struct fprs_frame *, double az, double el, double spee
 int fprs_vector_enc(uint8_t enc[4], double az, double el, double speed);
 int fprs_vector_dec(double *az, double *el, double *speed, uint8_t dec[4]);
 
+#define FPRS_VECTOR_SPEED_EPSILON (1.0/16.0)
+
 int fprs_frame_add_objectname(struct fprs_frame *, char *);
 
 
