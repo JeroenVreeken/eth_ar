@@ -21,6 +21,21 @@
 #include <string.h>
 #include <stdio.h>
 
+struct nmea_state *nmea_state_create(void)
+{
+	struct nmea_state *nmea;
+	
+	nmea = calloc(1, sizeof(struct nmea_state));
+	
+	return nmea;
+}
+
+void nmea_state_destroy(struct nmea_state *nmea)
+{
+	free(nmea);
+}
+
+
 static bool nmea_check(char *line)
 {
 	int i;
@@ -50,7 +65,7 @@ static bool nmea_check(char *line)
 	return false;
 }
 
-int nmea_parse(struct nmea_state *state, char *line)
+int nmea_parse_line(struct nmea_state *state, char *line)
 {
 	if (!nmea_check(line))
 		return -1;
@@ -133,3 +148,26 @@ int nmea_parse(struct nmea_state *state, char *line)
 }
 
 
+int nmea_parse(struct nmea_state *nmea, char *data, size_t size)
+{
+	int i;
+	
+	for (i = 0; i < size; i++) {
+		if (data[i] == '$') {
+			nmea->pos = 0;
+		}
+		nmea->line[nmea->pos] = data[i];
+		nmea->pos++;
+			
+		if (nmea->pos >= 3 && nmea->line[nmea->pos-3] == '*') {
+			nmea->line[nmea->pos] = 0;
+			nmea_parse_line(nmea, nmea->line);
+			nmea->pos = 0;
+		}
+			
+		if (nmea->pos >= NMEA_LEN)
+			nmea->pos = 0;
+	}
+
+	return 0;
+}

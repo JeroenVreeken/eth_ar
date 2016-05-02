@@ -22,9 +22,12 @@
 #include <poll.h>
 #include <sched.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <string.h>
 #include <time.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <hamlib/rig.h>
 
 #include <codec2/freedv_api.h>
@@ -76,7 +79,7 @@ static uint8_t rx_add[6];
 static uint8_t tx_add[6];
 static int rx_sync = 0;
 
-struct nmea_state nmea;
+struct nmea_state *nmea;
 
 #define RX_SYNC_THRESHOLD 20
 
@@ -223,7 +226,7 @@ static void dequeue_voice(void)
 		
 		if (tx_data_len == bytes_per_codec_frame) {
 			double energy = codec2_get_energy(codec2, tx_data);
-			bool fprs_late = tx_state_fprs_cnt >= tx_fprs && nmea.position_valid;
+			bool fprs_late = nmea && tx_state_fprs_cnt >= tx_fprs && nmea->position_valid;
 			bool header_late = tx_state_data_header_cnt >= tx_header;
 			bool have_data = fprs_late || queue_data || header_late;
 //			printf("e: %f\n", energy);
@@ -333,7 +336,7 @@ static void freedv_cb_datarx(void *arg, unsigned char *packet, size_t size)
 static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 {
 	if (tx_state == TX_STATE_ON) {
-		bool fprs_late = tx_state_fprs_cnt >= tx_fprs && nmea.position_valid;
+		bool fprs_late = nmea && tx_state_fprs_cnt >= tx_fprs && nmea->position_valid;
 		printf("data %d %d %d\n", tx_state_fprs_cnt, fprs_late, tx_state_data_header_cnt);
 		
 		if ((!queue_data && !fprs_late) || 
@@ -345,12 +348,12 @@ static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 			/* Send fprs frame */
 			struct fprs_frame *frame = fprs_frame_create();
 			fprs_frame_add_position(frame, 
-			    nmea.longitude, nmea.latitude, false);
-			if (nmea.altitude_valid)
-				fprs_frame_add_altitude(frame, nmea.altitude);
-			if (nmea.speed_valid && nmea.course_valid &&
-			    nmea.speed >= FPRS_VECTOR_SPEED_EPSILON)
-				fprs_frame_add_vector(frame, nmea.course, 0.0, nmea.speed);
+			    nmea->longitude, nmea->latitude, false);
+			if (nmea->altitude_valid)
+				fprs_frame_add_altitude(frame, nmea->altitude);
+			if (nmea->speed_valid && nmea->course_valid &&
+			    nmea->speed >= FPRS_VECTOR_SPEED_EPSILON)
+				fprs_frame_add_vector(frame, nmea->course, 0.0, nmea->speed);
 			
 			fprs_frame_add_symbol(frame, (uint8_t[2]){'F','#'});
 			
@@ -540,6 +543,17 @@ static char vc_callback_tx(void *arg)
 	return c;
 }
 
+void read_nmea(int fd_nmea)
+{
+	char buffer[256];
+	ssize_t r;
+	
+	r = read(fd_nmea, buffer, 256);
+	if (r > 0) {
+		nmea_parse(nmea, buffer, r);
+	}
+}
+
 static void usage(void)
 {
 	printf("Options:\n");
@@ -564,11 +578,13 @@ int main(int argc, char **argv)
 	char *netname = "freedv";
 	char *nmeadev = NULL;
 	int fd_int;
+	int fd_nmea = -1;
 	struct pollfd *fds;
 	int sound_fdc_tx;
 	int sound_fdc_rx;
 	int nfds;
 	int poll_int;
+	int poll_nmea = 0;
 	int opt;
 	uint16_t type = ETH_P_CODEC2_700;
 	int nr_samples;
@@ -699,17 +715,21 @@ int main(int argc, char **argv)
 	printf("TX header max: %d periods\n", tx_header_max);
 
 	if (nmeadev) {
-		nmea.position_valid = true;
-		nmea.longitude = 5.44397;
-		nmea.latitude = 51.3528;
+		nmea = nmea_state_create();
 		
-		nmea.altitude_valid = true;
-		nmea.altitude = 25.0;
+		fd_nmea = open(nmeadev, O_RDONLY);
 		
-		nmea.speed_valid = true;
-		nmea.speed = 0;
-		nmea.course_valid = true;
-		nmea.course = 0;
+		nmea->position_valid = true;
+		nmea->longitude = 5.44397;
+		nmea->latitude = 51.3528;
+		
+		nmea->altitude_valid = true;
+		nmea->altitude = 25.0;
+		
+		nmea->speed_valid = true;
+		nmea->speed = 0;
+		nmea->course_valid = true;
+		nmea->course = 0;
 	}
 
 	hl_init();
@@ -723,7 +743,7 @@ int main(int argc, char **argv)
 
 	sound_fdc_tx = sound_poll_count_tx();
 	sound_fdc_rx = sound_poll_count_rx();
-	nfds = sound_fdc_tx + sound_fdc_rx + 1;
+	nfds = sound_fdc_tx + sound_fdc_rx + 1 + (nmea ? 1 : 0);
 	fds = calloc(sizeof(struct pollfd), nfds);
 	
 	sound_poll_fill_tx(fds, sound_fdc_tx);
@@ -731,7 +751,12 @@ int main(int argc, char **argv)
 	poll_int = sound_fdc_tx + sound_fdc_rx;
 	fds[poll_int].fd = fd_int;
 	fds[poll_int].events = POLLIN;
-
+	if (nmea) {
+		poll_nmea = poll_int + 1;
+		fds[poll_nmea].fd = fd_nmea;
+		fds[poll_nmea].events = POLLIN;
+	}
+	
 	do {
 		poll(fds, nfds, -1);
 		if (fds[poll_int].revents & POLLIN) {
@@ -742,6 +767,9 @@ int main(int argc, char **argv)
 		}
 		if (sound_poll_in_rx(fds + sound_fdc_tx, sound_fdc_rx)) {
 			sound_rx();
+		}
+		if (nmea && fds[poll_nmea].revents & POLLIN) {
+			read_nmea(fd_nmea);
 		}
 	} while (1);
 	

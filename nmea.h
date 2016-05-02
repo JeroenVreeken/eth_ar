@@ -18,9 +18,14 @@
 #ifndef _INCLUDE_NMEA_H_
 #define _INCLUDE_NMEA_H_
 
+#include <stdlib.h>
 #include <stdbool.h>
 
+#define NMEA_LEN 83
+#define NMEA_SIZE 84
+
 struct nmea_state {
+	/* Parsed state */
 	bool position_valid;
 	double latitude;
 	double longitude;
@@ -33,8 +38,17 @@ struct nmea_state {
 	
 	bool course_valid;
 	double course;
+	
+	/* Internal state */
+	char line[NMEA_SIZE];
+	int pos;
 };
 
-int nmea_parse(struct nmea_state *state, char *line);
+struct nmea_state *nmea_state_create(void);
+void nmea_state_destroy(struct nmea_state *nmea);
+
+int nmea_parse_line(struct nmea_state *state, char *line);
+
+int nmea_parse(struct nmea_state *nmea, char *data, size_t size);
 
 #endif /* _INCLUDE_NMEA_H_ */

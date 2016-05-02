@@ -458,37 +458,156 @@ static int test_fprs2aprs(void)
 	return 0;
 }
 
-static int test_nmea(void)
+static bool fp_check(double val, double checkval, double prec)
 {
-	struct nmea_state state;
+	double diff = fabs(val - checkval);
+	return diff <= prec;
+}
+
+static int test_nmea_line(void)
+{
+	struct nmea_state *state;
 	
-	if (nmea_parse(&state, "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47")) {
+	state = nmea_state_create();
+	if (!state) {
+		printf("NMEA state struct create failed\n");
+		return -1;
+	}
+	
+	if (nmea_parse_line(state, "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47")) {
 		printf("Parsing NMEA GGA line failed\n");
 		return -1;
 	}
 	
-	printf("%d %f %f %d %f\n", 
-	    state.position_valid, state.latitude, state.longitude,
-	    state.altitude_valid, state.altitude);
+	if (!state->position_valid || !state->altitude_valid)
+		return -1;
+			
+	if (!fp_check(state->latitude, 48.117300, 0.000001)) {
+		return -1;
+	}
+	if (!fp_check(state->longitude, 11.516667, 0.000001)) {
+		return -1;
+	}
+	if (!fp_check(state->altitude, 545.4, 0.01)) {
+		return -1;
+	}
 
-	if (nmea_parse(&state, "$GPVTG,054.7,T,034.4,M,005.5,N,010.2,K*48")) {
+	if (nmea_parse_line(state, "$GPVTG,054.7,T,034.4,M,005.5,N,010.2,K*48")) {
 		printf("Parsing NMEA VTG line failed\n");
 		return -1;
 	}
 	
-	printf("%d %f %d %f\n", 
-	    state.course_valid, state.course,
-	    state.speed_valid, state.speed);
+	if (!state->course_valid || !state->speed_valid)
+		return -1;
+	if (!fp_check(state->course, 54.7, 0.01)) {
+		return -1;
+	}
+	if (!fp_check(state->speed, 2.82, 0.01)) {
+		return -1;
+	}
 	
-	if (nmea_parse(&state, "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A")) {
+	if (nmea_parse_line(state, "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A")) {
 		printf("Parsing NMEA RMC line failed\n");
 		return -1;
 	}
 	
-	printf("%d %f %f %d %f %d %f\n", 
-	    state.position_valid, state.latitude, state.longitude,
-	    state.course_valid, state.course,
-	    state.speed_valid, state.speed);
+	if (!state->position_valid)
+		return -1;
+			
+	if (!fp_check(state->latitude, 48.117300, 0.000001)) {
+		return -1;
+	}
+	if (!fp_check(state->longitude, 11.516667, 0.000001)) {
+		return -1;
+	}
+	if (!state->course_valid || !state->speed_valid)
+		return -1;
+	if (!fp_check(state->course, 84.4, 0.01)) {
+		return -1;
+	}
+	if (!fp_check(state->speed, 11.52, 0.01)) {
+		return -1;
+	}
+	
+
+
+	nmea_state_destroy(state);
+	
+	return 0;
+}
+
+static int test_nmea(void)
+{
+	struct nmea_state *state;
+	
+	state = nmea_state_create();
+	if (!state) {
+		printf("NMEA state struct create failed\n");
+		return -1;
+	}
+	
+	char *data1 = "blabla*22$GPGSHIT*33$GPGGA,123519,0407.838,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
+	char *data2 = "#$@#*33$GPVTG,054.7,T,034.4,M,005.5,N,010.2,K*48";
+	char *data3 = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A";
+	
+	if (nmea_parse(state, data1, strlen(data1))) {
+		printf("Parsing NMEA GGA line failed\n");
+		return -1;
+	}
+	
+	if (!state->position_valid || !state->altitude_valid)
+		return -1;
+			
+	if (!fp_check(state->latitude, 4.130633, 0.000001)) {
+		return -1;
+	}
+	if (!fp_check(state->longitude, 11.516667, 0.000001)) {
+		return -1;
+	}
+	if (!fp_check(state->altitude, 545.4, 0.01)) {
+		return -1;
+	}
+
+	if (nmea_parse(state, data2, strlen(data2))) {
+		printf("Parsing NMEA VTG line failed\n");
+		return -1;
+	}
+	
+	
+	if (!state->course_valid || !state->speed_valid)
+		return -1;
+	if (!fp_check(state->course, 54.7, 0.01)) {
+		return -1;
+	}
+	if (!fp_check(state->speed, 2.82, 0.01)) {
+		return -1;
+	}
+	
+	
+	if (nmea_parse(state, data3, strlen(data3))) {
+		printf("Parsing NMEA RMC line failed\n");
+		return -1;
+	}
+	
+	if (!state->position_valid)
+		return -1;
+			
+	if (!fp_check(state->latitude, 48.117300, 0.000001)) {
+		return -1;
+	}
+	if (!fp_check(state->longitude, 11.516667, 0.000001)) {
+		return -1;
+	}
+	if (!state->course_valid || !state->speed_valid)
+		return -1;
+	if (!fp_check(state->course, 84.4, 0.01)) {
+		return -1;
+	}
+	if (!fp_check(state->speed, 11.52, 0.01)) {
+		return -1;
+	}
+
+	nmea_state_destroy(state);
 	
 	return 0;
 }
@@ -506,6 +625,7 @@ struct fprs_test {
 	{ "Objectname", test_objectname },
 	{ "vector", test_vector },
 	{ "fprs2aprs", test_fprs2aprs },
+	{ "nmea (line)", test_nmea_line },
 	{ "nmea", test_nmea },
 };
 
