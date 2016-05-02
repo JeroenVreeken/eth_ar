@@ -550,7 +550,14 @@ void read_nmea(int fd_nmea)
 	
 	r = read(fd_nmea, buffer, 256);
 	if (r > 0) {
+		bool old_valid = nmea->position_valid;
+	
 		nmea_parse(nmea, buffer, r);
+		
+		if (old_valid != nmea->position_valid) {
+			printf("GPS status changed: %s\n",
+			    nmea->position_valid ? "valid" : "invalid");
+		}
 	}
 }
 
@@ -715,21 +722,11 @@ int main(int argc, char **argv)
 	printf("TX header max: %d periods\n", tx_header_max);
 
 	if (nmeadev) {
-		nmea = nmea_state_create();
-		
 		fd_nmea = open(nmeadev, O_RDONLY);
-		
-		nmea->position_valid = true;
-		nmea->longitude = 5.44397;
-		nmea->latitude = 51.3528;
-		
-		nmea->altitude_valid = true;
-		nmea->altitude = 25.0;
-		
-		nmea->speed_valid = true;
-		nmea->speed = 0;
-		nmea->course_valid = true;
-		nmea->course = 0;
+		if (fd_nmea >= 0) {
+			nmea = nmea_state_create();
+			printf("GPS device: %s\n", nmeadev);
+		}
 	}
 
 	hl_init();
