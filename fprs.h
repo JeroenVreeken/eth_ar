@@ -78,7 +78,8 @@ enum fprs_type {
 	FPRS_VECTOR = 4,   /* 4 byte movement vector (12bit az, 11bit el, 9bit FP speed)*/
 
 	/* length limited to 255 */
-	FPRS_OBJECTNAME = 16, /* Object name (variable length) */
+	FPRS_OBJECTNAME = 16, 	/* Object name (variable length) */
+	FPRS_COMMENT = 17, 	/* Generic comment (do not use it for objects, altitude etc) */
 };
 
 char *fprs_type2str(enum fprs_type);
@@ -107,6 +108,7 @@ int fprs_vector_dec(double *az, double *el, double *speed, uint8_t dec[4]);
 #define FPRS_VECTOR_SPEED_EPSILON (1.0/16.0)
 
 int fprs_frame_add_objectname(struct fprs_frame *, char *);
+int fprs_frame_add_comment(struct fprs_frame *, char *);
 
 
 /* Conversion of a fprs frame to aprs ASCII format */

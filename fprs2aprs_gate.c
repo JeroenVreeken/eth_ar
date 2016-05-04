@@ -41,8 +41,19 @@
 #endif
 
 
+bool fullduplex = false;
 char *call = NULL;
+uint8_t mac[6];
+uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 int fd_is;
+int fd_int;
+
+int info_t;
+int info_timeout = 60 * 30;
+double info_longitude = 0.0;
+double info_latitude = 0.0;
+char *info_text = "FPRS gate";
+struct fprs_frame *info_frame;
 
 int tcp_connect(char *host, int port)
 {
@@ -146,14 +157,10 @@ static void aprs_is_in(void)
 	}
 }
 
-static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
+static int fprs2aprs_is(struct fprs_frame *frame, uint8_t *from)
 {
 	char aprs[256] = { 0 };
 	size_t aprs_size = 255;
-	
-	struct fprs_frame *frame = fprs_frame_create();
-
-	fprs_frame_data_set(frame, data, len);
 	
 	if (fprs2aprs(aprs, &aprs_size, frame, from, call))
 		return -1;
@@ -161,9 +168,55 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	printf("%s", aprs);
 	write(fd_is, aprs, strlen(aprs));
 
+	return 0;
+}
+
+static int int_out(struct fprs_frame *frame)
+{
+	uint8_t data[256];
+	size_t size = 256;
+	
+	fprs_frame_data_get(frame, data, &size);
+	interface_rx(bcast, mac, ETH_P_FPRS, data, size);
+
+	return 0;
+}
+
+static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
+{
+	struct fprs_frame *frame = fprs_frame_create();
+
+	fprs_frame_data_set(frame, data, len);
+	
+	fprs2aprs_is(frame, from);
+	
+	if (fullduplex) {
+		fprs_frame_add_callsign(frame, from);
+		int_out(frame);
+	}
+	
 	fprs_frame_destroy(frame);
 
 	return 0;
+}
+
+void info_tx(void)
+{
+	fprs2aprs_is(info_frame, mac);
+	int_out(info_frame);
+}
+
+void info_create(void)
+{
+	info_frame = fprs_frame_create();
+	
+	fprs_frame_add_position(info_frame, 
+	    info_longitude, info_latitude, true);
+
+	fprs_frame_add_symbol(info_frame, (uint8_t[2]){'F','&'});
+
+	if (strlen(info_text))
+		fprs_frame_add_comment(info_frame, info_text);
 }
 
 
@@ -212,27 +265,40 @@ static void usage(void)
 	printf("Options:\n");
 	printf("-v\tverbose\n");
 	printf("-c [call]\town callsign\n");
+	printf("-f\tFullduplex (digipeat received frames)\n");
 	printf("-h [host]\tAPRS-IS server (default: \"%s\")\n", host);
 	printf("-n [dev]\tNetwork device name (default: \"%s\")\n", netname);
 	printf("-p [port]\tAPRS-IS port (default: %d)\n", port);
+	printf("-t [seconds]\tInfo timeout (default: %d)\n", info_timeout);
+	printf("-i [text]\tInfo text (default: \"%s\")\n", info_text);
+	printf("-o [longitude]\tInfo longitude (default: %f)\n", info_longitude);
+	printf("-a [latitude]\tInfo latitude (default: %f)\n", info_latitude);
 }
 
 int main(int argc, char **argv)
 {
-	int fd_int;
 	struct pollfd *fds;
 	int nfds;
 	int poll_int, poll_is;
-	uint8_t mac[6];
 	int opt;
 	
-	while ((opt = getopt(argc, argv, "vc:n:h:p:")) != -1) {
+	while ((opt = getopt(argc, argv, "a:vc:n:fh:i:p:o:t:")) != -1) {
 		switch(opt) {
+			case 'a':
+				info_latitude = atof(optarg);
+				break;
 			case 'c':
 				call = optarg;
 				break;
+			case 'f':
+				fullduplex = true;
 			case 'h':
 				host = optarg;
+				break;
+			case 'i':
+				info_text = optarg;
+			case 'o':
+				info_longitude = atof(optarg);
 				break;
 			case 'p':
 				port = atoi(optarg);
@@ -240,9 +306,17 @@ int main(int argc, char **argv)
 			case 'n':
 				netname = optarg;
 				break;
+			case 't':
+				info_timeout = atoi(optarg);
+				break;
 			default:
 				goto err_usage;
 		}
+	}
+	
+	info_t = info_timeout;
+	if (info_longitude != 0.0 || info_latitude != 0.0) {
+		info_create();
 	}
 	
 	if (!call) {
@@ -282,12 +356,19 @@ int main(int argc, char **argv)
 	
 
 	do {
-		poll(fds, nfds, -1);
+		poll(fds, nfds, 1000);
 		if (fds[poll_int].revents & POLLIN) {
 			interface_tx(cb_int_tx);
 		}
 		if (fds[poll_is].revents & POLLIN) {
 			aprs_is_in();
+		}
+		
+		info_t++;
+		if (info_t >= info_timeout) {
+			info_t = 0;
+			if (info_frame)
+				info_tx();
 		}
 	} while (1);
 

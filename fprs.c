@@ -265,6 +265,23 @@ int fprs_frame_add_objectname(struct fprs_frame *frame, char *obj)
 	return 0;
 }
 
+int fprs_frame_add_comment(struct fprs_frame *frame, char *txt)
+{
+	uint8_t *element;
+	size_t txtsize = strlen(txt);
+	
+	if (txtsize > 255)
+		return -1;
+	
+	element = fprs_frame_element_add(frame, FPRS_COMMENT, txtsize);
+	if (!element)
+		return -1;
+	
+	memcpy(fprs_element_data(element), txt, txtsize);
+
+	return 0;
+}
+
 #define FPRS_LON_SCALE 134217728
 #define FPRS_LON_MAX 134217727
 #define FPRS_LON_MIN -134217728

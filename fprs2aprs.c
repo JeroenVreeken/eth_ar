@@ -35,6 +35,7 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 	bool have_vector = false;
 	double alt;
 	bool have_altitude = false;
+	char comment[256] = "";
 	
 	if (callsign) {
 		memcpy(origin, callsign, 6);
@@ -64,6 +65,12 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 				memcpy(symbol, fprs_element_data(element), 2);
 				have_symbol = true;
 				break;
+			case FPRS_COMMENT: {
+				size_t comment_len = fprs_element_size(element);
+				memcpy(comment, fprs_element_data(element), comment_len);
+				comment[comment_len] = 0;
+				break;
+			}
 			default:
 				break;
 		}
@@ -112,9 +119,10 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 		sprintf(altstr, "/A=%06d", (int)alt);
 	}
 	
-	snprintf(aprs, *aprs_len, "%s-%d>APFPRS,qAR,%s:%c%s%c%s%c%s%s\r\n", 
+	snprintf(aprs, *aprs_len, "%s-%d>APFPRS,qAR,%s:%c%s%c%s%c%s%s%s\r\n", 
 	    sender_call, sender_ssid, gate_call, 
-	    type, latstr, symbol[0], lonstr, symbol[1], course_speed, altstr);
+	    type, latstr, symbol[0], lonstr, symbol[1], course_speed, altstr,
+	    comment);
 	aprs[*aprs_len] = 0;
 	*aprs_len = strlen(aprs);
 	
