@@ -328,8 +328,11 @@ static void freedv_cb_datarx(void *arg, unsigned char *packet, size_t size)
 			printf("Voice RX add: %s-%d%s\n", callstr, ssid, multicast ? "" : "*");
 		}
 	} else if (size > 14) {
-		uint16_t type = (packet[12] << 8) | packet[13];
-		interface_rx(packet, packet+6, type, packet + 14, size - 14);
+		/* Filter out our own packets if they come back */
+		if (memcmp(packet+6, mac, 6)) {
+			uint16_t type = (packet[12] << 8) | packet[13];
+			interface_rx(packet, packet+6, type, packet + 14, size - 14);
+		}
 	}
 }
 
