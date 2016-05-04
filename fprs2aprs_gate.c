@@ -297,6 +297,7 @@ int main(int argc, char **argv)
 				break;
 			case 'i':
 				info_text = optarg;
+				break;
 			case 'o':
 				info_longitude = atof(optarg);
 				break;
