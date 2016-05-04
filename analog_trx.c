@@ -463,7 +463,7 @@ static void usage(void)
 	printf("-p [dev]\tHAMlib PTT device file\n");
 	printf("-t [msec]\tTX tail\n");
 	printf("-i [dev]\tUse input device instead of DCD\n");
-	printf("-r ]rate]\tSound rate\n");
+	printf("-r [rate]\tSound rate\n");
 	printf("-M [mode]\tCodec2 mode\n");
 }
 
