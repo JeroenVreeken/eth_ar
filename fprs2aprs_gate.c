@@ -45,8 +45,8 @@ bool fullduplex = false;
 char *call = NULL;
 uint8_t mac[6];
 uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-int fd_is;
-int fd_int;
+int fd_is = -1;
+int fd_int = -1;
 
 int info_t;
 int info_timeout = 60 * 30;
@@ -146,7 +146,7 @@ int tcp_connect(char *host, int port)
 	return sock;
 }
 
-static void aprs_is_in(void)
+static int aprs_is_in(void)
 {
 	char buffer[256];
 	ssize_t r;
@@ -154,7 +154,10 @@ static void aprs_is_in(void)
 	r = read(fd_is, buffer, 256);
 	if (r > 0) {
 		write(2, buffer, r);
+	} else {
+		return -1;
 	}
+	return 0;
 }
 
 static int fprs2aprs_is(struct fprs_frame *frame, uint8_t *from)
@@ -337,38 +340,50 @@ int main(int argc, char **argv)
 		goto err_usage;
 	}
 
-	fd_int = interface_init(netname, mac, false, ETH_P_FPRS);
-	if (fd_int < 0) {
-		printf("Could not open interface: %s\n", strerror(errno));
-		goto err_usage;
-	}
-
-	fd_is = tcp_connect(host, port);
-	if (fd_is <= 0) {
-		printf("Failed to connect to server %s:%d: %s\n",
-		    host, port, strerror(errno));
-		goto err_usage;
-	}
-	login();
-
 	nfds = 1 + 1;
 	fds = calloc(sizeof(struct pollfd), nfds);
 
 	poll_int = 0;
-	fds[poll_int].fd = fd_int;
+	fds[poll_int].fd = -1;
 	fds[poll_int].events = POLLIN;
 	poll_is = 1;
-	fds[poll_is].fd = fd_is;
+	fds[poll_is].fd = -1;
 	fds[poll_is].events = POLLIN;
 	
 
 	do {
+		if (fd_int < 0) {
+			fd_int = interface_init(netname, mac, false, ETH_P_FPRS);
+			if (fd_int < 0) {
+				printf("Could not open interface: %s\n", strerror(errno));
+			} else {
+				fds[poll_int].fd = fd_int;
+			}
+		}
+		if (fd_is < 0) {
+			fd_is = tcp_connect(host, port);
+			if (fd_is <= 0) {
+			printf("Failed to connect to server %s:%d: %s\n",
+			    host, port, strerror(errno));
+			} else {
+				login();
+				fds[poll_is].fd = fd_is;
+			}
+		}
 		poll(fds, nfds, 1000);
 		if (fds[poll_int].revents & POLLIN) {
-			interface_tx(cb_int_tx);
+			if (interface_tx(cb_int_tx)) {
+				close(fd_int);
+				fd_int = -1;
+				fds[poll_int].fd = -1;
+			}
 		}
 		if (fds[poll_is].revents & POLLIN) {
-			aprs_is_in();
+			if (aprs_is_in()) {
+				close(fd_is);
+				fd_is = -1;
+				fds[poll_is].fd = -1;
+			}
 		}
 		
 		info_t++;

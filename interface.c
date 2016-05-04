@@ -87,6 +87,8 @@ static int interface_tx_sock(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t 
 		}
 	}
 	
+	if (len <= 0)
+		return -1;
 	return 0;
 }
 

@@ -472,20 +472,19 @@ void tx_state_machine(void)
 			}
 			break;
 		case TX_STATE_ON:
-			if (!queue_voice && ! queue_data && !freedv_data_ntxframes(freedv)) {
+			if (!queue_voice && ! queue_data && freedv_data_ntxframes(freedv) <= 1) {
 //				printf("ON -> TAIL\n");
 				tx_state = TX_STATE_TAIL;
 				tx_state_cnt = 0;
-			} else {
-				tx_state_data_header_cnt++;
-				tx_state_fprs_cnt++;
-				if (queue_voice) {
-					dequeue_voice();
-				} else {
-					data_tx();
-				}
-				break;
 			}
+			tx_state_data_header_cnt++;
+			tx_state_fprs_cnt++;
+			if (queue_voice) {
+				dequeue_voice();
+			} else {
+				data_tx();
+			}
+			break;
 		case TX_STATE_TAIL:
 			if (tx_state_cnt >= tx_tail) {
 //				printf("TAIL -> OFF\n");
