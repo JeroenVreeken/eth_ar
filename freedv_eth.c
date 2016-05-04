@@ -340,7 +340,7 @@ static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 {
 	if (tx_state == TX_STATE_ON) {
 		bool fprs_late = nmea && tx_state_fprs_cnt >= tx_fprs && nmea->position_valid;
-		printf("data %d %d %d\n", tx_state_fprs_cnt, fprs_late, tx_state_data_header_cnt);
+//		printf("data %d %d %d\n", tx_state_fprs_cnt, fprs_late, tx_state_data_header_cnt);
 		
 		if ((!queue_data && !fprs_late) || 
 		    tx_state_data_header_cnt >= tx_header) {
