@@ -373,6 +373,7 @@ int main(int argc, char **argv)
 		poll(fds, nfds, 1000);
 		if (fds[poll_int].revents & POLLIN) {
 			if (interface_tx(cb_int_tx)) {
+				printf("Interface lost\n");
 				close(fd_int);
 				fd_int = -1;
 				fds[poll_int].fd = -1;
@@ -380,6 +381,7 @@ int main(int argc, char **argv)
 		}
 		if (fds[poll_is].revents & POLLIN) {
 			if (aprs_is_in()) {
+				printf("APRS-IS connection lost\n");
 				close(fd_is);
 				fd_is = -1;
 				fds[poll_is].fd = -1;

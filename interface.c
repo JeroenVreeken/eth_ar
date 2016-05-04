@@ -69,7 +69,7 @@ static int interface_tx_tap(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t e
 static int interface_tx_sock(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
 {
 	uint8_t data[2048];
-	size_t len;
+	ssize_t len;
 	
 	struct sockaddr_ll addr;
         socklen_t addr_len = sizeof(addr);
