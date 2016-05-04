@@ -343,6 +343,11 @@ int main(int argc, char **argv)
 	}
 
 	fd_is = tcp_connect(host, port);
+	if (fd_is <= 0) {
+		printf("Failed to connect to server %s:%d: %s\n",
+		    host, port, strerror(errno));
+		goto err_usage;
+	}
 	login();
 
 	nfds = 1 + 1;
