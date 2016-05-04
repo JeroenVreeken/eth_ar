@@ -31,6 +31,7 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -48,7 +49,7 @@ uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 int fd_is = -1;
 int fd_int = -1;
 
-int info_t;
+time_t info_t;
 int info_timeout = 60 * 30;
 double info_longitude = 0.0;
 double info_latitude = 0.0;
@@ -319,7 +320,7 @@ int main(int argc, char **argv)
 		}
 	}
 	
-	info_t = info_timeout;
+	info_t = time(NULL) - info_timeout;
 	if (info_longitude != 0.0 || info_latitude != 0.0) {
 		info_create();
 	}
@@ -371,7 +372,7 @@ int main(int argc, char **argv)
 			}
 		}
 		poll(fds, nfds, 1000);
-		if (fds[poll_int].revents & POLLIN) {
+		if (fds[poll_int].revents & (POLLIN | POLLERR)) {
 			if (interface_tx(cb_int_tx)) {
 				printf("Interface lost\n");
 				close(fd_int);
@@ -379,7 +380,7 @@ int main(int argc, char **argv)
 				fds[poll_int].fd = -1;
 			}
 		}
-		if (fds[poll_is].revents & POLLIN) {
+		if (fds[poll_is].revents & (POLLIN | POLLERR)) {
 			if (aprs_is_in()) {
 				printf("APRS-IS connection lost\n");
 				close(fd_is);
@@ -388,9 +389,8 @@ int main(int argc, char **argv)
 			}
 		}
 		
-		info_t++;
-		if (info_t >= info_timeout) {
-			info_t = 0;
+		if (time(NULL) - info_t >= info_timeout) {
+			info_t = time(NULL);
 			if (info_frame)
 				info_tx();
 		}
