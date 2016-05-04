@@ -292,6 +292,7 @@ int main(int argc, char **argv)
 				break;
 			case 'f':
 				fullduplex = true;
+				break;
 			case 'h':
 				host = optarg;
 				break;
