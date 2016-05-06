@@ -32,6 +32,7 @@
 #include <netdb.h>
 #include <errno.h>
 #include <time.h>
+#include <resolv.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -74,6 +75,9 @@ int tcp_connect(char *host, int port)
 	error = getaddrinfo(host, port_str, &hints, &result);
 	if (error) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
+		
+		res_init();
+		
 		return -1;
 	}
 	
