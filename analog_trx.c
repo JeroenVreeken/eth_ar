@@ -48,7 +48,8 @@ static rig_model_t rig_model;
 static char *ptt_file = NULL;
 static ptt_type_t ptt_type = RIG_PTT_NONE;
 static dcd_type_t dcd_type = RIG_DCD_NONE;
-
+static int dcd_level = 0;
+static int dcd_threshold = 1;
 
 int16_t *mod_silence;
 
@@ -94,8 +95,12 @@ bool squelch(void)
 		return squelch_input;
 	
 	rig_get_dcd(rig, RIG_VFO_CURR, &dcd);
+	if (dcd == RIG_DCD_ON)
+		dcd_level++;
+	else
+		dcd_level = 0;
 
-	return dcd == RIG_DCD_ON;
+	return dcd_level >= dcd_threshold;
 }
 
 void input_cb(bool state)
@@ -461,6 +466,7 @@ static void usage(void)
 	printf("-P [type]\tHAMlib PTT type\n");
 	printf("-D [type]\tHAMlib DCD type\n");
 	printf("-p [dev]\tHAMlib PTT device file\n");
+	printf("-d [thrh]\tDCD threshold (default: %d)\n", dcd_threshold);
 	printf("-t [msec]\tTX tail\n");
 	printf("-i [dev]\tUse input device instead of DCD\n");
 	printf("-r [rate]\tSound rate\n");
@@ -490,7 +496,7 @@ int main(int argc, char **argv)
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "vac:i:s:n:Sm:d:t:p:P:D:fr:M:")) != -1) {
+	while ((opt = getopt(argc, argv, "vac:d:i:s:n:Sm:d:t:p:P:D:fr:M:")) != -1) {
 		switch(opt) {
 			case 'v':
 				verbose = true;
@@ -500,6 +506,9 @@ int main(int argc, char **argv)
 				break;
 			case 'c':
 				call = optarg;
+				break;
+			case 'd':
+				dcd_threshold = atoi(optarg);
 				break;
 			case 'i':
 				inputdev = optarg;
