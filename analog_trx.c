@@ -36,6 +36,7 @@
 #include "dtmf.h"
 #include "alaw.h"
 #include "input.h"
+#include "beacon.h"
 
 
 static bool verbose = false;
@@ -51,7 +52,7 @@ static dcd_type_t dcd_type = RIG_DCD_NONE;
 static int dcd_level = 0;
 static int dcd_threshold = 1;
 
-int16_t *mod_silence;
+struct beacon *beacon;
 
 struct CODEC2 *rx_codec;
 uint16_t rx_type;
@@ -399,12 +400,25 @@ static int hl_init(void)
 static void dequeue_voice(void)
 {
 	struct tx_packet *p = queue_voice;
-	queue_voice = p->next;
+	if (!p) {
+		if (!beacon) {
+			sound_silence();
+		} else {
+			int16_t buffer[nr_samples];
+			
+			beacon_generate(beacon, buffer);
+			sound_out(buffer, nr_samples);
+		}
+	} else {
+		queue_voice = p->next;
 	
-	sound_out(p->samples, p->nr_samples);
+		if (beacon)
+			beacon_generate_add(beacon, p->samples, p->nr_samples);
+		sound_out(p->samples, p->nr_samples);
 
-	free(p->samples);
-	free(p);
+		free(p->samples);
+		free(p);
+	}
 }
 
 static int tx_tail = 100;
@@ -413,9 +427,17 @@ static int tx_state_cnt;
 static void tx_state_machine(void)
 {
 	tx_state_cnt++;
+	bool bcn;
+	if (beacon) {
+		bcn = beacon_state_check(beacon);
+		bcn = bcn && (!cdc || fullduplex);
+	} else {
+		bcn = false;
+	}
+	
 	switch (tx_state) {
 		case TX_STATE_OFF:
-			if (queue_voice) {
+			if (queue_voice || bcn) {
 				tx_state = TX_STATE_ON;
 				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
 				tx_state_cnt = 0;
@@ -424,7 +446,7 @@ static void tx_state_machine(void)
 				break;
 			}
 		case TX_STATE_ON:
-			if (!queue_voice) {
+			if (!queue_voice && !bcn) {
 				tx_state = TX_STATE_TAIL;
 				tx_state_cnt = 0;
 			} else {
@@ -439,13 +461,11 @@ static void tx_state_machine(void)
 				
 				sound_silence();
 			} else {
-				if (queue_voice) {
+				if (queue_voice || bcn) {
 					tx_state = TX_STATE_ON;
 					tx_state_cnt = 0;
 					
 					dequeue_voice();
-				} else {
-					sound_silence();
 				}
 			}
 	}
@@ -457,6 +477,8 @@ static void usage(void)
 	printf("Options:\n");
 	printf("-v\tverbose\n");
 	printf("-a\tUse A-Law encoding\n");
+	printf("-B [sec]\tMorse beacon interval\n");
+	printf("-b [msg]\tMorse beacon message\n");
 	printf("-c [call]\town callsign\n");
 	printf("-f\tfull-duplex\n");
 	printf("-s [dev]\tSound device (default: \"default\")\n");
@@ -493,16 +515,24 @@ int main(int argc, char **argv)
 	bool is_c2 = true;
 	bool tap = true;
 	int rate = 8000;
+	int beacon_interval = 0;
+	char *beacon_msg = NULL;
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "vac:d:i:s:n:Sm:d:t:p:P:D:fr:M:")) != -1) {
+	while ((opt = getopt(argc, argv, "vaB:b:c:d:i:s:n:Sm:d:t:p:P:D:fr:M:")) != -1) {
 		switch(opt) {
 			case 'v':
 				verbose = true;
 				break;
 			case 'a':
 				is_c2 = false;
+				break;
+			case 'B':
+				beacon_interval = atoi(optarg);
+				break;
+			case 'b':
+				beacon_msg = optarg;
 				break;
 			case 'c':
 				call = optarg;
@@ -637,8 +667,6 @@ int main(int argc, char **argv)
 	samples_rx = calloc(nr_samples, sizeof(samples_rx[0]));
 	tx_data = calloc(16, sizeof(uint8_t));
 
-	mod_silence = calloc(nr_samples, sizeof(mod_silence[0]));
-
 	fd_int = interface_init(netname, mac, tap, 0);
 	sound_init(sounddev, cb_sound_in, nr_samples, 8000, rate);
 
@@ -654,6 +682,10 @@ int main(int argc, char **argv)
 	if (fd_int < 0) {
 		printf("Could not create interface\n");
 		return -1;
+	}
+
+	if (beacon_interval) {
+		beacon = beacon_init(rate, nr_samples, beacon_interval, beacon_msg);
 	}
 
 	sound_fdc_tx = sound_poll_count_tx();

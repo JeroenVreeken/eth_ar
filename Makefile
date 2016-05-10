@@ -28,7 +28,7 @@ FPRS_SRCS = \
 
 FPRS_OBJS = $(FPRS_SRCS:.c=.o)
 
-ANALOG_TRX_OBJS = $(OBJS) $(ETH_AR_OBJS) $(INTERFACE_OBJS) analog_trx.o
+ANALOG_TRX_OBJS = $(OBJS) $(ETH_AR_OBJS) $(INTERFACE_OBJS) beacon.o analog_trx.o
 FREEDV_ETH_OBJS = $(OBJS) $(ETH_AR_OBJS) $(INTERFACE_OBJS) $(FPRS_OBJS) freedv_eth.o
 
 all: analog_trx freedv_eth fprs_test fprs2aprs_gate
@@ -51,7 +51,7 @@ $(OBJS): Makefile
 
 clean:
 	rm -rf $(OBJS) $(ETH_AR_OBJS) $(FPRS_OBJS) $(INTERFACE_OBJS) $(DEPS) \
-		analog_trx analog_trx.o \
+		beacon.o analog_trx analog_trx.o \
 		freedv_eth freedv_eth.o \
 		fprs_test fprs_test.o \
 		fprs2aprs_gate fprs2aprs_gate.o
