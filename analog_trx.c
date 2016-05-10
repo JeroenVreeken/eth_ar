@@ -459,6 +459,9 @@ static void tx_state_machine(void)
 				tx_state_cnt = 0;
 				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
 				
+				/* make dcd insensitive for a little while */
+				dcd_level = -dcd_threshold;
+				
 				sound_silence();
 			} else {
 				if (queue_voice || bcn) {
@@ -466,6 +469,8 @@ static void tx_state_machine(void)
 					tx_state_cnt = 0;
 					
 					dequeue_voice();
+				} else {
+					sound_silence();
 				}
 			}
 	}
