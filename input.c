@@ -24,7 +24,10 @@
 #include <stdio.h>
 #include <linux/input.h>
 
-int input_init(char *device)
+static bool toggle;
+static bool state = false;
+
+int input_init(char *device, bool inputtoggle)
 {
 	int fd = open(device, O_RDONLY);
 	
@@ -33,19 +36,32 @@ int input_init(char *device)
 	if (fd >= 0)
 		ioctl(fd, EVIOCGRAB, (void*)1);
 
+	toggle = inputtoggle;
+
 	return fd;
 }
 
 int input_handle(int fd, void (*cb)(bool state))
 {
 	struct input_event ev;
+	ssize_t r;
 	
-	if (read(fd, &ev, sizeof(ev)) == sizeof(ev)) {
+	r = read(fd, &ev, sizeof(ev));
+	if (r == sizeof(ev)) {
 		if (ev.type == EV_KEY) {
-			cb(ev.value);
+			if (!toggle) {
+				cb(ev.value);
+			} else {
+				if (ev.value) {
+					state = !state;
+					cb(state);
+				}
+			}
 		}
+	} else {
+		printf("input r: %zd\n", r);
 	}
-	
+
 	return 0;
 }
 

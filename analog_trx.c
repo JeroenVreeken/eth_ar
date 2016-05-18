@@ -496,6 +496,7 @@ static void usage(void)
 	printf("-d [thrh]\tDCD threshold (default: %d)\n", dcd_threshold);
 	printf("-t [msec]\tTX tail\n");
 	printf("-i [dev]\tUse input device instead of DCD\n");
+	printf("-I\tUse input device as toggle instead of keypress\n");
 	printf("-r [rate]\tSound rate\n");
 	printf("-M [mode]\tCodec2 mode\n");
 }
@@ -506,6 +507,7 @@ int main(int argc, char **argv)
 	char *sounddev = "default";
 	char *netname = "analog";
 	char *inputdev = NULL;
+	bool inputtoggle = false;
 	int fd_int;
 	int fd_input = -1;
 	struct pollfd *fds;
@@ -525,7 +527,7 @@ int main(int argc, char **argv)
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "vaB:b:c:d:i:s:n:Sm:d:t:p:P:D:fr:M:")) != -1) {
+	while ((opt = getopt(argc, argv, "vaB:b:c:d:i:Is:n:Sm:d:t:p:P:D:fr:M:")) != -1) {
 		switch(opt) {
 			case 'v':
 				verbose = true;
@@ -547,6 +549,9 @@ int main(int argc, char **argv)
 				break;
 			case 'i':
 				inputdev = optarg;
+				break;
+			case 'I':
+				inputtoggle = true;
 				break;
 			case 's':
 				sounddev = optarg;
@@ -680,7 +685,7 @@ int main(int argc, char **argv)
 	hl_init();
 	dtmf_init();
 	if (inputdev)
-		fd_input = input_init(inputdev);
+		fd_input = input_init(inputdev, inputtoggle);
 
 	prio();
 	

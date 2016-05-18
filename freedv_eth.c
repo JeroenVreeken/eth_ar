@@ -439,6 +439,7 @@ static int hl_init(void)
 	return 0;
 }
 
+static bool vc_busy = false;
 
 void tx_state_machine(void)
 {
@@ -472,7 +473,9 @@ void tx_state_machine(void)
 			}
 			break;
 		case TX_STATE_ON:
-			if (!queue_voice && ! queue_data && freedv_data_ntxframes(freedv) <= 1) {
+			if (!queue_voice &&
+			    !queue_data && freedv_data_ntxframes(freedv) <= 1 &&
+			    !vc_busy) {
 //				printf("ON -> TAIL\n");
 				tx_state = TX_STATE_TAIL;
 				tx_state_cnt = 0;
@@ -537,9 +540,11 @@ static char vc_callback_tx(void *arg)
 			free(qp->data);
 			free(qp);
 		}
+		vc_busy = true;
 		printf("VC TX: 0x%x %c\n", c, c);
 	} else {
 		c = 0;
+		vc_busy = false;
 	}
 	
 	return c;

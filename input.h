@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-int input_init(char *device);
+int input_init(char *device, bool inputtoggle);
 int input_handle(int fd, void (*cb)(bool state));
 
 #endif /* _INCLUDE_INPUT_H_ */
