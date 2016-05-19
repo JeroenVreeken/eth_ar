@@ -56,6 +56,8 @@ static int nr_rx;
 static int bytes_per_codec_frame;
 static int bytes_per_eth_frame;
 
+static void *silence_packet;
+
 enum tx_state {
 	TX_STATE_OFF,
 	TX_STATE_DELAY,
@@ -130,17 +132,21 @@ static void cb_sound_in(int16_t *samples, int nr)
 					    packed_codec_bits + i * bytes_per_eth_frame,
 					    bytes_per_eth_frame);
 				}
-				cdc_voice = 0;
+				printf(".");
+				fflush(NULL);
+				cdc_voice = true;
 			} else if (cdc) {
-				/* Data frame between voice data? */
-				uint8_t silence[bytes_per_eth_frame];
 				int i;
-				memset(silence, 0, bytes_per_eth_frame);
-				for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
-					interface_rx(
-					    bcast, rx_add, eth_type_rx,
-					    silence,
-					    bytes_per_eth_frame);
+				/* Data frame between voice data? */
+				printf("*");
+				fflush(NULL);
+				if (cdc_voice) {
+					for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
+						interface_rx(
+						    bcast, rx_add, eth_type_rx,
+						    silence_packet,
+						    bytes_per_eth_frame);
+					}
 				}
 			}
 
@@ -232,7 +238,7 @@ static void dequeue_voice(void)
 //			printf("e: %f\n", energy);
 
 			if (tx_state_data_header_cnt >= tx_header_max ||
-			    (have_data && energy < 50.0) ||
+			    (have_data && energy < 15.0) ||
 			    energy < 1.0) {
 				data_tx();
 			} else {
@@ -568,6 +574,24 @@ void read_nmea(int fd_nmea)
 	}
 }
 
+
+static void create_silence_packet(struct CODEC2 *c2)
+{
+	int nr = codec2_samples_per_frame(c2);
+	int16_t samples[nr];
+	silence_packet = calloc(1, bytes_per_eth_frame);
+
+	memset(samples, 0, nr * sizeof(int16_t));
+	
+	int i;
+	unsigned char *sp = silence_packet;
+
+	for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
+		codec2_encode(c2, sp, samples);
+		sp += bytes_per_codec_frame;
+	}
+}
+
 static void usage(void)
 {
 	printf("Options:\n");
@@ -716,6 +740,8 @@ int main(int argc, char **argv)
 
 	int period_msec = 1000 / (rate / nr_samples);
 	printf("TX period: %d msec\n", period_msec);
+
+	create_silence_packet(freedv_get_codec2(freedv));
 
 	tx_tail /= period_msec;
 	tx_delay /= period_msec;
