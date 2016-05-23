@@ -177,6 +177,7 @@ static struct tx_packet *queue_data = NULL;
 static int queue_data_len = 0;
 static struct tx_packet *queue_voice = NULL;
 static struct tx_packet *queue_control = NULL;
+static bool vc_busy = false;
 
 static uint8_t *tx_data;
 static size_t tx_data_len;
@@ -235,12 +236,15 @@ static void dequeue_voice(void)
 			bool fprs_late = nmea && tx_state_fprs_cnt >= tx_fprs && nmea->position_valid;
 			bool header_late = tx_state_data_header_cnt >= tx_header;
 			bool have_data = fprs_late || queue_data || header_late;
-//			printf("e: %f\n", energy);
+			
+//			printf("e: %f %d\n", energy, vc_busy);
 
 			if (tx_state_data_header_cnt >= tx_header_max ||
 			    (have_data && energy < 15.0) ||
-			    energy < 1.0) {
+			    (!vc_busy && energy < 1.0)) {
 				data_tx();
+				printf("+");
+				fflush(NULL);
 			} else {
 				int nr = freedv_get_n_nom_modem_samples(freedv);
 				int16_t mod_out[nr];
@@ -249,6 +253,8 @@ static void dequeue_voice(void)
 				if (nr > 0) {
 					sound_out(mod_out, nr);
 				}
+				printf("-");
+				fflush(NULL);
 			}
 			tx_data_len = 0;
 		}
@@ -444,8 +450,6 @@ static int hl_init(void)
 
 	return 0;
 }
-
-static bool vc_busy = false;
 
 void tx_state_machine(void)
 {
