@@ -182,15 +182,15 @@ static bool vc_busy = false;
 static uint8_t *tx_data;
 static size_t tx_data_len;
 
+static int nom_modem_samples;
+static int16_t *mod_out;
+
+
 static void data_tx(void)
 {
-	int nr = freedv_get_n_nom_modem_samples(freedv);
-	int16_t mod_out[nr];
 	freedv_datatx(freedv, mod_out);
 	
-	if (nr > 0) {
-		sound_out(mod_out, nr);
-	}
+	sound_out(mod_out, nom_modem_samples);
 }
 
 static void check_tx_add(void)
@@ -246,13 +246,10 @@ static void dequeue_voice(void)
 				printf("+");
 				fflush(NULL);
 			} else {
-				int nr = freedv_get_n_nom_modem_samples(freedv);
-				int16_t mod_out[nr];
 				freedv_codectx(freedv, mod_out, tx_data);
 			
-				if (nr > 0) {
-					sound_out(mod_out, nr);
-				}
+				sound_out(mod_out, nom_modem_samples);
+
 				printf("-");
 				fflush(NULL);
 			}
@@ -453,6 +450,9 @@ static int hl_init(void)
 
 void tx_state_machine(void)
 {
+	ptt_t ptt;
+	bool set_ptt = false;
+
 	tx_state_cnt++;
 	switch (tx_state) {
 		case TX_STATE_OFF:
@@ -460,7 +460,8 @@ void tx_state_machine(void)
 //				printf("OFF -> DELAY\n");
 				tx_state = TX_STATE_DELAY;
 				tx_state_cnt = 0;
-				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
+				set_ptt = true;
+				ptt = RIG_PTT_ON;
 
 				check_tx_add();
 			} else {
@@ -503,7 +504,8 @@ void tx_state_machine(void)
 //				printf("TAIL -> OFF\n");
 				tx_state = TX_STATE_OFF;
 				tx_state_cnt = 0;
-				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
+				set_ptt = true;
+				ptt = RIG_PTT_OFF;
 			} else {
 				if (queue_voice || queue_data) {
 //					printf("TAIL -> ON\n");
@@ -520,6 +522,9 @@ void tx_state_machine(void)
 				break;
 			}
 	}
+
+	if (set_ptt)
+		rig_set_ptt(rig, RIG_VFO_CURR, ptt);
 }
 
 
@@ -725,6 +730,7 @@ int main(int argc, char **argv)
 	freedv_set_data_header(freedv, mac);
 
 	nr_samples = freedv_get_n_max_modem_samples(freedv);
+	nom_modem_samples = freedv_get_n_nom_modem_samples(freedv);
 	printf("max number of modem samples: %d\n", nr_samples);
         bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
 	bytes_per_eth_frame += 7;
@@ -793,11 +799,11 @@ int main(int argc, char **argv)
 	
 	do {
 		poll(fds, nfds, -1);
-		if (fds[poll_int].revents & POLLIN) {
-			interface_tx(cb_int_tx);
-		}
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
 			tx_state_machine();
+		}
+		if (fds[poll_int].revents & POLLIN) {
+			interface_tx(cb_int_tx);
 		}
 		if (sound_poll_in_rx(fds + sound_fdc_tx, sound_fdc_rx)) {
 			sound_rx();
