@@ -166,7 +166,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 
 struct tx_packet {
 	uint8_t from[6];
-	uint8_t *data;
+	uint8_t data[2048];
 	size_t len;
 	size_t off;
 	
@@ -260,7 +260,6 @@ static void dequeue_voice(void)
 	struct tx_packet *old = queue_voice;
 	queue_voice = old->next;
 	
-	free(old->data);
 	free(old);
 }
 
@@ -274,10 +273,6 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	packet->next = NULL;
 
 	if (eth_type == eth_type_rx) {
-		packet->data = malloc(len);
-		if (!packet->data)
-			goto err_packet;
-
 		packet->len = len;
 		memcpy(packet->data, data, len);
 		memcpy(packet->from, from, 6);
@@ -285,10 +280,6 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		for (queuep = &queue_voice; *queuep; queuep = &(*queuep)->next);
 		*queuep = packet;
 	} else if (eth_type == ETH_P_AR_CONTROL) {
-		packet->data = malloc(len);
-		if (!packet->data)
-			goto err_packet;
-
 		memcpy(packet->data, data, len);
 		packet->len = len;
 		packet->off = 0;
@@ -299,10 +290,6 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		if (queue_data_len >= QUEUE_DATA_MAX)
 			goto err_packet;
 			
-		packet->data = malloc(len + 6 + 6 + 2);
-		if (!packet->data)
-			goto err_packet;
-
 		packet->len = len + 6 + 6 + 2;
 		memcpy(packet->data + 0, to, 6);
 		memcpy(packet->data + 6, from, 6);
@@ -390,7 +377,6 @@ static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 			*size = qp->len;
 			queue_data_len--;
 		
-			free(qp->data);
 			free(qp);
 		}
 	} else {
@@ -552,7 +538,6 @@ static char vc_callback_tx(void *arg)
 		if (qp->off >= qp->len) {
 			queue_control = qp->next;
 		
-			free(qp->data);
 			free(qp);
 		}
 		vc_busy = true;
