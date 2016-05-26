@@ -43,7 +43,6 @@ int sound_out(int16_t *samples, int nr)
 	int16_t play_samples[play_nr * channels_out];
 	
 	if (src_out) {
-		int i;
 		float data_in[nr], data_out[play_nr];
 		SRC_DATA data;
 		data.data_in = data_in;
@@ -59,14 +58,17 @@ int sound_out(int16_t *samples, int nr)
 		
 		src_float_to_short_array(data_out, play_samples, play_nr);
 
-		if (channels_out != 1)
-			for (i = play_nr; i >= 0; i--) {
-				play_samples[i * 2 + 0] = play_samples[i];
-				play_samples[i * 2 + 1] = play_samples[i];
-			}
 
 		samples = play_samples;
 		nr = play_nr;
+	}
+	if (channels_out != 1) {
+		int i;
+		for (i = play_nr; i >= 0; i--) {
+			play_samples[i * 2 + 0] = samples[i];
+			play_samples[i * 2 + 1] = samples[i];
+		}
+		samples = play_samples;
 	}
 	
 	r = snd_pcm_writei (pcm_handle_tx, samples, nr);
@@ -147,6 +149,7 @@ static int nr;
 
 int sound_rx(void)
 {
+	int i;
 	int r;
 	int16_t samples[nr];
 	int rec_nr = nr * 1.0/ratio_in;
@@ -162,8 +165,12 @@ int sound_rx(void)
 		return -1;
 	}
 
+	if (channels_in != 1)
+		for (i = 0; i < r; i++) {
+			rec_samples[i] = rec_samples[i * 2];
+		}
+
 	if (src_in) {
-		int i;
 		int r_in = r * ratio_in;
 		float data_in[r], data_out[r_in];
 		SRC_DATA data;
@@ -173,12 +180,6 @@ int sound_rx(void)
 		data.output_frames = r_in;
 		data.end_of_input = 0;
 		data.src_ratio = ratio_in;
-
-
-		if (channels_in != 1)
-			for (i = 0; i < r; i++) {
-				rec_samples[i] = rec_samples[i * 2];
-			}
 
 		src_short_to_float_array(rec_samples, data_in, r);
 		
@@ -226,7 +227,7 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 			channels = 2;
 		}
 	}
-	if (channels != 1 || rate != rrate) {
+	if (rate != rrate) {
 		int err;
 		SRC_STATE *src = src_new(SRC_LINEAR, 1, &err);
 		double ratio = (double)rate / (double)rrate;
@@ -234,12 +235,15 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 		if (is_tx) {
 			src_out = src;
 			ratio_out = 1.0/ratio;
-			channels_out = channels;
 		} else {
 			src_in = src;
 			ratio_in = ratio;
-			channels_in = channels;
 		}
+	}
+	if (is_tx) {
+		channels_out = channels;
+	} else {
+		channels_in = channels;
 	}
 
 	snd_pcm_uframes_t buffer_size = nr * ( is_tx ? 2 : 10);
