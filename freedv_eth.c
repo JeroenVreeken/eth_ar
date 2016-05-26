@@ -716,6 +716,7 @@ int main(int argc, char **argv)
 
 	nr_samples = freedv_get_n_max_modem_samples(freedv);
 	nom_modem_samples = freedv_get_n_nom_modem_samples(freedv);
+	mod_out = calloc(sizeof(int16_t), nom_modem_samples);
 	printf("max number of modem samples: %d\n", nr_samples);
         bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
 	bytes_per_eth_frame += 7;
