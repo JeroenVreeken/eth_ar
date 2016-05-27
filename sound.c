@@ -36,6 +36,8 @@ static double ratio_in = 1.0;
 static int channels_out = 1;
 static int channels_in = 1;
 
+int written;
+int failed;
 int sound_out(int16_t *samples, int nr)
 {
 	int r;
@@ -74,10 +76,12 @@ int sound_out(int16_t *samples, int nr)
 	r = snd_pcm_writei (pcm_handle_tx, samples, nr);
 //	printf("alsa: %d\n", r);
 	if (r < 0) {
-		printf("recover output\n");
+		failed++;
+		printf("recover output %d %d %d\n", written, failed, written/failed);
 		snd_pcm_recover(pcm_handle_tx, r, 1);
 		snd_pcm_writei (pcm_handle_tx, samples, nr);
 	}
+	written++;
 
 	return 0;
 }
@@ -246,7 +250,7 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 		channels_in = channels;
 	}
 
-	snd_pcm_uframes_t buffer_size = nr * ( is_tx ? 2 : 10);
+	snd_pcm_uframes_t buffer_size = nr * ( is_tx ? 3 : 10);
 	snd_pcm_uframes_t period_size = nr * 1;
 
 	snd_pcm_hw_params_set_buffer_size_near (pcm_handle, hw_params, &buffer_size);

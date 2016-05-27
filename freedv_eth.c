@@ -398,7 +398,7 @@ static int prio(void)
 {
 	struct sched_param param;
 
-	param.sched_priority = 90;
+	param.sched_priority = sched_get_priority_max(SCHED_FIFO);
 
 	if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
 		printf("sched_setscheduler() failed: %s\n",
@@ -526,6 +526,10 @@ void tx_state_machine(void)
 static void vc_callback_rx(void *arg, char c)
 {
 	uint8_t msg[2];
+	
+	/* Ignore if not receiving */
+	if (!cdc)
+		return;
 	
 	if (c)
 		printf("VC RX: 0x%x %c\n", c, c);
