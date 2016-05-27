@@ -114,7 +114,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 			   2400B mode so we can take it into account */
 			int sync = freedv_get_sync(freedv);
 			if (!sync) {
-				if (rx_sync)
+				if (old_cdc)
 					printf("RX sync lost\n");
 				rx_sync = 0;
 			} else {
@@ -179,12 +179,30 @@ static struct tx_packet *queue_voice = NULL;
 static struct tx_packet *queue_control = NULL;
 static bool vc_busy = false;
 
-static uint8_t *tx_data;
-static size_t tx_data_len;
-
 static int nom_modem_samples;
 static int16_t *mod_out;
 
+static struct tx_packet *tx_packet_pool = NULL;
+
+static struct tx_packet *tx_packet_alloc(void)
+{
+	if (tx_packet_pool) {
+		struct tx_packet *packet;
+		
+		packet = tx_packet_pool;
+		tx_packet_pool = packet->next;
+		
+		return packet;
+	}
+	
+	return malloc(sizeof(struct tx_packet));
+}
+
+static void tx_packet_free(struct tx_packet *packet)
+{
+	packet->next = tx_packet_pool;
+	tx_packet_pool = packet;
+}
 
 static void data_tx(void)
 {
@@ -222,17 +240,10 @@ static void dequeue_voice(void)
 	check_tx_add();
 
 	while (len) {
-		size_t copy = len;
-		if (copy + tx_data_len > bytes_per_codec_frame)
-			copy = bytes_per_codec_frame - tx_data_len;
-		
-		memcpy(tx_data + tx_data_len, data, copy);
-		tx_data_len += copy;
-		data += copy;
-		len -= copy;
-		
-		if (tx_data_len == bytes_per_codec_frame) {
-			double energy = codec2_get_energy(codec2, tx_data);
+		if (len < bytes_per_codec_frame) {
+			len = 0;
+		} else {
+			double energy = codec2_get_energy(codec2, data);
 			bool fprs_late = nmea && tx_state_fprs_cnt >= tx_fprs && nmea->position_valid;
 			bool header_late = tx_state_data_header_cnt >= tx_header;
 			bool have_data = fprs_late || queue_data || header_late;
@@ -246,30 +257,28 @@ static void dequeue_voice(void)
 				printf("+");
 				fflush(NULL);
 			} else {
-				freedv_codectx(freedv, mod_out, tx_data);
+				freedv_codectx(freedv, mod_out, data);
 			
 				sound_out(mod_out, nom_modem_samples);
 
 				printf("-");
 				fflush(NULL);
 			}
-			tx_data_len = 0;
+			len -= bytes_per_codec_frame;
 		}
 	}
 	
 	struct tx_packet *old = queue_voice;
 	queue_voice = old->next;
 	
-	free(old);
+	tx_packet_free(old);
 }
 
 static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
 {
 	struct tx_packet *packet, **queuep;
 	
-	packet = malloc(sizeof(struct tx_packet));
-	if (!packet)
-		return -1;
+	packet = tx_packet_alloc();
 	packet->next = NULL;
 
 	if (eth_type == eth_type_rx) {
@@ -306,7 +315,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	return 0;
 
 err_packet:
-	free(packet);
+	tx_packet_free(packet);
 	return -1;
 }
 
@@ -377,7 +386,7 @@ static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
 			*size = qp->len;
 			queue_data_len--;
 		
-			free(qp);
+			tx_packet_free(qp);
 		}
 	} else {
 		/* TX not on, just send header frames as filler */
@@ -538,7 +547,7 @@ static char vc_callback_tx(void *arg)
 		if (qp->off >= qp->len) {
 			queue_control = qp->next;
 		
-			free(qp);
+			tx_packet_free(qp);
 		}
 		vc_busy = true;
 		printf("VC TX: 0x%x %c\n", c, c);
@@ -726,7 +735,6 @@ int main(int argc, char **argv)
 	printf("ehternet frames per freedv frame: %d\n", rat);
 	bytes_per_codec_frame = bytes_per_eth_frame * rat;
 	samples_rx = calloc(nr_samples, sizeof(samples_rx[0]));
-	tx_data = calloc(bytes_per_codec_frame, sizeof(uint8_t));
 
 	eth_type_rx = type;
 	fd_int = interface_init(netname, mac, true, 0);
