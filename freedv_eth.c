@@ -45,6 +45,7 @@ static bool verbose = false;
 static bool cdc = false;
 static bool cdc_voice = false;
 static bool fullduplex = false;
+static bool vc_control = true;
 
 static struct freedv *freedv;
 static struct CODEC2 *codec2;
@@ -288,7 +289,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		
 		for (queuep = &queue_voice; *queuep; queuep = &(*queuep)->next);
 		*queuep = packet;
-	} else if (eth_type == ETH_P_AR_CONTROL) {
+	} else if (eth_type == ETH_P_AR_CONTROL && vc_control) {
 		memcpy(packet->data, data, len);
 		packet->len = len;
 		packet->off = 0;
@@ -614,6 +615,7 @@ static void usage(void)
 	printf("-p [dev]\tHAMlib PTT device file\n");
 	printf("-d [msec]\tTX delay\n");
 	printf("-t [msec]\tTX tail\n");
+	printf("-D\tUse data frames for control instead of VC bits\n");
 }
 
 int main(int argc, char **argv)
@@ -637,7 +639,7 @@ int main(int argc, char **argv)
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "c:d:fF:M:m:n:P:p:s:t:v")) != -1) {
+	while ((opt = getopt(argc, argv, "c:d:DfF:M:m:n:P:p:s:t:v")) != -1) {
 		switch(opt) {
 			case 'M':
 				if (!strcmp(optarg, "1600")) {
@@ -667,6 +669,9 @@ int main(int argc, char **argv)
 				break;
 			case 'c':
 				call = optarg;
+				break;
+			case 'D':
+				vc_control = false;
 				break;
 			case 'F':
 				nmeadev = optarg;
