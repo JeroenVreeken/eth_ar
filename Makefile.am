@@ -8,8 +8,7 @@ libeth_ar_la_SOURCES= eth_ar.c fprs.c fprs2aprs.c
 libeth_ar_la_CFLAGS=-fPIC 
 libeth_ar_la_LDFLAGS= -shared -fPIC -version-info 0:0:0 -lm
 
-nobase_include_HEADERS = eth_ar/eth_ar.h
-nobase_include_HEADERS = eth_ar/fprs.h
+nobase_include_HEADERS = eth_ar/eth_ar.h eth_ar/fprs.h
 
 
 bin_PROGRAMS = analog_trx freedv_eth fprs2aprs_gate
