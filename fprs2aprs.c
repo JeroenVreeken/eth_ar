@@ -16,8 +16,8 @@
 
  */
 
-#include "fprs.h"
-#include "eth_ar.h"
+#include <eth_ar/fprs.h>
+#include <eth_ar/eth_ar.h>
 
 #include <stdio.h>
 #include <string.h>

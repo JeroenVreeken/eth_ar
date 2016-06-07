@@ -15,7 +15,7 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
  */
-#include "eth_ar.h"
+#include <eth_ar/eth_ar.h>
 
 #include <ctype.h>
 #include <stdio.h>

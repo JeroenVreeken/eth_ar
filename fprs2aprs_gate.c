@@ -16,8 +16,8 @@
 
  */
 #include "interface.h"
-#include "fprs.h"
-#include "eth_ar.h"
+#include <eth_ar/fprs.h>
+#include <eth_ar/eth_ar.h>
 
 #include <poll.h>
 #include <errno.h>

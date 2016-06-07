@@ -16,9 +16,9 @@
 
  */
 
-#include "fprs.h"
+#include <eth_ar/fprs.h>
 #include "nmea.h"
-#include "eth_ar.h"
+#include <eth_ar/eth_ar.h>
 
 #include <stdlib.h>
 #include <stdio.h>

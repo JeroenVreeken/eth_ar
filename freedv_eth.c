@@ -34,9 +34,9 @@
 #include <codec2/codec2.h>
 
 #include "interface.h"
-#include "eth_ar.h"
+#include <eth_ar/eth_ar.h>
 #include "sound.h"
-#include "fprs.h"
+#include <eth_ar/fprs.h>
 #include "nmea.h"
 
 #define QUEUE_DATA_MAX 40

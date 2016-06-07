@@ -31,7 +31,7 @@
 #include <codec2/codec2.h>
 
 #include "interface.h"
-#include "eth_ar.h"
+#include <eth_ar/eth_ar.h>
 #include "sound.h"
 #include "dtmf.h"
 #include "alaw.h"
