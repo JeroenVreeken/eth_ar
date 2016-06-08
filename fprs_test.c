@@ -229,6 +229,69 @@ int test_callsign(void)
 	return 0;
 }
 
+int test_destination(void)
+{
+	struct fprs_frame *frame = fprs_frame_create();
+	uint8_t callsign[6] = { 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff };
+
+	if (fprs_frame_add_destination(frame, callsign)) {
+		return -1;
+	}
+
+	fprs_frame_destroy(frame);
+	return 0;
+}
+
+int test_request(void)
+{
+	struct fprs_frame *frame = fprs_frame_create();
+	uint8_t callsign[6] = { 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff };
+	enum fprs_type elements[3] = { 0x00001, 0x0022, 0x0333 };
+	int nr_elements = 3;
+
+	if (fprs_frame_add_request(frame, callsign, elements, nr_elements)) {
+		return -1;
+	}
+
+	uint8_t *element = fprs_frame_element_get(frame, NULL);
+	if (!element) {
+		fprintf(stderr, "Could not retrieve altitude element\n");
+		return -1;
+	}
+
+	enum fprs_type elements2[4];
+	int nr_elements2 = 4;
+	uint8_t callsign2[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	
+	if (fprs_request_dec(callsign2, elements2, &nr_elements2, 
+	    fprs_element_data(element),
+	    fprs_element_size(element))) {
+		fprintf(stderr, "Could not retrieve request contents\n");
+		return -1;
+	}
+	
+	if (memcmp(callsign, callsign2, 6)) {
+		fprintf(stderr, "Callsign not identical\n");
+		return -1;
+	}
+	
+	if (nr_elements2 != nr_elements) {
+		fprintf(stderr, "Incorrect number of elements: %d\n", nr_elements2);
+		return -1;	
+	}
+	
+	int i;
+	for (i = 0; i < nr_elements; i++) {
+		if (elements2[i] != elements[i]) {
+			fprintf(stderr, "Elements do not match: %d: %d != %d\n", i, elements2[i], elements[i]);
+			return -1;	
+		}
+	}
+
+	fprs_frame_destroy(frame);
+	return 0;
+}
+
 int test_objectname(void)
 {
 	struct fprs_frame *frame = fprs_frame_create();
@@ -395,6 +458,42 @@ int test_vector(void)
 	}
 
 	return ret;
+}
+
+static int test_timestamp(void)
+{
+	struct fprs_frame *frame = fprs_frame_create();
+
+	if (fprs_frame_add_timestamp(frame, 0x883355)) {
+		return -1;
+	}
+
+	uint8_t *element = fprs_frame_element_get(frame, NULL);
+	if (!element) {
+		fprintf(stderr, "Could not retrieve position element\n");
+		return -1;
+	}
+
+	if (fprs_element_size(element) != 3) {
+		fprintf(stderr, "Element has wrong size: %zd\n",
+		    fprs_element_size(element));
+		return -1;
+	}
+
+	time_t t;
+	if (fprs_timestamp_dec(&t, fprs_element_data(element), fprs_element_size(element))) {
+		fprintf(stderr, "Could not retrieve time\n");
+		return -1;
+	}
+	
+	if (t != 0x883355) {
+		fprintf(stderr, "Wrong time: %llx\n", (long long)t);
+		return -1;	
+	}
+
+	fprs_frame_destroy(frame);
+
+	return 0;
 }
 
 static int test_fprs2aprs(void)
@@ -619,11 +718,14 @@ struct fprs_test {
 	{ "Create and destroy frame", test_frame_create_destroy },
 	{ "Set and get frame data", test_frame_data_set_get },
 	{ "Elements", test_frame_elements },
-	{ "Position", test_position },
-	{ "Callsign", test_callsign },
-	{ "Altitude", test_altitude },
-	{ "Objectname", test_objectname },
-	{ "vector", test_vector },
+	{ "POSITION", test_position },
+	{ "CALLSIGN", test_callsign },
+	{ "DESTINATION", test_destination },
+	{ "ALTITUDE", test_altitude },
+	{ "OBJECTNAME", test_objectname },
+	{ "VECTOR", test_vector },
+	{ "TIMESTAMP", test_timestamp },
+	{ "REQUEST", test_request },
 	{ "fprs2aprs", test_fprs2aprs },
 	{ "nmea (line)", test_nmea_line },
 	{ "nmea", test_nmea },

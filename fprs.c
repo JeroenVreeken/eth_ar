@@ -235,6 +235,59 @@ int fprs_frame_add_callsign(struct fprs_frame *frame, uint8_t callsign[6])
 	return 0;
 }
 
+int fprs_frame_add_destination(struct fprs_frame *frame, uint8_t callsign[6])
+{
+	uint8_t *element;
+	
+	element = fprs_frame_element_add(frame, FPRS_DESTINATION, 6);
+	if (!element)
+		return -1;
+
+	memcpy(fprs_element_data(element), callsign, 6);
+
+	return 0;
+}
+
+int fprs_frame_add_request(struct fprs_frame *frame, uint8_t callsign[6], enum fprs_type *elements, int nr_elements)
+{
+	uint8_t *element;
+	int i;
+	
+	element = fprs_frame_element_add(frame, FPRS_REQUEST, 6 + nr_elements * 2);
+	if (!element)
+		return -1;
+
+	memcpy(fprs_element_data(element), callsign, 6);
+	for (i = 0; i < nr_elements; i++) {
+		fprs_element_data(element)[6 + i * 2 + 0] = elements[i] >> 8;
+		fprs_element_data(element)[6 + i * 2 + 1] = elements[i] & 0xff;
+	}
+
+	return 0;
+}
+
+int fprs_request_dec(uint8_t callsign[6], enum fprs_type *elements, int *nr_elements, uint8_t *el_data, size_t el_size)
+{
+	int nre;
+	int i;
+	
+	if (el_size < 6)
+		return -1;
+	memcpy(callsign, el_data, 6);
+	
+	nre = (el_size - 6) / 2;
+	if (nre > *nr_elements)
+		return -1;
+	
+	for (i = 0; i < nre; i++) {
+		elements[i] = 
+		    (el_data[6 + i * 2 + 0] << 8) | (el_data[6 + i * 2 + 1]);
+	}
+	*nr_elements = nre;
+	
+	return 0;
+}
+
 int fprs_frame_add_symbol(struct fprs_frame *frame, uint8_t symbol[2])
 {
 	uint8_t *element;
@@ -499,6 +552,43 @@ int fprs_vector_dec(double *az, double *el, double *speed, uint8_t dec[4])
 	
 	return 0;
 }
+
+int fprs_frame_add_timestamp(struct fprs_frame *frame, time_t t)
+{
+	uint8_t *element;
+	int size;
+	
+	for (size = 1; t >= ((uint64_t)1 << size*8); size++);
+	
+	element = fprs_frame_element_add(frame, FPRS_TIMESTAMP, size);
+	if (!element)
+		return -1;
+
+	while (size) {
+		fprs_element_data(element)[size -1] = t & 0xff;
+		size--;
+		t >>= 8;
+	}
+
+	return 0;
+}
+
+int fprs_timestamp_dec(time_t *timestamp, uint8_t *el_data, size_t el_size)
+{
+	time_t t = 0;
+	
+	while (el_size) {
+		t <<= 8;
+		t |= *el_data;
+		el_data++;
+		el_size--;
+	}
+	
+	*timestamp = t;
+	
+	return 0;
+}
+
 
 char *fprs_type2str(enum fprs_type type)
 {

@@ -80,6 +80,10 @@ enum fprs_type {
 	/* length limited to 255 */
 	FPRS_OBJECTNAME = 16, 	/* Object name (variable length) */
 	FPRS_COMMENT = 17, 	/* Generic comment (do not use it for objects, altitude etc) */
+	FPRS_DMLSTREAM = 18,	/* DML stream name (variable length) */
+	FPRS_REQUEST = 19,	/* Request elements about a station */
+	FPRS_DESTINATION = 20,	/* Reply target */
+	FPRS_TIMESTAMP = 21,	/* variable length timestamp */
 };
 
 char *fprs_type2str(enum fprs_type);
@@ -94,6 +98,10 @@ int fprs_position_enc(uint8_t enc[7], double lon, double lat, bool fixed);
 int fprs_position_dec(double *lon, double *lat, bool *fixed, uint8_t dec[7]);
 
 int fprs_frame_add_callsign(struct fprs_frame *, uint8_t callsign[6]);
+int fprs_frame_add_destination(struct fprs_frame *, uint8_t callsign[6]);
+
+int fprs_frame_add_request(struct fprs_frame *, uint8_t callsign[6], enum fprs_type *elements, int nr_elements);
+int fprs_request_dec(uint8_t callsign[6], enum fprs_type *elements, int *nr_elements, uint8_t *el_data, size_t el_size);
 
 int fprs_frame_add_symbol(struct fprs_frame *frame, uint8_t symbol[2]);
 
@@ -104,6 +112,9 @@ int fprs_altitude_dec(double *altitude, uint8_t dec[2]);
 int fprs_frame_add_vector(struct fprs_frame *, double az, double el, double speed);
 int fprs_vector_enc(uint8_t enc[4], double az, double el, double speed);
 int fprs_vector_dec(double *az, double *el, double *speed, uint8_t dec[4]);
+
+int fprs_frame_add_timestamp(struct fprs_frame *, time_t time);
+int fprs_timestamp_dec(time_t *timestamp, uint8_t *el_data, size_t el_size);
 
 #define FPRS_VECTOR_SPEED_EPSILON (1.0/16.0)
 

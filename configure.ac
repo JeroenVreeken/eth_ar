@@ -43,6 +43,10 @@ AC_CHECK_HEADERS([hamlib/rig.h],
 AS_IF([test "x$hamlib_found_headers" != "xyes"],
         [AC_MSG_ERROR([Unable to find the hamlib headers])])
 
+AC_CHECK_DECLS([RIG_PTT_GPIO], [], [
+	AC_MSG_ERROR([This version of hamlib does not support PTT by GPIO])],
+	[[#include <hamlib/rig.h>]])
+
 
 AC_OUTPUT([Makefile])
 
