@@ -80,10 +80,12 @@ enum fprs_type {
 	/* length limited to 255 */
 	FPRS_OBJECTNAME = 16, 	/* Object name (variable length) */
 	FPRS_COMMENT = 17, 	/* Generic comment (do not use it for objects, altitude etc) */
-	FPRS_DMLSTREAM = 18,	/* DML stream name (variable length) */
-	FPRS_REQUEST = 19,	/* Request elements about a station */
-	FPRS_DESTINATION = 20,	/* Reply target */
-	FPRS_TIMESTAMP = 21,	/* variable length timestamp */
+	FPRS_REQUEST = 18,	/* Request elements about a station */
+	FPRS_DESTINATION = 19,	/* Reply target */
+	FPRS_TIMESTAMP = 20,	/* variable length timestamp */
+
+	FPRS_DMLSTREAM = 21,	/* DML stream name (variable length) */
+	FPRS_DMLASSOC = 22,	/* DML stream name (variable length) */
 };
 
 char *fprs_type2str(enum fprs_type);

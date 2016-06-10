@@ -71,8 +71,8 @@ int nmea_parse_line(struct nmea_state *state, char *line)
 		return -1;
 	
 	if (!strncmp(line + 1, "GPGGA", 5)) {
-		int t;
-		int lat, latd, lon, lond;
+		float t;
+		float lat, lon;
 		char ns, ew;
 		int fix;
 		int nrsat;
@@ -80,48 +80,48 @@ int nmea_parse_line(struct nmea_state *state, char *line)
 		float alt;
 		char at;
 		
-		sscanf(line, "$GPGGA,%d,%d.%d,%c,%d.%d,%c,%d,%d,%g,%g,%c",
-		    &t, &lat, &latd, &ns, &lon, &lond, &ew, &fix, &nrsat, &dilution,
+		sscanf(line, "$GPGGA,%f,%f,%c,%f,%c,%d,%d,%g,%g,%c",
+		    &t, &lat, &ns, &lon, &ew, &fix, &nrsat, &dilution,
 		    &alt, &at);
 		
 		state->position_valid = fix;
 		state->altitude_valid = fix;
 		
-		state->longitude = lon / 100;
-		state->longitude += ((lon % 100) + lond * 0.001) / 60.0;
+		state->longitude = (int)lon / 100;
+		state->longitude += (lon - state->longitude * 100) / 60.0;
 		if (ew == 'W')
 			state->longitude *= -1;
 
-		state->latitude = lat / 100;
-		state->latitude += ((lat % 100) + latd * 0.001) / 60.0;
+		state->latitude = (int)lat / 100;
+		state->latitude += (lat - state->latitude * 100) / 60.0;
 		if (ns == 'S')
 			state->latitude *= -1;
 		
 		state->altitude = alt;
 	}
 	if (!strncmp(line + 1, "GPRMC", 5)) {
-		int t;
+		float t;
 		char status;
-		int lat, latd, lon, lond;
+		float lat, lon;
 		char ns, ew;
 		float sknot;
 		float tt;
 		
-		sscanf(line, "$GPRMC,%d,%c,%d.%d,%c,%d.%d,%c,%f,%f",
-		    &t, &status, &lat, &latd, &ns, &lon, &lond, &ew, 
+		sscanf(line, "$GPRMC,%f,%c,%f,%c,%f,%c,%f,%f",
+		    &t, &status, &lat, &ns, &lon, &ew, 
 		    &sknot, &tt);
 		
 		state->position_valid = status == 'A';
 		state->course_valid = status == 'A';
 		state->speed_valid = status == 'A';
 		
-		state->longitude = lon / 100;
-		state->longitude += ((lon % 100) + lond * 0.001) / 60.0;
+		state->longitude = (int)lon / 100;
+		state->longitude += (lon - state->longitude * 100) / 60.0;
 		if (ew == 'W')
 			state->longitude *= -1;
 
-		state->latitude = lat / 100;
-		state->latitude += ((lat % 100) + latd * 0.001) / 60.0;
+		state->latitude = (int)lat / 100;
+		state->latitude += (lat - state->latitude * 100) / 60.0;
 		if (ns == 'S')
 			state->latitude *= -1;
 		

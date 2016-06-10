@@ -559,8 +559,14 @@ static int test_fprs2aprs(void)
 
 static bool fp_check(double val, double checkval, double prec)
 {
+	bool r;
 	double diff = fabs(val - checkval);
-	return diff <= prec;
+	r = diff <= prec;
+	if (!r) {
+		printf("%f != %f (within %f)\n", val, checkval, prec);
+	}
+
+	return r;
 }
 
 static int test_nmea_line(void)
@@ -581,7 +587,7 @@ static int test_nmea_line(void)
 	if (!state->position_valid || !state->altitude_valid)
 		return -1;
 			
-	if (!fp_check(state->latitude, 48.117300, 0.000001)) {
+	if (!fp_check(state->latitude, 48.117301, 0.000001)) {
 		return -1;
 	}
 	if (!fp_check(state->longitude, 11.516667, 0.000001)) {
@@ -613,7 +619,7 @@ static int test_nmea_line(void)
 	if (!state->position_valid)
 		return -1;
 			
-	if (!fp_check(state->latitude, 48.117300, 0.000001)) {
+	if (!fp_check(state->latitude, 48.117301, 0.000001)) {
 		return -1;
 	}
 	if (!fp_check(state->longitude, 11.516667, 0.000001)) {
@@ -691,7 +697,7 @@ static int test_nmea(void)
 	if (!state->position_valid)
 		return -1;
 			
-	if (!fp_check(state->latitude, 48.117300, 0.000001)) {
+	if (!fp_check(state->latitude, 48.117301, 0.000001)) {
 		return -1;
 	}
 	if (!fp_check(state->longitude, 11.516667, 0.000001)) {
