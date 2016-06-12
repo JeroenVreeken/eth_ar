@@ -52,21 +52,17 @@ static dcd_type_t dcd_type = RIG_DCD_NONE;
 static int dcd_level = 0;
 static int dcd_threshold = 1;
 
-struct beacon *beacon;
+static struct beacon *beacon;
 
-struct CODEC2 *rx_codec;
-uint16_t rx_type;
+static struct CODEC2 *rx_codec;
+static uint16_t rx_type;
 
-int nr_samples;
-int16_t *samples_rx;
-int nr_rx;
-int squelch_level_c = 10000000;
-int squelch_level_o = 100000;
-int squelch_on_delay = 3;
-int squelch_off_delay = 10;
+static int nr_samples;
+static int16_t *samples_rx;
+static int nr_rx;
 
-uint8_t mac[6];
-uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+static uint8_t mac[6];
+static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 enum tx_state {
 	TX_STATE_OFF,
@@ -87,9 +83,9 @@ static struct tx_packet *queue_voice = NULL;
 
 
 
-bool squelch_input = false;
+static bool squelch_input = false;
 
-bool squelch(void)
+static bool squelch(void)
 {
 	dcd_t dcd;
 	if (dcd_type == RIG_DCD_NONE)
@@ -104,57 +100,10 @@ bool squelch(void)
 	return dcd_level >= dcd_threshold;
 }
 
-void input_cb(bool state)
+static void input_cb(bool state)
 {
 	printf("DCD input: %d\n", state);
 	squelch_input = state;
-}
-
-bool soft_squelch(int16_t *samples, int nr)
-{
-	double total = 0;
-	double high = 0, low = 0;
-	int i;
-	static int open_cnt = 0;
-	static int close_cnt = 0;
-	static bool state = false;
-	
-	for (i = 0; i < nr; i++) {
-		total += samples[i] * samples[i];
-		if (i & 1)
-			high += samples[i];
-		else
-			high -= samples[i];
-		if (i & 2)
-			low += samples[i];
-		else
-			low -= samples[i];
-	}
-	high = high * high;
-	low = low * low;
-	
-	if ((!state && high < squelch_level_o) ||
-	    (state && high < squelch_level_c)) {
-		open_cnt++;
-		close_cnt = 0;
-	} else {
-		open_cnt = 0;
-		close_cnt++;
-	}
-	if (!state && open_cnt >= squelch_on_delay) {
-		printf("Open\t%f\t%f\t%f\n", high, low, high/low);
-		state = true;
-	}
-	if (state && close_cnt >= squelch_off_delay) {
-		printf("Close\t%f\t%f\t%f\n", high, low, high/low);
-		state = false;
-	}
-	
-//	static int cnt;
-//	cnt++;
-//	if ((cnt & 7) == 0)
-//		printf("%f\t%f\t%f\n", high, low, high/low);
-	return state;
 }
 
 
@@ -167,7 +116,7 @@ static void cb_control(char *ctrl)
 	interface_rx(bcast, mac, ETH_P_AR_CONTROL, msg, strlen(ctrl));
 }
 
-void handle_tty(void)
+static void handle_tty(void)
 {
 	ssize_t r;
 	char buffer[2];
