@@ -15,7 +15,7 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
  */
-#include "input.h"
+#include "io.h"
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -25,9 +25,10 @@
 #include <linux/input.h>
 
 static bool toggle;
-static bool state = false;
+static bool input_state = false;
+static int fd_input = -1;
 
-int input_init(char *device, bool inputtoggle)
+int io_init_input(char *device, bool inputtoggle)
 {
 	int fd = open(device, O_RDONLY);
 	
@@ -41,7 +42,7 @@ int input_init(char *device, bool inputtoggle)
 	return fd;
 }
 
-int input_handle(int fd, void (*cb)(bool state))
+static int input_handle(int fd)
 {
 	struct input_event ev;
 	ssize_t r;
@@ -50,13 +51,13 @@ int input_handle(int fd, void (*cb)(bool state))
 	if (r == sizeof(ev)) {
 		if (ev.type == EV_KEY) {
 			if (!toggle) {
-				cb(ev.value);
+				input_state = ev.value;
 			} else {
 				if (ev.value) {
-					state = !state;
-					cb(state);
+					input_state = !input_state;
 				}
 			}
+			printf("DCD input: %d\n", input_state);
 		}
 	} else {
 		printf("input r: %zd\n", r);
@@ -66,3 +67,77 @@ int input_handle(int fd, void (*cb)(bool state))
 }
 
 
+static int fd_tty = -1;
+
+int io_init_tty(void)
+{
+	fd_tty = 0;
+	
+	return 0;
+}
+
+static int tty_rx = false;
+
+bool io_state_rx_get(void)
+{
+	return tty_rx;
+}
+
+int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *))
+{
+	int nr = 0;
+	
+	if (fd_input >= 0 && nr < count) {
+		if (fds[nr].events == POLLIN) {
+			input_handle(fd_input);
+		}
+		nr++;
+	}
+	if (fd_tty >= 0 && nr < count) {
+		if (fds[nr].events == POLLIN) {
+			ssize_t r;
+			char buffer[2];
+	
+			r = read(0, buffer, 1);
+			if (r == 1) {
+				if (buffer[0] == '\n') {
+					tty_rx = ! tty_rx;
+				} else {
+					buffer[1] = 0;
+					cb_control(buffer);
+				}
+			}
+		}
+		nr++;
+	}
+	
+	return nr;
+}
+
+
+int io_fs_nr(void)
+{
+	int nr = 0;
+	
+	if (fd_input >= 0)
+		nr++;
+	if (fd_tty >= 0)
+		nr++;
+	
+	return nr;
+}
+
+int io_poll_fill(struct pollfd *fds, int count)
+{
+	int nr = 0;
+	
+	if (fd_input >= 0 && nr < count) {
+		fds[nr].fd = fd_input;
+		nr++;
+	}
+	if (fd_tty && nr < count) {
+		fds[nr].fd = fd_tty;
+		nr++;
+	}
+	return 0;
+}

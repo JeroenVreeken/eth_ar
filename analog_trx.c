@@ -35,14 +35,13 @@
 #include "sound.h"
 #include "dtmf.h"
 #include "alaw.h"
-#include "input.h"
+#include "io.h"
 #include "beacon.h"
 
 
 static bool verbose = false;
 static bool cdc = false;
 static bool fullduplex = false;
-static bool tty_rx = false;
 
 static RIG *rig;
 static rig_model_t rig_model;
@@ -83,13 +82,12 @@ static struct tx_packet *queue_voice = NULL;
 
 
 
-static bool squelch_input = false;
 
 static bool squelch(void)
 {
 	dcd_t dcd;
 	if (dcd_type == RIG_DCD_NONE)
-		return squelch_input;
+		return io_state_rx_get();
 	
 	rig_get_dcd(rig, RIG_VFO_CURR, &dcd);
 	if (dcd == RIG_DCD_ON)
@@ -98,12 +96,6 @@ static bool squelch(void)
 		dcd_level = 0;
 
 	return dcd_level >= dcd_threshold;
-}
-
-static void input_cb(bool state)
-{
-	printf("DCD input: %d\n", state);
-	squelch_input = state;
 }
 
 
@@ -116,25 +108,10 @@ static void cb_control(char *ctrl)
 	interface_rx(bcast, mac, ETH_P_AR_CONTROL, msg, strlen(ctrl));
 }
 
-static void handle_tty(void)
-{
-	ssize_t r;
-	char buffer[2];
-	
-	r = read(0, buffer, 1);
-	if (r == 1) {
-		if (buffer[0] == '\n') {
-			tty_rx = ! tty_rx;
-		} else {
-			buffer[1] = 0;
-			cb_control(buffer);
-		}
-	}
-}
 
 static void cb_sound_in(int16_t *samples, int nr)
 {
-	bool rx_state = squelch() || tty_rx;
+	bool rx_state = squelch();
 
 	if (!rx_state) {
 		cdc = false;
@@ -458,14 +435,13 @@ int main(int argc, char **argv)
 	char *inputdev = NULL;
 	bool inputtoggle = false;
 	int fd_int;
-	int fd_input = -1;
 	struct pollfd *fds;
 	int sound_fdc_tx;
 	int sound_fdc_rx;
 	int nfds;
 	int poll_int;
-	int poll_tty;
-	int poll_input;
+	int io_fdc;
+	int poll_io;
 	int opt;
 	int mode = CODEC2_MODE_3200;
 	bool is_c2 = true;
@@ -638,7 +614,7 @@ int main(int argc, char **argv)
 	hl_init();
 	dtmf_init();
 	if (inputdev)
-		fd_input = input_init(inputdev, inputtoggle);
+		io_init_input(inputdev, inputtoggle);
 
 	prio();
 	
@@ -653,7 +629,9 @@ int main(int argc, char **argv)
 
 	sound_fdc_tx = sound_poll_count_tx();
 	sound_fdc_rx = sound_poll_count_rx();
-	nfds = sound_fdc_tx + sound_fdc_rx + 1 + 1 + 1;
+	nfds = sound_fdc_tx + sound_fdc_rx + 1;
+	io_fdc = io_fs_nr();
+	nfds += io_fdc;
 	fds = calloc(sizeof(struct pollfd), nfds);
 	
 	sound_poll_fill_tx(fds, sound_fdc_tx);
@@ -661,12 +639,8 @@ int main(int argc, char **argv)
 	poll_int = sound_fdc_tx + sound_fdc_rx;
 	fds[poll_int].fd = fd_int;
 	fds[poll_int].events = POLLIN;
-	poll_tty = poll_int + 1;
-	fds[poll_tty].fd = 0;
-	fds[poll_tty].events = POLLIN;
-	poll_input = poll_tty + 1;
-	fds[poll_input].fd = fd_input;
-	fds[poll_input].events = POLLIN;
+	poll_io = poll_int + 1;
+	io_poll_fill(fds + poll_io, io_fdc);
 
 
 	do {
@@ -674,12 +648,7 @@ int main(int argc, char **argv)
 		if (fds[poll_int].revents & POLLIN) {
 			interface_tx(cb_int_tx);
 		}
-		if (fds[poll_tty].revents & POLLIN) {
-			handle_tty();
-		}
-		if (fds[poll_input].revents & POLLIN) {
-			input_handle(fd_input, input_cb);
-		}
+		io_handle(fds + poll_io, io_fdc, cb_control);
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
 			tx_state_machine();
 		}

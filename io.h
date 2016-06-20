@@ -21,8 +21,15 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <poll.h>
 
-int input_init(char *device, bool inputtoggle);
-int input_handle(int fd, void (*cb)(bool state));
+int io_init_tty(void);
+int io_init_input(char *device, bool inputtoggle);
+int io_fs_nr(void);
+int io_poll_fill(struct pollfd *fds, int count);
+
+bool io_state_rx_get(void);
+
+int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *));
 
 #endif /* _INCLUDE_INPUT_H_ */
