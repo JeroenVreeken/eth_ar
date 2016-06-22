@@ -209,7 +209,7 @@ static void data_tx(void)
 {
 	freedv_datatx(freedv, mod_out);
 	
-	sound_out(mod_out, nom_modem_samples);
+	sound_out(mod_out, nom_modem_samples, true, true);
 }
 
 static void check_tx_add(void)
@@ -260,7 +260,7 @@ static void dequeue_voice(void)
 			} else {
 				freedv_codectx(freedv, mod_out, data);
 			
-				sound_out(mod_out, nom_modem_samples);
+				sound_out(mod_out, nom_modem_samples, true, true);
 
 				printf("-");
 				fflush(NULL);

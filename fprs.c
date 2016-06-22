@@ -108,6 +108,17 @@ uint8_t *fprs_frame_element_get(struct fprs_frame *frame, uint8_t *prev)
 		return NULL;
 }
 
+uint8_t *fprs_frame_element_by_type(struct fprs_frame *frame, enum fprs_type type)
+{
+	uint8_t *e = NULL;
+	
+	while ((e = fprs_frame_element_get(frame, e))) {
+		if (fprs_element_type(e) == type)
+			return e;
+	}
+	return NULL;
+}
+
 uint8_t *fprs_frame_element_add(struct fprs_frame *frame, enum fprs_type type, size_t size)
 {
 	size_t allocsize = size;

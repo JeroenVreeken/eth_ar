@@ -3,6 +3,7 @@ analog_trx
 freedv_eth
 fprs2aprs_gate
 fprs_test
+eth_ar_if
 
 # http://www.gnu.org/software/automake
 

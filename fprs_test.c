@@ -105,6 +105,10 @@ int test_frame_elements(void)
 				    testelements[elcnt].size, fprs_element_size(el));
 				return -1;
 			}
+			if (fprs_frame_element_by_type(frame, testelements[elcnt].type) != el) {
+				fprintf(stderr, "by_type does not find element\n");
+				return -1;
+			}
 			int i;
 			
 			for (i = 0; i < testelements[elcnt].size; i++) {

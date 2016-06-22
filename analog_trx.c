@@ -333,14 +333,14 @@ static void dequeue_voice(void)
 			int16_t buffer[nr_samples];
 			
 			beacon_generate(beacon, buffer);
-			sound_out(buffer, nr_samples);
+			sound_out(buffer, nr_samples, true, true);
 		}
 	} else {
 		queue_voice = p->next;
 	
 		if (beacon)
 			beacon_generate_add(beacon, p->samples, p->nr_samples);
-		sound_out(p->samples, p->nr_samples);
+		sound_out(p->samples, p->nr_samples, true, true);
 
 		free(p->samples);
 		free(p);

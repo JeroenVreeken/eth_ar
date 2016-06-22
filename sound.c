@@ -38,11 +38,12 @@ static int channels_in = 1;
 
 int written;
 int failed;
-int sound_out(int16_t *samples, int nr)
+int sound_out(int16_t *samples, int nr, bool left, bool right)
 {
 	int r;
 	int play_nr = nr * ratio_out;
 	int16_t play_samples[play_nr * channels_out];
+	int i;
 	
 	if (src_out) {
 		float data_in[nr], data_out[play_nr];
@@ -64,16 +65,16 @@ int sound_out(int16_t *samples, int nr)
 		samples = play_samples;
 		nr = play_nr;
 	}
-	if (channels_out != 1) {
-		int i;
-		for (i = play_nr; i >= 0; i--) {
+
+	/* Output is always multiple channels */
+	for (i = play_nr; i >= 0; i--) {
+		if (left) 
 			play_samples[i * 2 + 0] = samples[i];
+		if (right)
 			play_samples[i * 2 + 1] = samples[i];
-		}
-		samples = play_samples;
 	}
 	
-	r = snd_pcm_writei (pcm_handle_tx, samples, nr);
+	r = snd_pcm_writei (pcm_handle_tx, play_samples, nr);
 //	printf("alsa: %d\n", r);
 	if (r < 0) {
 		failed++;
@@ -223,8 +224,9 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 	}
 	printf("rate: %d got rate: %d\n", rate, rrate);
 	
-	if (snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 1)) {
-		printf("Could not set channels to 1\n");
+	if (is_tx || snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 1)) {
+		if (!is_tx)
+			printf("Could not set channels to 1\n");
 		if (snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 2)) {
 			printf("Could not set channels to 2\n");
 		} else {

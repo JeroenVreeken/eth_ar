@@ -22,7 +22,7 @@
 #include <poll.h>
 #include <stdbool.h>
 
-int sound_out(int16_t *samples, int nr);
+int sound_out(int16_t *samples, int nr, bool left, bool right);
 int sound_silence(void);
 int sound_init(char *device, void (*in_cb)(int16_t *samples, int nr), int inr, int rate, int hw_rate);
 int sound_poll_count_tx(void);

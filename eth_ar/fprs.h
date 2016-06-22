@@ -90,6 +90,7 @@ enum fprs_type {
 
 char *fprs_type2str(enum fprs_type);
 
+uint8_t *fprs_frame_element_by_type(struct fprs_frame *, enum fprs_type);
 
 size_t fprs_element_size(uint8_t *element);
 enum fprs_type fprs_element_type(uint8_t *element);
