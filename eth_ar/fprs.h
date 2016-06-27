@@ -96,6 +96,8 @@ size_t fprs_element_size(uint8_t *element);
 enum fprs_type fprs_element_type(uint8_t *element);
 uint8_t *fprs_element_data(uint8_t *element);
 
+uint8_t *fprs_frame_element_add(struct fprs_frame *frame, enum fprs_type type, size_t size);
+
 int fprs_frame_add_position(struct fprs_frame *, double lon, double lat, bool fixed);
 int fprs_position_enc(uint8_t enc[7], double lon, double lat, bool fixed);
 int fprs_position_dec(double *lon, double *lat, bool *fixed, uint8_t dec[7]);
