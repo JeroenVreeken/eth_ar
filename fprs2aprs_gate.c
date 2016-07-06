@@ -50,13 +50,6 @@ uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 int fd_is = -1;
 int fd_int = -1;
 
-time_t info_t;
-int info_timeout = 60 * 30;
-double info_longitude = 0.0;
-double info_latitude = 0.0;
-char *info_text = "FPRS gate";
-struct fprs_frame *info_frame;
-
 int tcp_connect(char *host, int port)
 {
 	struct addrinfo *result;
@@ -208,24 +201,6 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	return 0;
 }
 
-void info_tx(void)
-{
-	fprs2aprs_is(info_frame, mac);
-	int_out(info_frame);
-}
-
-void info_create(void)
-{
-	info_frame = fprs_frame_create();
-	
-	fprs_frame_add_position(info_frame, 
-	    info_longitude, info_latitude, true);
-
-	fprs_frame_add_symbol(info_frame, (uint8_t[2]){'F','&'});
-
-	if (strlen(info_text))
-		fprs_frame_add_comment(info_frame, info_text);
-}
 
 
 #define kKey 0x73e2 // This is the seed for the key
@@ -277,10 +252,6 @@ static void usage(void)
 	printf("-h [host]\tAPRS-IS server (default: \"%s\")\n", host);
 	printf("-n [dev]\tNetwork device name (default: \"%s\")\n", netname);
 	printf("-p [port]\tAPRS-IS port (default: %d)\n", port);
-	printf("-t [seconds]\tInfo timeout (default: %d)\n", info_timeout);
-	printf("-i [text]\tInfo text (default: \"%s\")\n", info_text);
-	printf("-o [longitude]\tInfo longitude (default: %f)\n", info_longitude);
-	printf("-a [latitude]\tInfo latitude (default: %f)\n", info_latitude);
 }
 
 int main(int argc, char **argv)
@@ -292,9 +263,6 @@ int main(int argc, char **argv)
 	
 	while ((opt = getopt(argc, argv, "a:vc:n:fh:i:p:o:t:")) != -1) {
 		switch(opt) {
-			case 'a':
-				info_latitude = atof(optarg);
-				break;
 			case 'c':
 				call = optarg;
 				break;
@@ -304,29 +272,15 @@ int main(int argc, char **argv)
 			case 'h':
 				host = optarg;
 				break;
-			case 'i':
-				info_text = optarg;
-				break;
-			case 'o':
-				info_longitude = atof(optarg);
-				break;
 			case 'p':
 				port = atoi(optarg);
 				break;
 			case 'n':
 				netname = optarg;
 				break;
-			case 't':
-				info_timeout = atoi(optarg);
-				break;
 			default:
 				goto err_usage;
 		}
-	}
-	
-	info_t = time(NULL) - info_timeout;
-	if (info_longitude != 0.0 || info_latitude != 0.0) {
-		info_create();
 	}
 	
 	if (!call) {
@@ -391,12 +345,6 @@ int main(int argc, char **argv)
 				fd_is = -1;
 				fds[poll_is].fd = -1;
 			}
-		}
-		
-		if (time(NULL) - info_t >= info_timeout) {
-			info_t = time(NULL);
-			if (info_frame)
-				info_tx();
 		}
 	} while (1);
 
