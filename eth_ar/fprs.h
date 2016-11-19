@@ -36,6 +36,7 @@
  */
  
 struct fprs_frame;
+struct fprs_element;
 
 struct fprs_frame *fprs_frame_create(void);
 void fprs_frame_destroy(struct fprs_frame *);
@@ -51,7 +52,7 @@ int fprs_frame_data_get(struct fprs_frame *, uint8_t *data, size_t *size);
 
 size_t fprs_frame_data_size(struct fprs_frame *);
 
-uint8_t *fprs_frame_element_get(struct fprs_frame *, uint8_t *prev);
+struct fprs_element *fprs_frame_element_get(struct fprs_frame *, struct fprs_element *prev);
 
 /*
 	Element header:
@@ -90,13 +91,13 @@ enum fprs_type {
 
 char *fprs_type2str(enum fprs_type);
 
-uint8_t *fprs_frame_element_by_type(struct fprs_frame *, enum fprs_type);
+struct fprs_element *fprs_frame_element_by_type(struct fprs_frame *, enum fprs_type);
 
-size_t fprs_element_size(uint8_t *element);
-enum fprs_type fprs_element_type(uint8_t *element);
-uint8_t *fprs_element_data(uint8_t *element);
+size_t fprs_element_size(struct fprs_element *element);
+enum fprs_type fprs_element_type(struct fprs_element *element);
+uint8_t *fprs_element_data(struct fprs_element *element);
 
-uint8_t *fprs_frame_element_add(struct fprs_frame *frame, enum fprs_type type, size_t size);
+struct fprs_element *fprs_frame_element_add(struct fprs_frame *frame, enum fprs_type type, size_t size);
 
 int fprs_frame_add_position(struct fprs_frame *, double lon, double lat, bool fixed);
 int fprs_position_enc(uint8_t enc[7], double lon, double lat, bool fixed);

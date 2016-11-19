@@ -10,6 +10,9 @@ struct fprs_frame {
 	size_t size;
 };
 
+struct fprs_element {
+	uint8_t data[0];
+};
 
 
 struct fprs_frame *fprs_frame_create(void)
@@ -63,8 +66,9 @@ size_t fprs_frame_data_size(struct fprs_frame *frame)
 }
 
 
-static size_t fprs_element_size_total(struct fprs_frame *frame, uint8_t *element)
+static size_t fprs_element_size_total(struct fprs_frame *frame, struct fprs_element *elements)
 {
+	uint8_t *element = elements->data;
 	size_t pos = element - frame->data;
 	size_t size = 0;
 	
@@ -91,26 +95,27 @@ static size_t fprs_element_size_total(struct fprs_frame *frame, uint8_t *element
 }
 
 
-uint8_t *fprs_frame_element_get(struct fprs_frame *frame, uint8_t *prev)
+struct fprs_element *fprs_frame_element_get(struct fprs_frame *frame, struct fprs_element *prevs)
 {
+	uint8_t *prev = prevs->data;
 	size_t pos;
 	
-	if (prev) {
+	if (prevs) {
 		pos = prev - frame->data;
-		pos += fprs_element_size_total(frame, prev);
+		pos += fprs_element_size_total(frame, prevs);
 	} else {
 		pos = 0;
 	}
 	
-	if (fprs_element_size_total(frame, frame->data + pos))
-		return frame->data + pos;
+	if (fprs_element_size_total(frame, (struct fprs_element*)(frame->data + pos)))
+		return (struct fprs_element *)(frame->data + pos);
 	else
 		return NULL;
 }
 
-uint8_t *fprs_frame_element_by_type(struct fprs_frame *frame, enum fprs_type type)
+struct fprs_element *fprs_frame_element_by_type(struct fprs_frame *frame, enum fprs_type type)
 {
-	uint8_t *e = NULL;
+	struct fprs_element *e = NULL;
 	
 	while ((e = fprs_frame_element_get(frame, e))) {
 		if (fprs_element_type(e) == type)
@@ -119,7 +124,7 @@ uint8_t *fprs_frame_element_by_type(struct fprs_frame *frame, enum fprs_type typ
 	return NULL;
 }
 
-uint8_t *fprs_frame_element_add(struct fprs_frame *frame, enum fprs_type type, size_t size)
+struct fprs_element *fprs_frame_element_add(struct fprs_frame *frame, enum fprs_type type, size_t size)
 {
 	size_t allocsize = size;
 
@@ -145,38 +150,38 @@ uint8_t *fprs_frame_element_add(struct fprs_frame *frame, enum fprs_type type, s
 		element[1] = type & 0xff;
 		element[2] = size;
 	}
-	return element;
+	return (struct fprs_element*)element;
 }
 
-static size_t fprs_element_typed_size(uint8_t *element, enum fprs_type type)
+static size_t fprs_element_typed_size(struct fprs_element *element, enum fprs_type type)
 {
 	if (type < 16) {
-		return element[0] & 0x07;
+		return element->data[0] & 0x07;
 	}
 	if (type < 64) {
-		return element[1];
+		return element->data[1];
 	}
-	return element[2];
+	return element->data[2];
 }
 
-size_t fprs_element_size(uint8_t *element)
+size_t fprs_element_size(struct fprs_element *element)
 {
 	enum fprs_type type = fprs_element_type(element);
 	
 	return fprs_element_typed_size(element, type);
 }
 
-enum fprs_type fprs_element_type(uint8_t *element)
+enum fprs_type fprs_element_type(struct fprs_element *element)
 {
 	enum fprs_type ret;
-	uint8_t b0 = element[0];
+	uint8_t b0 = element->data[0];
 	
 	if ((b0 & 0x80) == 0x00) {
 		ret = (b0 & 0x78) >> 3;
 	} else if ((b0 & 0xc0) == 0x80) {
 		ret = b0 & 0x3f;
 	} else {
-		uint8_t b1 = element[1];
+		uint8_t b1 = element->data[1];
 	
 		ret = b1 + ((b0 & 0x1f) << 8);
 	}
@@ -209,9 +214,10 @@ enum fprs_type fprs_element_type(uint8_t *element)
 	return ret;
 }
 
-uint8_t *fprs_element_data(uint8_t *element)
+uint8_t *fprs_element_data(struct fprs_element *elements)
 {
-	enum fprs_type type = fprs_element_type(element);
+	uint8_t *element = elements->data;
+	enum fprs_type type = fprs_element_type(elements);
 	
 	if (type < 16)
 		return element + 1;
@@ -222,7 +228,7 @@ uint8_t *fprs_element_data(uint8_t *element)
 
 int fprs_frame_add_position(struct fprs_frame *frame, double lon, double lat, bool fixed)
 {
-	uint8_t *element;
+	struct fprs_element *element;
 	
 	element = fprs_frame_element_add(frame, FPRS_POSITION, 7);
 	if (!element)
@@ -235,7 +241,7 @@ int fprs_frame_add_position(struct fprs_frame *frame, double lon, double lat, bo
 
 int fprs_frame_add_callsign(struct fprs_frame *frame, uint8_t callsign[6])
 {
-	uint8_t *element;
+	struct fprs_element *element;
 	
 	element = fprs_frame_element_add(frame, FPRS_CALLSIGN, 6);
 	if (!element)
@@ -248,7 +254,7 @@ int fprs_frame_add_callsign(struct fprs_frame *frame, uint8_t callsign[6])
 
 int fprs_frame_add_destination(struct fprs_frame *frame, uint8_t callsign[6])
 {
-	uint8_t *element;
+	struct fprs_element *element;
 	
 	element = fprs_frame_element_add(frame, FPRS_DESTINATION, 6);
 	if (!element)
@@ -261,7 +267,7 @@ int fprs_frame_add_destination(struct fprs_frame *frame, uint8_t callsign[6])
 
 int fprs_frame_add_request(struct fprs_frame *frame, uint8_t callsign[6], enum fprs_type *elements, int nr_elements)
 {
-	uint8_t *element;
+	struct fprs_element *element;
 	int i;
 	
 	element = fprs_frame_element_add(frame, FPRS_REQUEST, 6 + nr_elements * 2);
@@ -301,7 +307,7 @@ int fprs_request_dec(uint8_t callsign[6], enum fprs_type *elements, int *nr_elem
 
 int fprs_frame_add_symbol(struct fprs_frame *frame, uint8_t symbol[2])
 {
-	uint8_t *element;
+	struct fprs_element *element;
 	
 	element = fprs_frame_element_add(frame, FPRS_SYMBOL, 2);
 	if (!element)
@@ -314,7 +320,7 @@ int fprs_frame_add_symbol(struct fprs_frame *frame, uint8_t symbol[2])
 
 int fprs_frame_add_objectname(struct fprs_frame *frame, char *obj)
 {
-	uint8_t *element;
+	struct fprs_element *element;
 	size_t objsize = strlen(obj);
 	
 	if (objsize > 255)
@@ -331,7 +337,7 @@ int fprs_frame_add_objectname(struct fprs_frame *frame, char *obj)
 
 int fprs_frame_add_comment(struct fprs_frame *frame, char *txt)
 {
-	uint8_t *element;
+	struct fprs_element *element;
 	size_t txtsize = strlen(txt);
 	
 	if (txtsize > 255)
@@ -418,7 +424,7 @@ int fprs_position_dec(double *lon, double *lat, bool *fixed, uint8_t dec[7])
 
 int fprs_frame_add_altitude(struct fprs_frame *frame, double altitude)
 {
-	uint8_t *element;
+	struct fprs_element *element;
 	
 	element = fprs_frame_element_add(frame, FPRS_ALTITUDE, 2);
 	if (!element)
@@ -460,7 +466,7 @@ int fprs_altitude_dec(double *altitude, uint8_t dec[2])
 
 int fprs_frame_add_vector(struct fprs_frame *frame, double az, double el, double speed)
 {
-	uint8_t *element;
+	struct fprs_element *element;
 	
 	element = fprs_frame_element_add(frame, FPRS_VECTOR, 4);
 	if (!element)
@@ -566,7 +572,7 @@ int fprs_vector_dec(double *az, double *el, double *speed, uint8_t dec[4])
 
 int fprs_frame_add_timestamp(struct fprs_frame *frame, time_t t)
 {
-	uint8_t *element;
+	struct fprs_element *element;
 	int size;
 	
 	for (size = 1; t >= ((uint64_t)1 << size*8); size++);

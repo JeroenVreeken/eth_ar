@@ -41,7 +41,7 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 		memcpy(origin, callsign, 6);
 	}
 	
-	uint8_t *element = NULL;
+	struct fprs_element *element = NULL;
 	while ((element = fprs_frame_element_get(frame, element))) {
 		enum fprs_type type = fprs_element_type(element);
 		

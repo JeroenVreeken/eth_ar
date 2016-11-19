@@ -73,7 +73,7 @@ int test_frame_data_set_get(void)
 int test_frame_elements(void)
 {
 	struct fprs_frame *frame;
-	uint8_t *el;
+	struct fprs_element *el;
 	struct {
 		enum fprs_type type;
 		size_t size;
@@ -154,7 +154,7 @@ int test_position(void)
 			double lon2, lat2;
 			bool fixed2;
 			
-			uint8_t *element = fprs_frame_element_get(frame, NULL);
+			struct fprs_element *element = fprs_frame_element_get(frame, NULL);
 			if (!element) {
 				fprintf(stderr, "Could not retrieve position element\n");
 				return -1;
@@ -199,7 +199,7 @@ int test_altitude(void)
 			return -1;
 		}
 			
-		uint8_t *element = fprs_frame_element_get(frame, NULL);
+		struct fprs_element *element = fprs_frame_element_get(frame, NULL);
 		if (!element) {
 			fprintf(stderr, "Could not retrieve altitude element\n");
 			return -1;
@@ -257,7 +257,7 @@ int test_request(void)
 		return -1;
 	}
 
-	uint8_t *element = fprs_frame_element_get(frame, NULL);
+	struct fprs_element *element = fprs_frame_element_get(frame, NULL);
 	if (!element) {
 		fprintf(stderr, "Could not retrieve altitude element\n");
 		return -1;
@@ -305,7 +305,7 @@ int test_objectname(void)
 		return -1;
 	}
 
-	uint8_t *element = fprs_frame_element_get(frame, NULL);
+	struct fprs_element *element = fprs_frame_element_get(frame, NULL);
 	if (!element) {
 		return -1;
 	}
@@ -398,7 +398,7 @@ int test_vector(void)
 			return -1;
 		}
 
-		uint8_t *element = fprs_frame_element_get(frame, NULL);
+		struct fprs_element *element = fprs_frame_element_get(frame, NULL);
 		if (!element) {
 			fprintf(stderr, "Could not retrieve position element\n");
 			return -1;
@@ -472,7 +472,7 @@ static int test_timestamp(void)
 		return -1;
 	}
 
-	uint8_t *element = fprs_frame_element_get(frame, NULL);
+	struct fprs_element *element = fprs_frame_element_get(frame, NULL);
 	if (!element) {
 		fprintf(stderr, "Could not retrieve position element\n");
 		return -1;
