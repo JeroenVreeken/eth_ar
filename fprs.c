@@ -318,38 +318,41 @@ int fprs_frame_add_symbol(struct fprs_frame *frame, uint8_t symbol[2])
 	return 0;
 }
 
-int fprs_frame_add_objectname(struct fprs_frame *frame, char *obj)
+static int fprs_frame_add_string(struct fprs_frame *frame, enum fprs_type type, char *str)
 {
 	struct fprs_element *element;
-	size_t objsize = strlen(obj);
+	size_t objsize = strlen(str);
 	
 	if (objsize > 255)
 		return -1;
 	
-	element = fprs_frame_element_add(frame, FPRS_OBJECTNAME, objsize);
+	element = fprs_frame_element_add(frame, type, objsize);
 	if (!element)
 		return -1;
 	
-	memcpy(fprs_element_data(element), obj, objsize);
+	memcpy(fprs_element_data(element), str, objsize);
 
 	return 0;
 }
 
+int fprs_frame_add_objectname(struct fprs_frame *frame, char *obj)
+{
+	return fprs_frame_add_string(frame, FPRS_OBJECTNAME, obj);
+}
+
 int fprs_frame_add_comment(struct fprs_frame *frame, char *txt)
 {
-	struct fprs_element *element;
-	size_t txtsize = strlen(txt);
-	
-	if (txtsize > 255)
-		return -1;
-	
-	element = fprs_frame_element_add(frame, FPRS_COMMENT, txtsize);
-	if (!element)
-		return -1;
-	
-	memcpy(fprs_element_data(element), txt, txtsize);
+	return fprs_frame_add_string(frame, FPRS_COMMENT, txt);
+}
 
-	return 0;
+int fprs_frame_add_dmlassoc(struct fprs_frame *frame, char *name)
+{
+	return fprs_frame_add_string(frame, FPRS_DMLASSOC, name);
+}
+
+int fprs_frame_add_dmlstream(struct fprs_frame *frame, char *name)
+{
+	return fprs_frame_add_string(frame, FPRS_DMLSTREAM, name);
 }
 
 #define FPRS_LON_SCALE 134217728
