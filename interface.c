@@ -31,7 +31,6 @@
 #include <linux/if_tun.h>
 
 static int fd;
-static uint16_t eth_mac[6];
 
 int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
 {
@@ -219,7 +218,6 @@ int interface_init(char *name, uint8_t mac[6], bool tap, uint16_t filter_type)
 		fd = tap_alloc(name, mac);
 	else
 		fd = sock_alloc(name, filter_type);
-	memcpy(eth_mac, mac, 6);
 	
 	return fd;
 }

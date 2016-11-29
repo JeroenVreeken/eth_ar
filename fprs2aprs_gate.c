@@ -261,7 +261,7 @@ int main(int argc, char **argv)
 	int poll_int, poll_is;
 	int opt;
 	
-	while ((opt = getopt(argc, argv, "a:vc:n:fh:i:p:o:t:")) != -1) {
+	while ((opt = getopt(argc, argv, "c:n:fh:i:p:")) != -1) {
 		switch(opt) {
 			case 'c':
 				call = optarg;

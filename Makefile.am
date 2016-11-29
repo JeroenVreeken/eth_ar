@@ -11,7 +11,7 @@ libeth_ar_la_LDFLAGS= -shared -fPIC -version-info 0:0:0 -lm
 nobase_include_HEADERS = eth_ar/eth_ar.h eth_ar/fprs.h
 
 
-bin_PROGRAMS = analog_trx freedv_eth fprs2aprs_gate eth_ar_if
+bin_PROGRAMS = analog_trx freedv_eth fprs2aprs_gate eth_ar_if fprs_request
 noinst_PROGRAMS = fprs_test
 
 analog_trx_SOURCES = sound.c alaw.c dsp.c io.c interface.c beacon.c analog_trx.c
@@ -27,6 +27,9 @@ fprs_test_LDADD = libeth_ar.la
 
 fprs2aprs_gate_SOURCES = fprs2aprs_gate.c interface.c
 fprs2aprs_gate_LDADD = libeth_ar.la
+
+fprs_request_SOURCES = fprs_request.c interface.c
+fprs_request_LDADD = libeth_ar.la
 
 eth_ar_if_SOURCES = eth_ar_if.c
 eth_ar_if_LDADD = libeth_ar.la

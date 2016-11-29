@@ -627,6 +627,18 @@ char *fprs_type2str(enum fprs_type type)
 			return "FPRS_SYMBOL";
 		case FPRS_OBJECTNAME:
 			return "FPRS_OBJECTNAME";
+		case FPRS_COMMENT:
+			return "FPRS_COMMENT";
+		case FPRS_REQUEST:
+			return "FPRS_REQUEST";
+		case FPRS_DESTINATION:
+			return "FPRS_DESTINATION";
+		case FPRS_TIMESTAMP:
+			return "FPRS_TIMESTAMP";
+		case FPRS_DMLSTREAM:
+			return "FPRS_DMLSTREAM";
+		case FPRS_DMLASSOC:
+			return "FPRS_DMLASSOC";
 		default:
 			return "FPRS_UNKNOWN";
 	}
