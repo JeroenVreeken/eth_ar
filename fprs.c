@@ -1,4 +1,24 @@
+/*
+	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2016
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ */
+#define _GNU_SOURCE
+
 #include <eth_ar/fprs.h>
+#include <eth_ar/eth_ar.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -642,4 +662,195 @@ char *fprs_type2str(enum fprs_type type)
 		default:
 			return "FPRS_UNKNOWN";
 	}
+}
+
+static char *concat(char *s1, char *s2)
+{
+	size_t l1, l2;
+	
+	if (s1)
+		l1 = strlen(s1);
+	else
+		l1 = 0;
+	l2 = strlen(s2);
+
+	char *d = malloc(l1+l2+1);
+	if (!d)
+		return NULL;
+	
+	if (s1) {
+		strcpy(d, s1);
+		free(s1);
+		strcat(d, s2);
+	} else {
+		strcpy(d, s2);
+	}
+	
+	return d;
+}
+
+char *fprs_element2stra(struct fprs_element *el)
+{
+	char *stra;
+	enum fprs_type type = fprs_element_type(el);
+	char *type_str = fprs_type2str(type);
+	void *el_data = fprs_element_data(el);
+	size_t el_size = fprs_element_size(el);
+
+	switch(type) {
+		case FPRS_POSITION: {
+			double lon, lat;
+			bool fixed;
+			
+			fprs_position_dec(&lon, &lat, &fixed, el_data);
+			asprintf(&stra, "\"%s\": { "
+			    "\"longitude\": %f, "
+			    "\"latitude\": %f, "
+			    "\"fixed\": %s "
+			    "}", 
+			    type_str, lon, lat, fixed ? "true" : "false");
+			break;
+		}
+		case FPRS_CALLSIGN: {
+			char callsign[ETH_AR_CALL_SIZE];
+			int ssid;
+			bool multicast;
+			
+			eth_ar_mac2call(callsign, &ssid, &multicast, el_data);
+			
+			asprintf(&stra, "\"%s\": { "
+			    "\"callsign\": \"%s\", "
+			    "\"ssid\": %d, "
+			    "\"multicast\": %s "
+			    "}",
+			    type_str, callsign, ssid, multicast ? "true" : "false");
+			break;
+		}
+		case FPRS_ALTITUDE: {
+			double altitude;
+			
+			fprs_altitude_dec(&altitude, el_data);
+			asprintf(&stra, "\"%s\": { "
+			    "\"altitude\": %f "
+			    "}",
+			    type_str, altitude);
+			break;
+		}
+		case FPRS_VECTOR: {
+			double az, el, speed;
+			
+			fprs_vector_dec(&az, &el, &speed, el_data);
+			asprintf(&stra, "\"%s\": { "
+			    "\"azimuth\": %f, "
+			    "\"elevation\": %f, "
+			    "\"speed\": %f, "
+			    "}",
+			    type_str, az, el, speed);
+			break;
+		}
+		case FPRS_SYMBOL: {
+			char *symbol = el_data;
+			
+			asprintf(&stra, "\"%s\": { "
+			    "\"symbol\": \"%c%c\" "
+			    "}",
+			    type_str, symbol[0], symbol[1]);
+		
+			break;
+		}
+		case FPRS_OBJECTNAME: {
+			asprintf(&stra, "\"%s\": { "
+			    "\"objectname\": \"%.*s\" "
+			    "}",
+			    type_str, (int)el_size, (char*)el_data);
+		
+			break;
+		}
+		case FPRS_COMMENT: {
+			asprintf(&stra, "\"%s\": { "
+			    "\"comment\": \"%.*s\" "
+			    "}",
+			    type_str, (int)el_size, (char*)el_data);
+		
+			break;
+		}
+		case FPRS_REQUEST: {
+			uint8_t call[6];
+			char callsign[ETH_AR_CALL_SIZE];
+			int ssid;
+			bool multicast;
+			enum fprs_type elements[128];
+			int nr_elements = 128;
+			char *el_str = NULL;
+			int i;
+			
+			fprs_request_dec(call, elements, &nr_elements, el_data, el_size);
+			eth_ar_mac2call(callsign, &ssid, &multicast, call);
+
+			for (i = 0; i < nr_elements; i++) {
+				if (i)
+					el_str = concat(el_str, ", \"");
+				else
+					el_str = concat(el_str, "\"");
+				el_str = concat(el_str, fprs_type2str(elements[i]));
+				el_str = concat(el_str, "\"");
+			}
+			
+			asprintf(&stra, "\"%s\": { "
+			    "\"callsign\": \"%s\", "
+			    "\"ssid\": %d, "
+			    "\"multicast\": %s, "
+			    "\"elements\": [ %s ] "
+			    "}",
+			    type_str, callsign, ssid, multicast ? "true" : "false", el_str);
+			free(el_str);
+			break;
+		}
+		case FPRS_DESTINATION: {
+			char callsign[ETH_AR_CALL_SIZE];
+			int ssid;
+			bool multicast;
+			
+			eth_ar_mac2call(callsign, &ssid, &multicast, el_data);
+			
+			asprintf(&stra, "\"%s\": { "
+			    "\"callsign\": \"%s\", "
+			    "\"ssid\": %d, "
+			    "\"multicast\": %s "
+			    "}",
+			    type_str, callsign, ssid, multicast ? "true" : "false");
+			break;
+		}
+		case FPRS_TIMESTAMP: {
+			time_t timestamp;
+			fprs_timestamp_dec(&timestamp, el_data, el_size);
+			asprintf(&stra, "\"%s\": { "
+			    "\"timestamp\": %lld "
+			    "}",
+			    type_str, (long long)timestamp);
+		
+			break;
+		}
+		case FPRS_DMLSTREAM: {
+			asprintf(&stra, "\"%s\": { "
+			    "\"stream\": \"%.*s\" "
+			    "}",
+			    type_str, (int)el_size, (char*)el_data);
+		
+			break;
+		}
+		case FPRS_DMLASSOC: {
+			asprintf(&stra, "\"%s\": { "
+			    "\"stream\": \"%.*s\" "
+			    "}",
+			    type_str, (int)el_size, (char*)el_data);
+		
+			break;
+		}
+		default: 
+			asprintf(&stra, "\"%s\": { }", type_str);
+			break;
+	}
+	
+	return stra;
 }

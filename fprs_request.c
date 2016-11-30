@@ -23,8 +23,44 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
+#include <sys/select.h>
 
-char *netname = "freedv";
+static char *netname = "freedv";
+static uint8_t taddr[6];
+static enum fprs_type el = FPRS_ERROR;
+static bool done = false;
+
+static int cb(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
+{
+	struct fprs_frame *frame = fprs_frame_create();
+	if (!frame)
+		return -1;
+	
+	fprs_frame_data_set(frame, data, len);
+	
+	struct fprs_element *el_callsign;
+	struct fprs_element *el_requested;
+	
+	el_callsign = fprs_frame_element_by_type(frame, FPRS_CALLSIGN);
+	el_requested = fprs_frame_element_by_type(frame, el);
+	
+	if (!el_callsign || !el_requested)
+		goto skip;
+
+	if (memcmp(taddr, fprs_element_data(el_callsign), 6))
+		goto skip;
+	
+	char *el_str = fprs_element2stra(el_requested);
+	printf("%s\n", el_str);
+	free(el_str);
+	
+	done = true;
+skip:	
+	fprs_frame_destroy(frame);
+
+	return 0;
+}
 
 static void usage(void)
 {
@@ -35,16 +71,18 @@ static void usage(void)
 	printf("-n [dev]\tNetwork device name (default: \"%s\")\n", netname);
 }
 
+
 int main(int argc, char **argv)
 {
 	int opt;
 	int fd_int;
 	uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 	uint8_t myaddr[6];
-	uint8_t taddr[6];
 	char *call = NULL;
 	char *target = NULL;
-	enum fprs_type el = FPRS_ERROR;
+	time_t stop_listen = 60;
+	time_t interval = 10;
+	time_t retry;
 	
 	while ((opt = getopt(argc, argv, "c:n:t:e:")) != -1) {
 		switch(opt) {
@@ -90,14 +128,45 @@ int main(int argc, char **argv)
 				
 	size = fprs_frame_data_size(frame);
 	data = calloc(size, sizeof(uint8_t));
-	if (data) {
-		fprs_frame_data_get(frame, data, &size);
-		interface_rx(bcast, myaddr, ETH_P_FPRS, data, size);
-		free(data);
-	}
+	if (!data)
+		goto err_fatal;
+	fprs_frame_data_get(frame, data, &size);
+
+	stop_listen += time(NULL);
+	retry = time(NULL);
+
+	do {
+		struct timeval timeout;
+		
+		if (retry > stop_listen) {
+			retry = stop_listen;
+		}
+		timeout.tv_usec = 0;
+		timeout.tv_sec = retry - time(NULL);
+		if (timeout.tv_sec < 0)
+			timeout.tv_sec = 0;
+		
+		fd_set fdr;
+		
+		FD_ZERO(&fdr);
+		FD_SET(fd_int, &fdr);
+		
+		select(fd_int + 1, &fdr, NULL, NULL, &timeout);
+
+		if (FD_ISSET(fd_int, &fdr)) {
+			interface_tx(cb);
+		}
+		if (!done) {
+			interface_rx(bcast, myaddr, ETH_P_FPRS, data, size);
+			retry += interval;
+		}
+	} while (!done && time(NULL) < stop_listen);
+	free(data);
 
 	return 0;
 
+err_fatal:
+	printf("FATAL ERROR\n");
 err_usage:
 	usage();
 	return -1;
