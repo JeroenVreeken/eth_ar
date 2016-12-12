@@ -37,6 +37,8 @@
 #include "alaw.h"
 #include "io.h"
 #include "beacon.h"
+#include "ctcss.h"
+#include "emphasis.h"
 
 
 static bool verbose = false;
@@ -62,6 +64,10 @@ static int nr_rx;
 
 static uint8_t mac[6];
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+
+static struct ctcss *ctcss = NULL;
+static struct emphasis *emphasis = NULL;
+
 
 enum tx_state {
 	TX_STATE_OFF,
@@ -333,6 +339,8 @@ static void dequeue_voice(void)
 			int16_t buffer[nr_samples];
 			
 			beacon_generate(beacon, buffer);
+			if (emphasis)
+				emphasis_pre(emphasis, p->samples, p->nr_samples);
 			sound_out(buffer, nr_samples, true, true);
 		}
 	} else {
@@ -340,6 +348,10 @@ static void dequeue_voice(void)
 	
 		if (beacon)
 			beacon_generate_add(beacon, p->samples, p->nr_samples);
+		if (ctcss)
+			ctcss_add(ctcss, p->samples, p->nr_samples);
+		if (emphasis)
+			emphasis_pre(emphasis, p->samples, p->nr_samples);
 		sound_out(p->samples, p->nr_samples, true, true);
 
 		free(p->samples);
@@ -367,6 +379,8 @@ static void tx_state_machine(void)
 				tx_state = TX_STATE_ON;
 				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
 				tx_state_cnt = 0;
+				if (ctcss)
+					ctcss_reset(ctcss);
 			} else {
 				sound_silence();
 				break;
@@ -425,6 +439,8 @@ static void usage(void)
 	printf("-I\tUse input device as toggle instead of keypress\n");
 	printf("-r [rate]\tSound rate\n");
 	printf("-M [mode]\tCodec2 mode\n");
+	printf("-T [freq]\tAdd CTCSS tone\n");
+	printf("-e\tAdd pre-emphasis\n");
 }
 
 int main(int argc, char **argv)
@@ -452,7 +468,7 @@ int main(int argc, char **argv)
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "vaB:b:c:d:i:Is:n:Sm:d:t:p:P:D:fr:M:")) != -1) {
+	while ((opt = getopt(argc, argv, "vaB:b:c:d:ei:Is:n:Sm:d:t:T:p:P:D:fr:M:")) != -1) {
 		switch(opt) {
 			case 'v':
 				verbose = true;
@@ -471,6 +487,9 @@ int main(int argc, char **argv)
 				break;
 			case 'd':
 				dcd_threshold = atoi(optarg);
+				break;
+			case 'e':
+				emphasis = emphasis_init();
 				break;
 			case 'i':
 				inputdev = optarg;
@@ -559,6 +578,12 @@ int main(int argc, char **argv)
 					mode = CODEC2_MODE_700B;
 				}
 				break;
+			case 'T': {
+				double f = atof(optarg);
+				double amp = 0.15;
+				ctcss = ctcss_init(rate, f, amp);
+				break;
+			}
 			default:
 				usage();
 				return -1;

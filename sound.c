@@ -252,7 +252,7 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 		channels_in = channels;
 	}
 
-	snd_pcm_uframes_t buffer_size = nr * ( is_tx ? 3 : 10);
+	snd_pcm_uframes_t buffer_size = nr * ( is_tx ? 2 : 10);
 	snd_pcm_uframes_t period_size = nr * 1;
 
 	snd_pcm_hw_params_set_buffer_size_near (pcm_handle, hw_params, &buffer_size);

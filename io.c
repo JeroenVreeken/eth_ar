@@ -30,23 +30,23 @@ static int fd_input = -1;
 
 int io_init_input(char *device, bool inputtoggle)
 {
-	int fd = open(device, O_RDONLY);
+	fd_input = open(device, O_RDONLY);
 	
-	printf("open %s: %d\n", device, fd);
+	printf("open %s: %d\n", device, fd_input);
 	
-	if (fd >= 0)
-		ioctl(fd, EVIOCGRAB, (void*)1);
+	if (fd_input >= 0)
+		ioctl(fd_input, EVIOCGRAB, (void*)1);
 
 	toggle = inputtoggle;
 
-	return fd;
+	return fd_input;
 }
 
 static int input_handle(int fd)
 {
 	struct input_event ev;
 	ssize_t r;
-	
+
 	r = read(fd, &ev, sizeof(ev));
 	if (r == sizeof(ev)) {
 		if (ev.type == EV_KEY) {
@@ -80,15 +80,15 @@ static int tty_rx = false;
 
 bool io_state_rx_get(void)
 {
-	return tty_rx;
+	return input_state;
 }
 
 int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *))
 {
 	int nr = 0;
-	
+
 	if (fd_input >= 0 && nr < count) {
-		if (fds[nr].events == POLLIN) {
+		if (fds[nr].revents == POLLIN) {
 			input_handle(fd_input);
 		}
 		nr++;
@@ -123,7 +123,7 @@ int io_fs_nr(void)
 		nr++;
 	if (fd_tty >= 0)
 		nr++;
-	
+
 	return nr;
 }
 
@@ -133,6 +133,7 @@ int io_poll_fill(struct pollfd *fds, int count)
 	
 	if (fd_input >= 0 && nr < count) {
 		fds[nr].fd = fd_input;
+		fds[nr].events = POLLIN;
 		nr++;
 	}
 	if (fd_tty && nr < count) {
