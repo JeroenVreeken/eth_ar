@@ -420,27 +420,27 @@ static void tx_state_machine(void)
 static void usage(void)
 {
 	printf("Options:\n");
-	printf("-v\tverbose\n");
 	printf("-a\tUse A-Law encoding\n");
 	printf("-B [sec]\tMorse beacon interval\n");
 	printf("-b [msg]\tMorse beacon message\n");
 	printf("-c [call]\town callsign\n");
-	printf("-f\tfull-duplex\n");
-	printf("-s [dev]\tSound device (default: \"default\")\n");
-	printf("-n [dev]\tNetwork device name (default: \"freedv\")\n");
-	printf("-S\tUse socket on existing network device\n");
-	printf("-m [model]\tHAMlib rig model\n");
-	printf("-P [type]\tHAMlib PTT type\n");
 	printf("-D [type]\tHAMlib DCD type\n");
-	printf("-p [dev]\tHAMlib PTT device file\n");
 	printf("-d [thrh]\tDCD threshold (default: %d)\n", dcd_threshold);
-	printf("-t [msec]\tTX tail\n");
-	printf("-i [dev]\tUse input device instead of DCD\n");
-	printf("-I\tUse input device as toggle instead of keypress\n");
-	printf("-r [rate]\tSound rate\n");
-	printf("-M [mode]\tCodec2 mode\n");
-	printf("-T [freq]\tAdd CTCSS tone\n");
 	printf("-e\tAdd pre-emphasis\n");
+	printf("-f\tfull-duplex\n");
+	printf("-I\tUse input device as toggle instead of keypress\n");
+	printf("-i [dev]\tUse input device instead of DCD\n");
+	printf("-M [mode]\tCodec2 mode\n");
+	printf("-m [model]\tHAMlib rig model\n");
+	printf("-n [dev]\tNetwork device name (default: \"freedv\")\n");
+	printf("-P [type]\tHAMlib PTT type\n");
+	printf("-p [dev]\tHAMlib PTT device file\n");
+	printf("-r [rate]\tSound rate\n");
+	printf("-S\tUse socket on existing network device\n");
+	printf("-s [dev]\tSound device (default: \"default\")\n");
+	printf("-T [freq]\tAdd CTCSS tone\n");
+	printf("-t [msec]\tTX tail\n");
+	printf("-v\tverbose\n");
 }
 
 int main(int argc, char **argv)
@@ -468,11 +468,8 @@ int main(int argc, char **argv)
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "vaB:b:c:d:ei:Is:n:Sm:d:t:T:p:P:D:fr:M:")) != -1) {
+	while ((opt = getopt(argc, argv, "aB:b:c:d:D:efIi:M:m:n:P:p:r:Ss:t:T:v")) != -1) {
 		switch(opt) {
-			case 'v':
-				verbose = true;
-				break;
 			case 'a':
 				is_c2 = false;
 				break;
@@ -485,32 +482,63 @@ int main(int argc, char **argv)
 			case 'c':
 				call = optarg;
 				break;
+			case 'D':
+				if (!strcmp(optarg, "RIG"))
+					dcd_type = RIG_DCD_RIG;
+				else if (!strcmp(optarg, "DSR"))
+					dcd_type = RIG_DCD_SERIAL_DSR;
+				else if (!strcmp(optarg, "CTS"))
+					dcd_type = RIG_DCD_SERIAL_CTS;
+				else if (!strcmp(optarg, "CD"))
+					dcd_type = RIG_DCD_SERIAL_CAR;
+				else if (!strcmp(optarg, "PARALLEL"))
+					dcd_type = RIG_DCD_PARALLEL;
+				else if (!strcmp(optarg, "CM108"))
+					dcd_type = RIG_DCD_CM108;
+				else if (!strcmp(optarg, "NONE"))
+					dcd_type = RIG_DCD_NONE;
+				else
+					dcd_type = atoi(optarg);
+				break;
 			case 'd':
 				dcd_threshold = atoi(optarg);
 				break;
 			case 'e':
 				emphasis = emphasis_init();
 				break;
-			case 'i':
-				inputdev = optarg;
+			case 'f':
+				fullduplex = true;
 				break;
 			case 'I':
 				inputtoggle = true;
 				break;
-			case 's':
-				sounddev = optarg;
+			case 'i':
+				inputdev = optarg;
 				break;
-			case 'n':
-				netname = optarg;
-				break;
-			case 'S':
-				tap = false;
+			case 'M':
+				if (!strcmp(optarg, "3200")) {
+					mode = CODEC2_MODE_3200;
+				} else if (!strcmp(optarg, "2400")) {
+					mode = CODEC2_MODE_2400;
+				} else if (!strcmp(optarg, "1600")) {
+					mode = CODEC2_MODE_1600;
+				} else if (!strcmp(optarg, "1400")) {
+					mode = CODEC2_MODE_1400;
+				} else if (!strcmp(optarg, "1300")) {
+					mode = CODEC2_MODE_1300;
+				} else if (!strcmp(optarg, "1200")) {
+					mode = CODEC2_MODE_1200;
+				} else if (!strcmp(optarg, "700")) {
+					mode = CODEC2_MODE_700;
+				} else if (!strcmp(optarg, "700B")) {
+					mode = CODEC2_MODE_700B;
+				}
 				break;
 			case 'm':
 				rig_model = atoi(optarg);
 				break;
-			case 'p':
-				ptt_file = optarg;
+			case 'n':
+				netname = optarg;
 				break;
 			case 'P':
 				if (!strcmp(optarg, "RIG"))
@@ -532,51 +560,17 @@ int main(int argc, char **argv)
 				else
 					ptt_type = atoi(optarg);
 				break;
-			case 'D':
-				if (!strcmp(optarg, "RIG"))
-					dcd_type = RIG_DCD_RIG;
-				else if (!strcmp(optarg, "DSR"))
-					dcd_type = RIG_DCD_SERIAL_DSR;
-				else if (!strcmp(optarg, "CTS"))
-					dcd_type = RIG_DCD_SERIAL_CTS;
-				else if (!strcmp(optarg, "CD"))
-					dcd_type = RIG_DCD_SERIAL_CAR;
-				else if (!strcmp(optarg, "PARALLEL"))
-					dcd_type = RIG_DCD_PARALLEL;
-				else if (!strcmp(optarg, "CM108"))
-					dcd_type = RIG_DCD_CM108;
-				else if (!strcmp(optarg, "NONE"))
-					dcd_type = RIG_DCD_NONE;
-				else
-					dcd_type = atoi(optarg);
-				break;
-			case 't':
-				tx_tail = atoi(optarg);
+			case 'p':
+				ptt_file = optarg;
 				break;
 			case 'r':
 				rate = atoi(optarg);
 				break;
-			case 'f':
-				fullduplex = true;
+			case 'S':
+				tap = false;
 				break;
-			case 'M':
-				if (!strcmp(optarg, "3200")) {
-					mode = CODEC2_MODE_3200;
-				} else if (!strcmp(optarg, "2400")) {
-					mode = CODEC2_MODE_2400;
-				} else if (!strcmp(optarg, "1600")) {
-					mode = CODEC2_MODE_1600;
-				} else if (!strcmp(optarg, "1400")) {
-					mode = CODEC2_MODE_1400;
-				} else if (!strcmp(optarg, "1300")) {
-					mode = CODEC2_MODE_1300;
-				} else if (!strcmp(optarg, "1200")) {
-					mode = CODEC2_MODE_1200;
-				} else if (!strcmp(optarg, "700")) {
-					mode = CODEC2_MODE_700;
-				} else if (!strcmp(optarg, "700B")) {
-					mode = CODEC2_MODE_700B;
-				}
+			case 's':
+				sounddev = optarg;
 				break;
 			case 'T': {
 				double f = atof(optarg);
@@ -584,6 +578,12 @@ int main(int argc, char **argv)
 				ctcss = ctcss_init(rate, f, amp);
 				break;
 			}
+			case 't':
+				tx_tail = atoi(optarg);
+				break;
+			case 'v':
+				verbose = true;
+				break;
 			default:
 				usage();
 				return -1;
@@ -640,6 +640,7 @@ int main(int argc, char **argv)
 	dtmf_init();
 	if (inputdev)
 		io_init_input(inputdev, inputtoggle);
+	io_init_tty();
 
 	prio();
 	
@@ -670,16 +671,16 @@ int main(int argc, char **argv)
 
 	do {
 		poll(fds, nfds, -1);
-		if (fds[poll_int].revents & POLLIN) {
-			interface_tx(cb_int_tx);
-		}
-		io_handle(fds + poll_io, io_fdc, cb_control);
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
 			tx_state_machine();
 		}
 		if (sound_poll_in_rx(fds + sound_fdc_tx, sound_fdc_rx)) {
 			sound_rx();
 		}
+		if (fds[poll_int].revents & POLLIN) {
+			interface_tx(cb_int_tx);
+		}
+		io_handle(fds + poll_io, io_fdc, cb_control);
 	} while (1);
 	
 	

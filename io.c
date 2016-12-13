@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <linux/input.h>
+#include <termios.h>
 
 static bool toggle;
 static bool input_state = false;
@@ -73,6 +74,20 @@ int io_init_tty(void)
 {
 	fd_tty = 0;
 	
+	struct termios attribs;
+
+	if(tcgetattr(STDIN_FILENO, &attribs) < 0) {
+		perror("stdin");
+		return -1;
+	}
+
+	attribs.c_lflag &= ~(ICANON | ECHO | ECHONL);
+
+	if(tcsetattr(STDIN_FILENO, TCSANOW, &attribs) < 0) {
+		perror("stdin");
+		return -1;
+	}
+ 
 	return 0;
 }
 
@@ -80,7 +95,7 @@ static int tty_rx = false;
 
 bool io_state_rx_get(void)
 {
-	return input_state;
+	return input_state || tty_rx;
 }
 
 int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *))
@@ -94,7 +109,7 @@ int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *))
 		nr++;
 	}
 	if (fd_tty >= 0 && nr < count) {
-		if (fds[nr].events == POLLIN) {
+		if (fds[nr].revents == POLLIN) {
 			ssize_t r;
 			char buffer[2];
 	
@@ -102,6 +117,7 @@ int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *))
 			if (r == 1) {
 				if (buffer[0] == '\n') {
 					tty_rx = ! tty_rx;
+					printf("tty DCD input: %d\n", tty_rx);
 				} else {
 					buffer[1] = 0;
 					cb_control(buffer);
@@ -136,8 +152,9 @@ int io_poll_fill(struct pollfd *fds, int count)
 		fds[nr].events = POLLIN;
 		nr++;
 	}
-	if (fd_tty && nr < count) {
+	if (fd_tty >= 0 && nr < count) {
 		fds[nr].fd = fd_tty;
+		fds[nr].events = POLLIN;
 		nr++;
 	}
 	return 0;
