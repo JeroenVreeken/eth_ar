@@ -86,7 +86,7 @@ struct nmea_state *nmea;
 
 #define RX_SYNC_THRESHOLD 20
 
-static void cb_sound_in(int16_t *samples, int nr)
+static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr)
 {
 	if (tx_state != TX_STATE_OFF && !fullduplex)
 		return;
@@ -97,8 +97,8 @@ static void cb_sound_in(int16_t *samples, int nr)
 		if (copy > nr)
 			copy = nr;
 
-		memcpy(samples_rx + nr_rx, samples, copy * sizeof(int16_t));
-		samples += copy;
+		memcpy(samples_rx + nr_rx, samples_l, copy * sizeof(int16_t));
+		samples_l += copy;
 		nr -= copy;
 		nr_rx += copy;
 		
@@ -113,7 +113,9 @@ static void cb_sound_in(int16_t *samples, int nr)
 			/* Don't 'detect' a voice signal to soon. 
 			   Might be nice to have some SNR number from the
 			   2400B mode so we can take it into account */
-			int sync = freedv_get_sync(freedv);
+			int sync;
+			float snr_est;
+			freedv_get_modem_stats(freedv, &sync, &snr_est);
 			if (!sync) {
 				if (old_cdc)
 					printf("RX sync lost\n");
@@ -150,6 +152,8 @@ static void cb_sound_in(int16_t *samples, int nr)
 					}
 				}
 			}
+			if (cdc)
+				printf(" %f\n", snr_est);
 
 			/* Reset rx address for voice to our own mac */
 			if (!cdc && cdc != old_cdc) {

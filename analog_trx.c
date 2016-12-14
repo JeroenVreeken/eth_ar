@@ -115,7 +115,7 @@ static void cb_control(char *ctrl)
 }
 
 
-static void cb_sound_in(int16_t *samples, int nr)
+static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr)
 {
 	bool rx_state = squelch();
 
@@ -130,7 +130,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 		}
 	}
 
-	dtmf_rx(samples, nr, cb_control);
+	dtmf_rx(samples_l, nr, cb_control);
 
 	if (rx_codec) {
 		while (nr) {
@@ -138,8 +138,8 @@ static void cb_sound_in(int16_t *samples, int nr)
 			if (copy > nr)
 				copy = nr;
 
-			memcpy(samples_rx + nr_rx, samples, copy * 2);
-			samples += copy;
+			memcpy(samples_rx + nr_rx, samples_l, copy * 2);
+			samples_l += copy;
 			nr -= copy;
 			nr_rx += copy;
 		
@@ -158,7 +158,7 @@ static void cb_sound_in(int16_t *samples, int nr)
 	} else {
 		uint8_t alaw[nr];
 		
-		alaw_encode(alaw, samples, nr);
+		alaw_encode(alaw, samples_l, nr);
 		
 		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr);
 	}

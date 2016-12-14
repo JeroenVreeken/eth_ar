@@ -25,7 +25,7 @@
 /* Our device handle */
 static snd_pcm_t *pcm_handle_tx = NULL;
 static snd_pcm_t *pcm_handle_rx = NULL;
-static void (*sound_in_cb)(int16_t *samples, int nr);
+static void (*sound_in_cb)(int16_t *samples_l, int16_t *samples_r, int nr);
 
 static SRC_STATE *src_out = NULL;
 static SRC_STATE *src_in = NULL;
@@ -156,9 +156,9 @@ int sound_rx(void)
 {
 	int i;
 	int r;
-	int16_t samples[nr];
 	int rec_nr = nr * 1.0/ratio_in;
 	int16_t rec_samples[rec_nr * channels_in];
+	int16_t rec_samples_r[rec_nr];
 	
 	r = snd_pcm_readi(pcm_handle_rx, rec_samples, rec_nr);
 	
@@ -170,13 +170,8 @@ int sound_rx(void)
 		return -1;
 	}
 
-	if (channels_in != 1)
-		for (i = 0; i < r; i++) {
-			rec_samples[i] = rec_samples[i * 2];
-		}
-
 	if (src_in) {
-		int r_in = r * ratio_in;
+		int r_in = r * ratio_in * channels_in;
 		float data_in[r], data_out[r_in];
 		SRC_DATA data;
 		data.data_in = data_in;
@@ -185,16 +180,35 @@ int sound_rx(void)
 		data.output_frames = r_in;
 		data.end_of_input = 0;
 		data.src_ratio = ratio_in;
+		int16_t samples[r_in];
+		int16_t samples_l[r_in];
+		int16_t samples_r[r_in];
 
-		src_short_to_float_array(rec_samples, data_in, r);
+		src_short_to_float_array(rec_samples, data_in, r*channels_in);
 		
 		src_process(src_in, &data);
 		
 		src_float_to_short_array(data_out, samples, r_in);
 
-		sound_in_cb(samples, r_in);
+		if (channels_in == 1) {
+			sound_in_cb(samples, samples, r_in);
+		} else {
+			for (i = 0; i < r_in; i++) {
+				samples_l[i] = samples[i * 2 + 0];
+				samples_r[i] = samples[i * 2 + 1];
+			}
+			sound_in_cb(samples_l, samples_r, r_in);
+		}
 	} else {
-		sound_in_cb(rec_samples, r);
+		if (channels_in == 1)
+			sound_in_cb(rec_samples, rec_samples, r);
+		else {
+			for (i = 0; i < r; i++) {
+				rec_samples_r[i] = rec_samples[i * 2 + 1];
+				rec_samples[i] = rec_samples[i * 2];
+			}
+			sound_in_cb(rec_samples, rec_samples_r, r);
+		}
 	}
 	
 	return 0;
@@ -202,7 +216,7 @@ int sound_rx(void)
 
 int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 {
-	int channels = 1;
+	int channels = is_tx ? 1 : 2;
 	snd_pcm_hw_params_t *hw_params;
 	snd_pcm_hw_params_malloc (&hw_params);
 
@@ -224,8 +238,8 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 	}
 	printf("rate: %d got rate: %d\n", rate, rrate);
 	
-	if (is_tx || snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 1)) {
-		if (!is_tx)
+	if (is_tx || channels == 1 || snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 1)) {
+		if (!is_tx && channels == 1)
 			printf("Could not set channels to 1\n");
 		if (snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 2)) {
 			printf("Could not set channels to 2\n");
@@ -235,7 +249,7 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 	}
 	if (rate != rrate) {
 		int err;
-		SRC_STATE *src = src_new(SRC_LINEAR, 1, &err);
+		SRC_STATE *src = src_new(SRC_LINEAR, channels, &err);
 		double ratio = (double)rate / (double)rrate;
 		
 		if (is_tx) {
@@ -276,7 +290,9 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 	return 0;
 }
 
-int sound_init(char *device, void (*in_cb)(int16_t *samples, int nr), int inr, int rate, int hw_rate)
+int sound_init(char *device, 
+    void (*in_cb)(int16_t *samples_l, int16_t *samples_r, int nr),
+    int inr, int rate, int hw_rate)
 {
 	int err;
 
