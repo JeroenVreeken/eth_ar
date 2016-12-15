@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <hamlib/rig.h>
+#include <math.h>
 
 #include <codec2/freedv_api.h>
 #include <codec2/codec2.h>
@@ -80,11 +81,12 @@ static uint8_t mac[6];
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static uint8_t rx_add[6];
 static uint8_t tx_add[6];
-static int rx_sync = 0;
+static float rx_sync = 0;
 
 struct nmea_state *nmea;
 
-#define RX_SYNC_THRESHOLD 20
+#define RX_SYNC_ZERO -3.0
+#define RX_SYNC_THRESHOLD 10.0
 
 static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr)
 {
@@ -119,11 +121,9 @@ static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr)
 			if (!sync) {
 				if (old_cdc)
 					printf("RX sync lost\n");
-				rx_sync = 0;
+				rx_sync = RX_SYNC_ZERO;
 			} else {
-				rx_sync++;
-				if (ret)
-					rx_sync++;
+				rx_sync += snr_est - RX_SYNC_ZERO;
 			}
 			
 			cdc = (rx_sync > RX_SYNC_THRESHOLD);
@@ -152,8 +152,8 @@ static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr)
 					}
 				}
 			}
-			if (cdc)
-				printf(" %f\n", snr_est);
+			if (sync)
+				printf(" %f\t%f\t%f\n", snr_est, rx_sync, snr_est-RX_SYNC_ZERO);
 
 			/* Reset rx address for voice to our own mac */
 			if (!cdc && cdc != old_cdc) {
