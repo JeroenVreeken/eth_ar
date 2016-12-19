@@ -29,6 +29,7 @@
 #include <hamlib/rig.h>
 
 #include <codec2/codec2.h>
+#include <codec2/freedv_api.h>
 
 #include "interface.h"
 #include <eth_ar/eth_ar.h>
@@ -39,7 +40,7 @@
 #include "beacon.h"
 #include "ctcss.h"
 #include "emphasis.h"
-
+#include "freedv_eth_rx.h"
 
 static bool verbose = false;
 static bool cdc = false;
@@ -67,6 +68,7 @@ static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 static struct ctcss *ctcss = NULL;
 static struct emphasis *emphasis = NULL;
+struct freedv *freedv;
 
 
 enum tx_state {
@@ -115,9 +117,11 @@ static void cb_control(char *ctrl)
 }
 
 
-static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr)
+static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr_r)
 {
 	bool rx_state = squelch();
+
+	freedv_eth_rx(freedv, samples_r, nr_r);
 
 	if (!rx_state) {
 		cdc = false;
@@ -130,17 +134,17 @@ static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr)
 		}
 	}
 
-	dtmf_rx(samples_l, nr, cb_control);
+	dtmf_rx(samples_l, nr_l, cb_control);
 
 	if (rx_codec) {
-		while (nr) {
+		while (nr_l) {
 			int copy = nr_samples - nr_rx;
-			if (copy > nr)
-				copy = nr;
+			if (copy > nr_l)
+				copy = nr_l;
 
 			memcpy(samples_rx + nr_rx, samples_l, copy * 2);
 			samples_l += copy;
-			nr -= copy;
+			nr_l -= copy;
 			nr_rx += copy;
 		
 			if (nr_rx == nr_samples) {
@@ -156,11 +160,11 @@ static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr)
 			}
 		}
 	} else {
-		uint8_t alaw[nr];
+		uint8_t alaw[nr_l];
 		
-		alaw_encode(alaw, samples_l, nr);
+		alaw_encode(alaw, samples_l, nr_l);
 		
-		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr);
+		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr_l);
 	}
 }
 
@@ -465,6 +469,7 @@ int main(int argc, char **argv)
 	int rate = 8000;
 	int beacon_interval = 0;
 	char *beacon_msg = NULL;
+	int freedv_mode = FREEDV_MODE_2400B;
 	
 	rig_model = 1; // set to dummy.
 	
@@ -631,8 +636,21 @@ int main(int argc, char **argv)
 	samples_rx = calloc(nr_samples, sizeof(samples_rx[0]));
 	tx_data = calloc(16, sizeof(uint8_t));
 
+	freedv = freedv_open(freedv_mode);
+	int freedv_rate = freedv_get_modem_sample_rate(freedv);
+	freedv_eth_rx_init(freedv, mac);
+	freedv_set_callback_txt(freedv, freedv_eth_rx_vc_callback, NULL, NULL);
+	freedv_set_callback_data(freedv, freedv_eth_rx_cb_datarx, NULL, NULL);
+
 	fd_int = interface_init(netname, mac, tap, 0);
-	sound_init(sounddev, cb_sound_in, nr_samples, 8000, rate);
+	if (sound_init(sounddev, cb_sound_in, 
+	    nr_samples, nr_samples, 
+	    8000, 
+	    8000, freedv_rate, 
+	    rate)) {
+		printf("Could not open sound device\n");
+		return -1;
+	}
 
 	tx_tail /= 1000 / (8000 / nr_samples);
 

@@ -16,17 +16,32 @@
 
  */
 
-#ifndef _INCLUDE_CTCSS_H_
-#define _INCLUDE_CTCSS_H_
+#ifndef _INCLUDE_FREEDV_ETH_H_
+#define _INCLUDE_FREEDV_ETH_H_
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
+#include <codec2/freedv_api.h>
 
-struct ctcss *ctcss_init(int rate, double f, double amp);
+static inline uint16_t freedv_eth_mode2type(int mode)
+{
+	uint16_t type = ETH_P_CODEC2_700;
 
-int ctcss_reset(struct ctcss *ctcss);
+	switch(mode) {
+		case FREEDV_MODE_700:
+			type = ETH_P_CODEC2_700;
+			break;
+		case FREEDV_MODE_700B:
+			type = ETH_P_CODEC2_700B;
+			break;
+		case FREEDV_MODE_2400A:
+		case FREEDV_MODE_2400B:
+		case FREEDV_MODE_1600:
+			type = ETH_P_CODEC2_1300;
+			break;
+		default:
+			break;
+	}
 
-int ctcss_add(struct ctcss *ctcss, int16_t *sound, int nr);
+	return type;
+}
 
-#endif /* _INCLUDE_CTCSS_H_ */
+#endif /* _INCLUDE_FREEDV_ETH_H_ */

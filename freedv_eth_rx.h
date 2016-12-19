@@ -16,17 +16,19 @@
 
  */
 
-#ifndef _INCLUDE_CTCSS_H_
-#define _INCLUDE_CTCSS_H_
+#ifndef _INCLUDE_FREEDV_ETH_RX_H_
+#define _INCLUDE_FREEDV_ETH_RX_H_
 
-#include <stdlib.h>
-#include <stdbool.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <codec2/freedv_api.h>
+#include <eth_ar/eth_ar.h>
 
-struct ctcss *ctcss_init(int rate, double f, double amp);
+int freedv_eth_rx_init(struct freedv *freedv, uint8_t mac[6]);
+void freedv_eth_rx(struct freedv *freedv, int16_t *samples, int nr);
+bool freedv_eth_rx_cdc(void);
 
-int ctcss_reset(struct ctcss *ctcss);
+void freedv_eth_rx_vc_callback(void *arg, char c);
+void freedv_eth_rx_cb_datarx(void *arg, unsigned char *packet, size_t size);
 
-int ctcss_add(struct ctcss *ctcss, int16_t *sound, int nr);
-
-#endif /* _INCLUDE_CTCSS_H_ */
+#endif /* _INCLUDE_FREEDV_ETH_RX_H_ */

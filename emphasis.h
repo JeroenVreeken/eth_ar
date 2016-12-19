@@ -17,6 +17,7 @@
  */
 
 #ifndef _INCLUDE_EMPHASIS_H_
+#define _INCLUDE_EMPHASIS_H_
 
 #include <stdlib.h>
 #include <stdbool.h>

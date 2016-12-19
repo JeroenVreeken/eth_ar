@@ -25,7 +25,7 @@
 /* Our device handle */
 static snd_pcm_t *pcm_handle_tx = NULL;
 static snd_pcm_t *pcm_handle_rx = NULL;
-static void (*sound_in_cb)(int16_t *samples_l, int16_t *samples_r, int nr);
+static void (*sound_in_cb)(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr_r);
 
 static SRC_STATE *src_out = NULL;
 static SRC_STATE *src_in = NULL;
@@ -121,7 +121,7 @@ bool sound_poll_out_tx(struct pollfd *fds, int count)
 	unsigned short revents;
 	
 	snd_pcm_poll_descriptors_revents(pcm_handle_tx, fds, count, &revents);
-	if (revents & POLLOUT)
+	if (revents & (POLLOUT | POLLERR))
 		return true;
 	else
 		return false; 	
@@ -144,7 +144,7 @@ bool sound_poll_in_rx(struct pollfd *fds, int count)
 	unsigned short revents;
 	
 	snd_pcm_poll_descriptors_revents(pcm_handle_rx, fds, count, &revents);
-	if (revents & POLLIN)
+	if (revents & (POLLIN | POLLERR))
 		return true;
 	else
 		return false; 	
@@ -158,6 +158,7 @@ int sound_rx(void)
 	int r;
 	int rec_nr = nr * 1.0/ratio_in;
 	int16_t rec_samples[rec_nr * channels_in];
+	int16_t rec_samples_l[rec_nr];
 	int16_t rec_samples_r[rec_nr];
 	
 	r = snd_pcm_readi(pcm_handle_rx, rec_samples, rec_nr);
@@ -169,9 +170,13 @@ int sound_rx(void)
 		
 		return -1;
 	}
+	for (i = 0; i < r; i++) {
+		rec_samples_l[i] = rec_samples[i * 2];
+		rec_samples_r[i] = rec_samples[i * 2 + 1];
+	}
 
 	if (src_in) {
-		int r_in = r * ratio_in * channels_in;
+		int r_in = r * ratio_in;
 		float data_in[r], data_out[r_in];
 		SRC_DATA data;
 		data.data_in = data_in;
@@ -181,34 +186,16 @@ int sound_rx(void)
 		data.end_of_input = 0;
 		data.src_ratio = ratio_in;
 		int16_t samples[r_in];
-		int16_t samples_l[r_in];
-		int16_t samples_r[r_in];
 
-		src_short_to_float_array(rec_samples, data_in, r*channels_in);
+		src_short_to_float_array(rec_samples_l, data_in, r);
 		
 		src_process(src_in, &data);
 		
 		src_float_to_short_array(data_out, samples, r_in);
 
-		if (channels_in == 1) {
-			sound_in_cb(samples, samples, r_in);
-		} else {
-			for (i = 0; i < r_in; i++) {
-				samples_l[i] = samples[i * 2 + 0];
-				samples_r[i] = samples[i * 2 + 1];
-			}
-			sound_in_cb(samples_l, samples_r, r_in);
-		}
+		sound_in_cb(samples, rec_samples_r, r_in, r);
 	} else {
-		if (channels_in == 1)
-			sound_in_cb(rec_samples, rec_samples, r);
-		else {
-			for (i = 0; i < r; i++) {
-				rec_samples_r[i] = rec_samples[i * 2 + 1];
-				rec_samples[i] = rec_samples[i * 2];
-			}
-			sound_in_cb(rec_samples, rec_samples_r, r);
-		}
+		sound_in_cb(rec_samples_l, rec_samples_r, r, r);
 	}
 	
 	return 0;
@@ -237,6 +224,8 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 		printf("Could not set rate %d\n", rrate);
 	}
 	printf("rate: %d got rate: %d\n", rate, rrate);
+	if (!is_tx && rrate != hw_rate)
+		return -1;
 	
 	if (is_tx || channels == 1 || snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 1)) {
 		if (!is_tx && channels == 1)
@@ -249,7 +238,7 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 	}
 	if (rate != rrate) {
 		int err;
-		SRC_STATE *src = src_new(SRC_LINEAR, channels, &err);
+		SRC_STATE *src = src_new(SRC_LINEAR, 1, &err);
 		double ratio = (double)rate / (double)rrate;
 		
 		if (is_tx) {
@@ -291,8 +280,8 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int sw_rate, int hw_rate)
 }
 
 int sound_init(char *device, 
-    void (*in_cb)(int16_t *samples_l, int16_t *samples_r, int nr),
-    int inr, int rate, int hw_rate)
+    void (*in_cb)(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr_r),
+    int nr_out, int nr_in, int rate_out, int rate_in_l, int rate_in_r, int hw_rate)
 {
 	int err;
 
@@ -304,22 +293,24 @@ int sound_init(char *device,
 		device_name = "default"; 
 
 	sound_in_cb = in_cb;
-	nr = inr;
+	nr = nr_in;
 
 	/* Open the device */
 	err = snd_pcm_open (&pcm_handle_tx, device_name, SND_PCM_STREAM_PLAYBACK, 0);
 	if (err < 0)
 		return -1;
 
-	sound_param(pcm_handle_tx, true, rate, hw_rate);
+	if (sound_param(pcm_handle_tx, true, rate_out, hw_rate))
+		return -1;
 
 	err = snd_pcm_open (&pcm_handle_rx, device_name, SND_PCM_STREAM_CAPTURE, 0);
 	if (err < 0)
 		return -1;
 	
-	sound_param(pcm_handle_rx, false, rate, hw_rate);
+	if (sound_param(pcm_handle_rx, false, rate_in_l, rate_in_r))
+		return -1;
 
-	silence_nr = nr * ratio_out;
+	silence_nr = nr_out * ratio_out;
 	silence = calloc(silence_nr * 2, sizeof(int16_t));
 
 	snd_pcm_prepare(pcm_handle_tx);
