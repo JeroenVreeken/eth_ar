@@ -26,7 +26,6 @@
 #include <time.h>
 #include <math.h>
 #include <sys/mman.h>
-#include <hamlib/rig.h>
 
 #include <codec2/codec2.h>
 #include <codec2/freedv_api.h>
@@ -46,12 +45,8 @@ static bool verbose = false;
 static bool cdc = false;
 static bool fullduplex = false;
 
-static RIG *rig;
-static rig_model_t rig_model;
-static char *ptt_file = NULL;
 static ptt_type_t ptt_type = RIG_PTT_NONE;
 static dcd_type_t dcd_type = RIG_DCD_NONE;
-static int dcd_level = 0;
 static int dcd_threshold = 1;
 
 static struct beacon *beacon;
@@ -94,17 +89,14 @@ static struct tx_packet *queue_voice = NULL;
 
 static bool squelch(void)
 {
-	dcd_t dcd;
+	bool dcd;
+	
 	if (dcd_type == RIG_DCD_NONE)
 		return io_state_rx_get();
 	
-	rig_get_dcd(rig, RIG_VFO_CURR, &dcd);
-	if (dcd == RIG_DCD_ON)
-		dcd_level++;
-	else
-		dcd_level = 0;
+	dcd = io_hl_dcd_get();
 
-	return dcd_level >= dcd_threshold;
+	return dcd;
 }
 
 
@@ -303,37 +295,6 @@ static int prio(void)
 }
 
 
-static int hl_init(void)
-{
-	int retcode;
-	
-	rig = rig_init(rig_model);
-	if (!rig) {
-		printf("Could not init rig\n");
-		return -1;
-	}
-
-	if (ptt_type != RIG_PTT_NONE)
-		rig->state.pttport.type.ptt = ptt_type;
-
-	if (dcd_type != RIG_DCD_NONE)
-		rig->state.dcdport.type.dcd = dcd_type;
-
-	if (ptt_file)
-		strncpy(rig->state.pttport.pathname, ptt_file, FILPATHLEN - 1);
-	if (ptt_file)
-		strncpy(rig->state.dcdport.pathname, ptt_file, FILPATHLEN - 1);
-
-	retcode = rig_open(rig);
-	if (retcode != RIG_OK) {
-	  	fprintf(stderr,"rig_open: error = %s \n", rigerror(retcode));
-		return -2;
-	}
-
-	rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
-
-	return 0;
-}
 
 
 static void dequeue_voice(void)
@@ -384,7 +345,7 @@ static void tx_state_machine(void)
 		case TX_STATE_OFF:
 			if (queue_voice || bcn) {
 				tx_state = TX_STATE_ON;
-				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_ON);
+				io_hl_ptt_set(true);
 				tx_state_cnt = 0;
 				if (ctcss)
 					ctcss_reset(ctcss);
@@ -404,10 +365,7 @@ static void tx_state_machine(void)
 			if (tx_state_cnt >= tx_tail) {
 				tx_state = TX_STATE_OFF;
 				tx_state_cnt = 0;
-				rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
-				
-				/* make dcd insensitive for a little while */
-				dcd_level = -dcd_threshold;
+				io_hl_ptt_set(false);
 				
 				sound_silence();
 			} else {
@@ -474,7 +432,9 @@ int main(int argc, char **argv)
 	int beacon_interval = 0;
 	char *beacon_msg = NULL;
 	int freedv_mode = FREEDV_MODE_2400B;
-	
+	rig_model_t rig_model;
+	char *ptt_file = NULL;
+
 	rig_model = 1; // set to dummy.
 	
 	while ((opt = getopt(argc, argv, "aB:b:c:d:D:efIi:M:m:n:oP:p:r:Ss:t:T:v")) != -1) {
@@ -661,7 +621,7 @@ int main(int argc, char **argv)
 
 	tx_tail /= 1000 / (8000 / nr_samples);
 
-	hl_init();
+	io_hl_init(rig_model, dcd_threshold, ptt_type, ptt_file, dcd_type);
 	dtmf_init();
 	if (inputdev)
 		io_init_input(inputdev, inputtoggle);

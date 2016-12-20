@@ -24,6 +24,13 @@
 #include <stdio.h>
 #include <linux/input.h>
 #include <termios.h>
+#include <string.h>
+
+static RIG *rig;
+static int dcd_level = 0;
+static int dcd_threshold = 1;
+static ptt_type_t ptt_type = RIG_PTT_NONE;
+static dcd_type_t dcd_type = RIG_DCD_NONE;
 
 static bool toggle;
 static bool input_state = false;
@@ -131,6 +138,65 @@ int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *))
 }
 
 
+bool io_hl_dcd_get(void)
+{
+	dcd_t dcd;
+
+	rig_get_dcd(rig, RIG_VFO_CURR, &dcd);
+	if (dcd == RIG_DCD_ON)
+		dcd_level++;
+	else
+		dcd_level = 0;
+
+	return dcd_level >= dcd_threshold;
+}
+
+void io_hl_ptt_set(bool state)
+{
+	rig_set_ptt(rig, RIG_VFO_CURR, state ? RIG_PTT_ON : RIG_PTT_OFF);
+
+	if (!state) {
+		/* make dcd insensitive for a little while */
+		dcd_level = -dcd_threshold;
+	}
+}
+
+int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file, dcd_type_t dcd)
+{
+	int retcode;
+	ptt_type = ptt;
+	dcd_type = dcd;
+
+	dcd_threshold = dcd_th;
+	
+	rig = rig_init(rig_model);
+	if (!rig) {
+		printf("Could not init rig\n");
+		return -1;
+	}
+
+	if (ptt_type != RIG_PTT_NONE)
+		rig->state.pttport.type.ptt = ptt_type;
+
+	if (dcd_type != RIG_DCD_NONE)
+		rig->state.dcdport.type.dcd = dcd_type;
+
+	if (ptt_file)
+		strncpy(rig->state.pttport.pathname, ptt_file, FILPATHLEN - 1);
+	if (ptt_file)
+		strncpy(rig->state.dcdport.pathname, ptt_file, FILPATHLEN - 1);
+
+	retcode = rig_open(rig);
+	if (retcode != RIG_OK) {
+	  	fprintf(stderr,"rig_open: error = %s \n", rigerror(retcode));
+		return -2;
+	}
+
+	rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
+
+	return 0;
+}
+
 int io_fs_nr(void)
 {
 	int nr = 0;
@@ -159,3 +225,4 @@ int io_poll_fill(struct pollfd *fds, int count)
 	}
 	return 0;
 }
+

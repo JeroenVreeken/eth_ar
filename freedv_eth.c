@@ -41,6 +41,7 @@
 #include "nmea.h"
 #include "freedv_eth_rx.h"
 #include "freedv_eth.h"
+#include "io.h"
 
 #define QUEUE_DATA_MAX 40
 
@@ -315,39 +316,11 @@ static int prio(void)
 }
 
 
-static RIG *rig;
-static rig_model_t rig_model;
-static char *ptt_file = NULL;
-static ptt_type_t ptt_type = RIG_PTT_NONE;
 
-static int hl_init(void)
-{
-	int retcode;
-	
-	rig = rig_init(rig_model);
-	if (!rig) {
-		printf("Could not init rig\n");
-		return -1;
-	}
-
-	if (ptt_type != RIG_PTT_NONE)
-		rig->state.pttport.type.ptt = ptt_type;
-
-	if (ptt_file)
-		strncpy(rig->state.pttport.pathname, ptt_file, FILPATHLEN - 1);
-
-	retcode = rig_open(rig);
-	if (retcode != RIG_OK) {
-	  	fprintf(stderr,"rig_open: error = %s \n", rigerror(retcode));
-		return -2;
-	}
-
-	return 0;
-}
 
 void tx_state_machine(void)
 {
-	ptt_t ptt;
+	bool ptt;
 	bool set_ptt = false;
 
 	tx_state_cnt++;
@@ -358,7 +331,7 @@ void tx_state_machine(void)
 				tx_state = TX_STATE_DELAY;
 				tx_state_cnt = 0;
 				set_ptt = true;
-				ptt = RIG_PTT_ON;
+				ptt = true;
 
 				check_tx_add();
 			} else {
@@ -402,7 +375,7 @@ void tx_state_machine(void)
 				tx_state = TX_STATE_OFF;
 				tx_state_cnt = 0;
 				set_ptt = true;
-				ptt = RIG_PTT_OFF;
+				ptt = false;
 			} else {
 				if (queue_voice || queue_data) {
 //					printf("TAIL -> ON\n");
@@ -421,7 +394,7 @@ void tx_state_machine(void)
 	}
 
 	if (set_ptt)
-		rig_set_ptt(rig, RIG_VFO_CURR, ptt);
+		io_hl_ptt_set(ptt);
 }
 
 
@@ -505,6 +478,9 @@ int main(int argc, char **argv)
 	uint16_t type = ETH_P_CODEC2_700;
 	int nr_samples;
 	int mode = FREEDV_MODE_700;
+	char *ptt_file = NULL;
+	rig_model_t rig_model;
+	ptt_type_t ptt_type = RIG_PTT_NONE;
 	
 	rig_model = 1; // set to dummy.
 	
@@ -644,7 +620,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	hl_init();
+	io_hl_init(rig_model, 1, ptt_type, ptt_file, RIG_DCD_NONE);
 
 	prio();
 	

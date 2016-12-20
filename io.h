@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <poll.h>
+#include <hamlib/rig.h>
 
 int io_init_tty(void);
 int io_init_input(char *device, bool inputtoggle);
@@ -31,5 +32,9 @@ int io_poll_fill(struct pollfd *fds, int count);
 bool io_state_rx_get(void);
 
 int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *));
+int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file, dcd_type_t dcd);
+
+bool io_hl_dcd_get(void);
+void io_hl_ptt_set(bool state);
 
 #endif /* _INCLUDE_INPUT_H_ */
