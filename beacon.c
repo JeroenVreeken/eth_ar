@@ -81,7 +81,8 @@ static char *beacon_morsecode[][2] = {
 #define MORSE_WPM	20
 #define MORSE_PARIS_DOTS	50
 #define MORSE_SINE_FREQ		400
-#define MORSE_SINE_AMP		8192
+#define MORSE_SINE_AMP		4096
+#define MORSE_SINE_MUL_SILENCE	2
 #define MORSE_FACTOR_DASH	3
 #define MORSE_FACTOR_IGAP	1
 #define MORSE_FACTOR_LGAP	2 /* I+L = 3 */
@@ -182,10 +183,18 @@ bool beacon_state_check(struct beacon *beacon)
 	return beacon->cnt >= beacon->interval;
 }
 
-int beacon_generate(struct beacon *beacon, int16_t *sound)
+int beacon_generate(struct beacon *beacon, int16_t *sound, int nr)
 {
-	memset(sound, 0, beacon->state_interval * sizeof(int16_t));
-	return beacon_generate_add(beacon, sound, beacon->state_interval);
+	int i;
+	
+	memset(sound, 0, nr * sizeof(int16_t));
+	beacon_generate_add(beacon, sound, nr);
+	
+	for (i = 0; i < nr; i++) {
+		sound[i] *= MORSE_SINE_MUL_SILENCE;
+	}
+	
+	return 0;
 }
 
 int beacon_generate_add(struct beacon *beacon, int16_t *sound, int nr)

@@ -28,5 +28,6 @@ struct emphasis *emphasis_init(void);
 int emphasis_reset(struct emphasis *emphasis);
 
 int emphasis_pre(struct emphasis *emphasis, int16_t *sound, int nr);
+int emphasis_de(struct emphasis *emphasis, int16_t *sound, int nr);
 
 #endif /* _INCLUDE_EMPHASIS_H_ */

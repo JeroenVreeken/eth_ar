@@ -67,7 +67,8 @@ static uint8_t mac[6];
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 static struct ctcss *ctcss = NULL;
-static struct emphasis *emphasis = NULL;
+static struct emphasis *emphasis_p = NULL;
+static struct emphasis *emphasis_d = NULL;
 struct freedv *freedv;
 
 
@@ -134,6 +135,8 @@ static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr
 		}
 	}
 
+	if (emphasis_d)
+		emphasis_de(emphasis_d, samples_l, nr_l);
 	dtmf_rx(samples_l, nr_l, cb_control);
 
 	if (rx_codec) {
@@ -342,9 +345,9 @@ static void dequeue_voice(void)
 		} else {
 			int16_t buffer[nr_samples];
 			
-			beacon_generate(beacon, buffer);
-			if (emphasis)
-				emphasis_pre(emphasis, p->samples, p->nr_samples);
+			beacon_generate(beacon, buffer, nr_samples);
+			if (emphasis_p)
+				emphasis_pre(emphasis_p, p->samples, p->nr_samples);
 			sound_out(buffer, nr_samples, true, true);
 		}
 	} else {
@@ -354,8 +357,8 @@ static void dequeue_voice(void)
 			beacon_generate_add(beacon, p->samples, p->nr_samples);
 		if (ctcss)
 			ctcss_add(ctcss, p->samples, p->nr_samples);
-		if (emphasis)
-			emphasis_pre(emphasis, p->samples, p->nr_samples);
+		if (emphasis_p)
+			emphasis_pre(emphasis_p, p->samples, p->nr_samples);
 		sound_out(p->samples, p->nr_samples, true, true);
 
 		free(p->samples);
@@ -437,6 +440,7 @@ static void usage(void)
 	printf("-M [mode]\tCodec2 mode\n");
 	printf("-m [model]\tHAMlib rig model\n");
 	printf("-n [dev]\tNetwork device name (default: \"freedv\")\n");
+	printf("-o\tAdd de-emphasis\n");
 	printf("-P [type]\tHAMlib PTT type\n");
 	printf("-p [dev]\tHAMlib PTT device file\n");
 	printf("-r [rate]\tSound rate\n");
@@ -473,7 +477,7 @@ int main(int argc, char **argv)
 	
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "aB:b:c:d:D:efIi:M:m:n:P:p:r:Ss:t:T:v")) != -1) {
+	while ((opt = getopt(argc, argv, "aB:b:c:d:D:efIi:M:m:n:oP:p:r:Ss:t:T:v")) != -1) {
 		switch(opt) {
 			case 'a':
 				is_c2 = false;
@@ -509,7 +513,7 @@ int main(int argc, char **argv)
 				dcd_threshold = atoi(optarg);
 				break;
 			case 'e':
-				emphasis = emphasis_init();
+				emphasis_p = emphasis_init();
 				break;
 			case 'f':
 				fullduplex = true;
@@ -544,6 +548,9 @@ int main(int argc, char **argv)
 				break;
 			case 'n':
 				netname = optarg;
+				break;
+			case 'o':
+				emphasis_d = emphasis_init();
 				break;
 			case 'P':
 				if (!strcmp(optarg, "RIG"))

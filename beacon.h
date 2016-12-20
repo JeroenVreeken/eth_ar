@@ -26,7 +26,7 @@ struct beacon *beacon_init(int rate, int state_interval, int beacon_interval, ch
 
 bool beacon_state_check(struct beacon *beacon);
 
-int beacon_generate(struct beacon *beacon, int16_t *sound);
+int beacon_generate(struct beacon *beacon, int16_t *sound, int nr);
 int beacon_generate_add(struct beacon *beacon, int16_t *sound, int nr);
 
 #endif /* _INCLUDE_BEACON_H_ */

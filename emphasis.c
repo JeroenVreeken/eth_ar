@@ -19,7 +19,8 @@
 #include "emphasis.h"
 
 struct emphasis {
-	int16_t prev;
+	int16_t prev_pre;
+	int16_t prev_de;
 };
 
 struct emphasis *emphasis_init(void)
@@ -29,7 +30,8 @@ struct emphasis *emphasis_init(void)
 
 int emphasis_reset(struct emphasis *emphasis)
 {
-	emphasis->prev = 0;
+	emphasis->prev_pre = 0;
+	emphasis->prev_de = 0;
 	return 0;
 }
 
@@ -40,9 +42,9 @@ int emphasis_pre(struct emphasis *emphasis, int16_t *sound, int nr)
 	for (i = 0; i < nr; i++) {
 		long sample = sound[i];
 		
-		sample -= emphasis->prev;
-		
-		emphasis->prev = sound[i];
+		sample -= emphasis->prev_pre;
+		emphasis->prev_pre = sound[i];
+
 		if (sample > 16535)
 			sample = 16535;
 		if (sample < -16536)
@@ -54,4 +56,23 @@ int emphasis_pre(struct emphasis *emphasis, int16_t *sound, int nr)
 	return 0;
 }
 
-
+int emphasis_de(struct emphasis *emphasis, int16_t *sound, int nr)
+{
+	int i;
+	
+	for (i = 0; i < nr; i++) {
+		long sample = sound[i];
+		
+		sample += emphasis->prev_de;
+		
+		if (sample > 16535)
+			sample = 16535;
+		if (sample < -16536)
+			sample = -16536;
+		
+		emphasis->prev_de = sample;
+		sound[i] = sample;
+	}
+	
+	return 0;
+}
