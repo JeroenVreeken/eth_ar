@@ -111,6 +111,7 @@ int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *))
 
 	if (fd_input >= 0 && nr < count) {
 		if (fds[nr].revents == POLLIN) {
+		printf("io input\n");
 			input_handle(fd_input);
 		}
 		nr++;

@@ -114,7 +114,8 @@ static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr
 {
 	bool rx_state = squelch();
 
-	freedv_eth_rx(freedv, samples_r, nr_r);
+	if (freedv)
+		freedv_eth_rx(freedv, samples_r, nr_r);
 
 	if (!rx_state) {
 		cdc = false;
@@ -393,11 +394,12 @@ static void usage(void)
 	printf("-d [thrh]\tDCD threshold (default: %d)\n", dcd_threshold);
 	printf("-e\tAdd pre-emphasis\n");
 	printf("-f\tfull-duplex\n");
+	printf("-F\tEnable FreeDV mode 2400B reception\n");
 	printf("-I\tUse input device as toggle instead of keypress\n");
 	printf("-i [dev]\tUse input device instead of DCD\n");
 	printf("-M [mode]\tCodec2 mode\n");
 	printf("-m [model]\tHAMlib rig model\n");
-	printf("-n [dev]\tNetwork device name (default: \"freedv\")\n");
+	printf("-n [dev]\tNetwork device name (default: \"analog\")\n");
 	printf("-o\tAdd de-emphasis\n");
 	printf("-P [type]\tHAMlib PTT type\n");
 	printf("-p [dev]\tHAMlib PTT device file\n");
@@ -434,10 +436,11 @@ int main(int argc, char **argv)
 	int freedv_mode = FREEDV_MODE_2400B;
 	rig_model_t rig_model;
 	char *ptt_file = NULL;
+	bool freedv_enabled = false;
 
 	rig_model = 1; // set to dummy.
 	
-	while ((opt = getopt(argc, argv, "aB:b:c:d:D:efIi:M:m:n:oP:p:r:Ss:t:T:v")) != -1) {
+	while ((opt = getopt(argc, argv, "aB:b:c:d:D:efFIi:M:m:n:oP:p:r:Ss:t:T:v")) != -1) {
 		switch(opt) {
 			case 'a':
 				is_c2 = false;
@@ -477,6 +480,9 @@ int main(int argc, char **argv)
 				break;
 			case 'f':
 				fullduplex = true;
+				break;
+			case 'F':
+				freedv_enabled = true;
 				break;
 			case 'I':
 				inputtoggle = true;
@@ -603,11 +609,14 @@ int main(int argc, char **argv)
 	samples_rx = calloc(nr_samples, sizeof(samples_rx[0]));
 	tx_data = calloc(16, sizeof(uint8_t));
 
-	freedv = freedv_open(freedv_mode);
-	int freedv_rate = freedv_get_modem_sample_rate(freedv);
-	freedv_eth_rx_init(freedv, mac);
-	freedv_set_callback_txt(freedv, freedv_eth_rx_vc_callback, NULL, NULL);
-	freedv_set_callback_data(freedv, freedv_eth_rx_cb_datarx, NULL, NULL);
+	int freedv_rate = 0;
+	if (freedv_enabled) {
+		freedv = freedv_open(freedv_mode);
+		freedv_rate = freedv_get_modem_sample_rate(freedv);
+		freedv_eth_rx_init(freedv, mac);
+		freedv_set_callback_txt(freedv, freedv_eth_rx_vc_callback, NULL, NULL);
+		freedv_set_callback_data(freedv, freedv_eth_rx_cb_datarx, NULL, NULL);
+	}
 
 	fd_int = interface_init(netname, mac, tap, 0);
 	if (sound_init(sounddev, cb_sound_in, 
