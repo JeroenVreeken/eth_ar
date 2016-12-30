@@ -37,6 +37,7 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 	double alt;
 	bool have_altitude = false;
 	char comment[256] = "";
+	bool allow = false;
 	
 	if (callsign) {
 		memcpy(origin, callsign, 6);
@@ -55,6 +56,7 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 			case FPRS_POSITION:
 				fprs_position_dec(&lon, &lat, &pos_fixed, fprs_element_data(element));
 				have_position = true;
+				allow = true;
 				break;
 			case FPRS_ALTITUDE:
 				fprs_altitude_dec(&alt, fprs_element_data(element));
@@ -72,12 +74,15 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 				size_t comment_len = fprs_element_size(element);
 				memcpy(comment, fprs_element_data(element), comment_len);
 				comment[comment_len] = 0;
+				allow = true;
 				break;
 			}
 			default:
 				break;
 		}
 	}
+	if (!allow)
+		return -1;
 
 	char sender_call[9];
 	int sender_ssid;
