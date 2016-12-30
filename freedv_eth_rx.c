@@ -22,7 +22,6 @@
 
 #include <string.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <codec2/codec2.h>
 
 static bool cdc_voice = false;

@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <codec2/freedv_api.h>
 #include <eth_ar/eth_ar.h>
 
