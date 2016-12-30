@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
 
 int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *callsign, char *gate_call)
 {
@@ -46,6 +47,8 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 		enum fprs_type type = fprs_element_type(element);
 		
 		switch (type) {
+			case FPRS_REQUEST:
+				return -1;
 			case FPRS_CALLSIGN:
 				memcpy(origin, fprs_element_data(element), 6);
 				break;
@@ -126,5 +129,42 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 	aprs[*aprs_len] = 0;
 	*aprs_len = strlen(aprs);
 	
+	return 0;
+}
+
+#define kKey 0x73e2 // This is the seed for the key
+
+int fprs2aprs_login(char *loginline, size_t *loginline_len, char *call)
+{
+	char rootCall[10]; // need to copy call to remove ssid from parse
+	char *p0 = call;
+	char *p1 = rootCall;
+	short hash;
+	short i,len;
+	char *ptr = rootCall;
+
+	while ((*p0 != '-') && (*p0 != '\0'))
+		*p1++ = toupper(*p0++);
+	*p1 = '\0';
+
+	hash = kKey; // Initialize with the key value
+	i = 0;
+	len = (short)strlen(rootCall);
+
+	while (i<len) {// Loop through the string two bytes at a time
+		hash ^= (unsigned char)(*ptr++)<<8; // xor high byte with accumulated hash
+		hash ^= (*ptr++); // xor low byte with accumulated hash
+		i += 2;
+	}
+	hash = (short)(hash & 0x7fff); // mask off the high bit so number is always positive
+	
+	printf("Call: %s\n", rootCall);
+	printf("Pass: %d\n", hash);
+
+	snprintf(loginline, *loginline_len, "user %s pass %d vers fprs2aprs_gate 0.1\r\n",
+	    call, hash);
+	loginline[*loginline_len] = 0;
+	*loginline_len = strlen(loginline);
+
 	return 0;
 }

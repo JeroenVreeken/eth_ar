@@ -43,12 +43,9 @@
 #endif
 
 
-bool fullduplex = false;
-char *call = NULL;
-uint8_t mac[6];
-uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-int fd_is = -1;
-int fd_int = -1;
+static char *call = NULL;
+static int fd_is = -1;
+static int fd_int = -1;
 
 int tcp_connect(char *host, int port)
 {
@@ -123,7 +120,7 @@ int tcp_connect(char *host, int port)
 				setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE,
 				    &(int){1}, sizeof(int));
 
-#ifndef __FreeBSD__
+#ifdef __linux__
 				/* number of probes which may fail */
 				setsockopt(sock, SOL_TCP, TCP_KEEPCNT,
 				    &(int){5}, sizeof(int));
@@ -172,17 +169,6 @@ static int fprs2aprs_is(struct fprs_frame *frame, uint8_t *from)
 	return 0;
 }
 
-static int int_out(struct fprs_frame *frame)
-{
-	uint8_t data[256];
-	size_t size = 256;
-	
-	fprs_frame_data_get(frame, data, &size);
-	interface_rx(bcast, mac, ETH_P_FPRS, data, size);
-
-	return 0;
-}
-
 static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
 {
 	struct fprs_frame *frame = fprs_frame_create();
@@ -191,11 +177,6 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	
 	fprs2aprs_is(frame, from);
 	
-	if (fullduplex) {
-		fprs_frame_add_callsign(frame, from);
-		int_out(frame);
-	}
-	
 	fprs_frame_destroy(frame);
 
 	return 0;
@@ -203,41 +184,6 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 
 
 
-#define kKey 0x73e2 // This is the seed for the key
-
-static void login(void)
-{
-	char loginline[256];
-	char rootCall[10]; // need to copy call to remove ssid from parse
-	char *p0 = call;
-	char *p1 = rootCall;
-	short hash;
-	short i,len;
-	char *ptr = rootCall;
-
-	while ((*p0 != '-') && (*p0 != '\0'))
-		*p1++ = *p0++;
-	*p1 = '\0';
-
-	hash = kKey; // Initialize with the key value
-	i = 0;
-	len = (short)strlen(rootCall);
-
-	while (i<len) {// Loop through the string two bytes at a time
-		hash ^= (unsigned char)(*ptr++)<<8; // xor high byte with accumulated hash
-		hash ^= (*ptr++); // xor low byte with accumulated hash
-		i += 2;
-	}
-	hash = (short)(hash & 0x7fff); // mask off the high bit so number is always positive
-	
-	printf("Call: %s\n", rootCall);
-	printf("Pass: %d\n", hash);
-
-	sprintf(loginline, "user %s pass %d vers fprs2aprs_gate 0.1\r\n",
-	    call, hash);
-
-	write(fd_is, loginline, strlen(loginline));
-}
 
 char *netname = "freedv";
 char *host = "euro.aprs2.net";
@@ -248,7 +194,6 @@ static void usage(void)
 	printf("Options:\n");
 	printf("-v\tverbose\n");
 	printf("-c [call]\town callsign\n");
-	printf("-f\tFullduplex (digipeat received frames)\n");
 	printf("-h [host]\tAPRS-IS server (default: \"%s\")\n", host);
 	printf("-n [dev]\tNetwork device name (default: \"%s\")\n", netname);
 	printf("-p [port]\tAPRS-IS port (default: %d)\n", port);
@@ -261,13 +206,10 @@ int main(int argc, char **argv)
 	int poll_int, poll_is;
 	int opt;
 	
-	while ((opt = getopt(argc, argv, "c:n:fh:i:p:")) != -1) {
+	while ((opt = getopt(argc, argv, "c:n:h:i:p:")) != -1) {
 		switch(opt) {
 			case 'c':
 				call = optarg;
-				break;
-			case 'f':
-				fullduplex = true;
 				break;
 			case 'h':
 				host = optarg;
@@ -294,11 +236,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (eth_ar_callssid2mac(mac, call, false)) {
-		printf("Callsign could not be converted to a valid MAC address\n");
-		goto err_usage;
-	}
-
 	nfds = 1 + 1;
 	fds = calloc(sizeof(struct pollfd), nfds);
 
@@ -312,7 +249,7 @@ int main(int argc, char **argv)
 
 	do {
 		if (fd_int < 0) {
-			fd_int = interface_init(netname, mac, false, ETH_P_FPRS);
+			fd_int = interface_init(netname, NULL, false, ETH_P_FPRS);
 			if (fd_int < 0) {
 				printf("Could not open interface: %s\n", strerror(errno));
 			} else {
@@ -325,7 +262,10 @@ int main(int argc, char **argv)
 			printf("Failed to connect to server %s:%d: %s\n",
 			    host, port, strerror(errno));
 			} else {
-				login();
+				char loginline[256];
+				size_t loginline_len = sizeof(loginline) - 1;
+				fprs2aprs_login(loginline, &loginline_len, call);
+				write(fd_is, loginline, strlen(loginline));
 				fds[poll_is].fd = fd_is;
 			}
 		}

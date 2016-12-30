@@ -133,6 +133,7 @@ int fprs_frame_add_dmlstream(struct fprs_frame *, char *);
 
 /* Conversion of a fprs frame to aprs ASCII format */
 int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *callsign, char *gate_call);
+int fprs2aprs_login(char *loginline, size_t *loginline_len, char *call);
 
 
 #endif /* _INCLUDE_FPRS_H_ */
