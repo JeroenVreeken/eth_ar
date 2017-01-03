@@ -87,9 +87,17 @@ static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr
 	if (rx_mode == RX_MODE_FREEDV ||
 	    rx_mode == RX_MODE_MIXED) {
 		if (freedv_rx_channel == 0) {
-			freedv_eth_rx(freedv, samples_l, nr_l);
+			freedv_eth_rx(samples_l, nr_l);
 		} else {
-			freedv_eth_rx(freedv, samples_r, nr_r);
+			freedv_eth_rx(samples_r, nr_r);
+		}
+	}
+	if (rx_mode == RX_MODE_ANALOG ||
+	    rx_mode == RX_MODE_MIXED) {
+		if (analog_rx_channel == 0) {
+			freedv_eth_rxa(samples_l, nr_l);
+		} else {
+			freedv_eth_rxa(samples_r, nr_r);
 		}
 	}
 }
@@ -362,11 +370,11 @@ int main(int argc, char **argv)
 		tx_codecmode = 'S';
 	}
 	fd_int = interface_init(netname, mac, true, 0);
-	int freedv_rate = freedv_get_modem_sample_rate(freedv);
-	printf("freedv sample rate: %d\n", freedv_rate);
-	sound_init(sounddev, cb_sound_in, freedv_rate, freedv_rate, freedv_rate, sound_rate);
+	sound_rate = sound_init(sounddev, cb_sound_in, sound_rate);
 
 	if (tx_mode == TX_MODE_FREEDV) {
+		int freedv_rate = freedv_get_modem_sample_rate(freedv);
+		printf("freedv sample rate: %d\n", freedv_rate);
 		nr_samples = freedv_get_n_nom_modem_samples(freedv) * sound_rate / freedv_rate;
 	} else {
 		nr_samples = FREEDV_ALAW_NR_SAMPLES * sound_rate / FREEDV_ALAW_RATE;
@@ -375,7 +383,7 @@ int main(int argc, char **argv)
 
 	sound_set_nr(nr_samples);
 
-	freedv_eth_rx_init(freedv, mac);
+	freedv_eth_rx_init(freedv, mac, sound_rate);
 	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis);
 
 

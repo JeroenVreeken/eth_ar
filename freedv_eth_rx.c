@@ -19,6 +19,7 @@
 #include "freedv_eth_rx.h"
 #include "freedv_eth.h"
 #include "interface.h"
+#include "sound.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -35,6 +36,8 @@ static int bytes_per_codec_frame;
 static int bytes_per_eth_frame;
 static uint16_t eth_type_rx;
 static void *silence_packet = NULL;
+static struct sound_resample *sr = NULL;
+struct freedv *freedv;
 
 static uint8_t rx_add[6], mac[6];
 
@@ -49,8 +52,20 @@ bool freedv_eth_rx_cdc(void)
 }
 
 
-void freedv_eth_rx(struct freedv *freedv, int16_t *samples, int nr)
+void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 {
+	int nr;
+	int16_t *samples;
+
+	if (sr) {
+		nr = sound_resample_nr_out(sr, hw_nr);
+		samples = alloca(sizeof(int16_t) * nr);
+		sound_resample_perform(sr, samples, hw_samples, nr, hw_nr);
+	} else {
+		nr = hw_nr;
+		samples = hw_samples;
+	}
+
 	while (nr) {
 		int nin = freedv_nin(freedv);
 		int copy = nin - nr_rx;
@@ -71,8 +86,7 @@ void freedv_eth_rx(struct freedv *freedv, int16_t *samples, int nr)
 			int ret = freedv_codecrx(freedv, packed_codec_bits, samples_rx);
 
 			/* Don't 'detect' a voice signal to soon. 
-			   Might be nice to have some SNR number from the
-			   2400B mode so we can take it into account */
+			 */
 			int sync;
 			float snr_est;
 			freedv_get_modem_stats(freedv, &sync, &snr_est);
@@ -184,11 +198,20 @@ static void create_silence_packet(struct CODEC2 *c2)
 }
 
 
-int freedv_eth_rx_init(struct freedv *freedv, uint8_t init_mac[6])
+int freedv_eth_rx_init(struct freedv *init_freedv, uint8_t init_mac[6], int hw_rate)
 {
 	int nr_samples;
+	int f_rate = freedv_get_modem_sample_rate(freedv);
 
+	freedv = init_freedv;
 	cdc = false;
+
+	sound_resample_destroy(sr);
+	if (f_rate != hw_rate) {
+		sr = sound_resample_create(f_rate, hw_rate);
+	} else {
+		sr = NULL;
+	}
 
         bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
 	bytes_per_eth_frame += 7;

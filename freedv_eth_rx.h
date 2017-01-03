@@ -25,8 +25,8 @@
 #include <codec2/freedv_api.h>
 #include <eth_ar/eth_ar.h>
 
-int freedv_eth_rx_init(struct freedv *freedv, uint8_t mac[6]);
-void freedv_eth_rx(struct freedv *freedv, int16_t *samples, int nr);
+int freedv_eth_rx_init(struct freedv *freedv, uint8_t mac[6], int hw_rate);
+void freedv_eth_rx(int16_t *samples, int nr);
 bool freedv_eth_rx_cdc(void);
 
 void freedv_eth_rx_vc_callback(void *arg, char c);

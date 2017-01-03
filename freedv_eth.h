@@ -151,6 +151,7 @@ void freedv_eth_txa_state_machine(void);
 bool freedv_eth_txa_ptt(void);
 
 bool freedv_eth_rxa_cdc(void);
-int freedv_eth_rxa_init(int rate, uint8_t mac_init[6], bool emphasis);
+int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], bool emphasis);
+void freedv_eth_rxa(int16_t *samples, int nr);
 
 #endif /* _INCLUDE_FREEDV_ETH_H_ */

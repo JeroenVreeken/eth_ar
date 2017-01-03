@@ -22,6 +22,7 @@
 #include "emphasis.h"
 #include "interface.h"
 #include "alaw.h"
+#include "sound.h"
 
 #include <string.h>
 
@@ -30,6 +31,7 @@ static uint8_t mac[6];
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static bool dtmf_initialized = false;
 static bool cdc;
+static struct sound_resample *sr = NULL;
 
 bool freedv_eth_rxa_cdc(void)
 {
@@ -48,24 +50,34 @@ static void cb_control(char *ctrl)
 
 void freedv_eth_rxa(int16_t *samples, int nr)
 {
+	int nr_a = sound_resample_nr_out(sr, nr);
+	int16_t mod_a[nr_a];
+
+	sound_resample_perform(sr, mod_a, samples, nr_a, nr);
+
 	cdc = io_hl_dcd_get();
 
 	if (emphasis_d)
-		emphasis_de(emphasis_d, samples, nr);
-	dtmf_rx(samples, nr, cb_control);
+		emphasis_de(emphasis_d, mod_a, nr_a);
+	dtmf_rx(mod_a, nr_a, cb_control);
 
-	uint8_t alaw[nr];
+	uint8_t alaw[nr_a];
 		
-	alaw_encode(alaw, samples, nr);
+	alaw_encode(alaw, mod_a, nr_a);
 		
 	interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr);
 }
 
-int freedv_eth_rxa_init(int rate, uint8_t mac_init[6], bool emphasis)
+int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], bool emphasis)
 {
+	int a_rate = FREEDV_ALAW_RATE;
+	
 	memcpy(mac, mac_init, 6);
 
 	cdc = false;
+
+	sound_resample_destroy(sr);
+	sr = sound_resample_create(a_rate, hw_rate);
 
 	if (!dtmf_initialized) {
 		dtmf_init();
