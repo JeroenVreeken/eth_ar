@@ -176,10 +176,23 @@ struct beacon *beacon_init(int rate, int state_interval, int beacon_interval, ch
 	return beacon;
 }
 
+void beacon_destroy(struct beacon *beacon)
+{
+	if (!beacon)
+		return;
+	free(morse_igap);
+	free(morse_lgap);
+	free(morse_wgap);
+	free(morse_dash);
+	free(morse_dot);
+	morse_dot = NULL;
+	free(beacon);
+}
+
 bool beacon_state_check(struct beacon *beacon)
 {
 	beacon->cnt += beacon->state_interval;
-	
+
 	return beacon->cnt >= beacon->interval;
 }
 

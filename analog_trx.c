@@ -620,13 +620,13 @@ int main(int argc, char **argv)
 
 	fd_int = interface_init(netname, mac, tap, 0);
 	if (sound_init(sounddev, cb_sound_in, 
-	    nr_samples, nr_samples, 
 	    8000, 
 	    8000, freedv_rate, 
 	    rate)) {
 		printf("Could not open sound device\n");
 		return -1;
 	}
+	sound_set_nr(nr_samples);
 
 	tx_tail /= 1000 / (8000 / nr_samples);
 

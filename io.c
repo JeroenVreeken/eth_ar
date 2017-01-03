@@ -143,6 +143,9 @@ bool io_hl_dcd_get(void)
 {
 	dcd_t dcd;
 
+	if (dcd_type == RIG_DCD_NONE)
+		return false;
+
 	rig_get_dcd(rig, RIG_VFO_CURR, &dcd);
 	if (dcd == RIG_DCD_ON)
 		dcd_level++;

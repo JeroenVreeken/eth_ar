@@ -26,7 +26,8 @@ int sound_out(int16_t *samples, int nr, bool left, bool right);
 int sound_silence(void);
 int sound_init(char *device, 
     void (*in_cb)(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr_r),
-    int nr_out, int nr_in, int rate_out, int rate_in_l, int rate_in_r, int hw_rate);
+    int rate_out, int rate_in_l, int rate_in_r, int hw_rate);
+int sound_set_nr(int nr_set);
 int sound_poll_count_tx(void);
 int sound_poll_fill_tx(struct pollfd *fds, int count);
 bool sound_poll_out_tx(struct pollfd *fds, int count);
@@ -34,5 +35,13 @@ int sound_poll_count_rx(void);
 int sound_poll_fill_rx(struct pollfd *fds, int count);
 bool sound_poll_in_rx(struct pollfd *fds, int count);
 int sound_rx(void);
+
+struct sound_resample;
+
+struct sound_resample *sound_resample_create(int rate_out, int rate_in);
+void sound_resample_destroy(struct sound_resample *sr);
+int sound_resample_perform(struct sound_resample *sr, int16_t *out, int16_t *in, int nr_out, int nr_in);
+int sound_resample_nr_out(struct sound_resample *sr, int nr_in);
+int sound_resample_nr_in(struct sound_resample *sr, int nr_out);
 
 #endif /* _INCLUDE_SOUND_H_ */

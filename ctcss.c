@@ -48,6 +48,15 @@ struct ctcss *ctcss_init(int rate, double f, double amp)
 	return ctcss;
 }
 
+void ctcss_destroy(struct ctcss *ctcss)
+{
+	if (!ctcss)
+		return;
+	
+	free(ctcss->tone);
+	free(ctcss);
+}
+
 int ctcss_add(struct ctcss *ctcss, int16_t *sound, int nr)
 {
 	int i;

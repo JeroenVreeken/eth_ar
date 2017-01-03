@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 struct beacon *beacon_init(int rate, int state_interval, int beacon_interval, char *message);
+void beacon_destroy(struct beacon *beacon);
 
 bool beacon_state_check(struct beacon *beacon);
 

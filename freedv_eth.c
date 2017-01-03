@@ -1,5 +1,5 @@
 /*
-	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2016
+	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2016, 2017
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -32,7 +32,6 @@
 #include <math.h>
 
 #include <codec2/freedv_api.h>
-#include <codec2/codec2.h>
 
 #include "interface.h"
 #include <eth_ar/eth_ar.h>
@@ -41,261 +40,102 @@
 #include "nmea.h"
 #include "freedv_eth_rx.h"
 #include "freedv_eth.h"
+#include "freedv_eth_config.h"
 #include "io.h"
 
-#define QUEUE_DATA_MAX 40
-
-static bool verbose = false;
-static bool fullduplex = false;
-static bool vc_control = true;
+static bool verbose;
+static bool fullduplex;
+static bool vc_control;
 
 static struct freedv *freedv;
-static struct CODEC2 *codec2;
-static uint16_t eth_type_tx;
- 
-static int bytes_per_codec_frame;
-static int bytes_per_eth_frame;
+static int freedv_rx_channel;
+static int tx_codecmode;
 
-enum tx_state {
-	TX_STATE_OFF,
-	TX_STATE_DELAY,
-	TX_STATE_ON,
-	TX_STATE_TAIL,
+static int analog_rx_channel;
+
+static int tx_delay_msec;
+static int tx_tail_msec;
+static int tx_header_msec = 500;
+static int tx_header_max_msec = 5000;
+static int tx_fprs_msec = 30000;
+static bool freedv_hasdata;
+static uint8_t mac[6];
+
+static struct nmea_state *nmea;
+
+enum tx_mode {
+	TX_MODE_FREEDV,
+	TX_MODE_ANALOG,
 };
 
-static int tx_delay = 100;
-static int tx_tail = 100;
-static int tx_header = 500;
-static int tx_header_max = 5000;
-static int tx_fprs = 30000;
-static enum tx_state tx_state = TX_STATE_OFF;
-static int tx_state_cnt;
-static int tx_state_data_header_cnt;
-static int tx_state_fprs_cnt;
+static enum tx_mode tx_mode;
 
-static uint8_t mac[6];
-static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-static uint8_t tx_add[6];
+enum rx_mode {
+	RX_MODE_NONE,
+	RX_MODE_FREEDV,
+	RX_MODE_ANALOG,
+	RX_MODE_MIXED,
+};
 
-struct nmea_state *nmea;
+static enum rx_mode rx_mode;
 
 static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr_r)
 {
-	if (tx_state != TX_STATE_OFF && !fullduplex)
+	if ((freedv_eth_tx_ptt() || freedv_eth_txa_ptt()) && !fullduplex)
 		return;
 
-	freedv_eth_rx(freedv, samples_l, nr_l);
-}
-
-
-struct tx_packet {
-	uint8_t from[6];
-	uint8_t data[2048];
-	size_t len;
-	size_t off;
-	
-	struct tx_packet *next;
-};
-
-static struct tx_packet *queue_data = NULL;
-static int queue_data_len = 0;
-static struct tx_packet *queue_voice = NULL;
-static struct tx_packet *queue_control = NULL;
-static bool vc_busy = false;
-
-static int nom_modem_samples;
-static int16_t *mod_out;
-
-static struct tx_packet *tx_packet_pool = NULL;
-
-static struct tx_packet *tx_packet_alloc(void)
-{
-	if (tx_packet_pool) {
-		struct tx_packet *packet;
-		
-		packet = tx_packet_pool;
-		tx_packet_pool = packet->next;
-		
-		return packet;
-	}
-	
-	return malloc(sizeof(struct tx_packet));
-}
-
-static void tx_packet_free(struct tx_packet *packet)
-{
-	packet->next = tx_packet_pool;
-	tx_packet_pool = packet;
-}
-
-static void data_tx(void)
-{
-	freedv_datatx(freedv, mod_out);
-	
-	sound_out(mod_out, nom_modem_samples, true, true);
-}
-
-static void check_tx_add(void)
-{
-	char callstr[9];
-	int ssid;
-	bool multicast;
-	uint8_t *add;
-	
-	if (queue_voice)
-		add = queue_voice->from;
-	else
-		add = mac;
-	
-	if (memcmp(add, tx_add, 6)) {
-		memcpy(tx_add, add, 6);
-		freedv_set_data_header(freedv, tx_add);
-
-		eth_ar_mac2call(callstr, &ssid, &multicast, tx_add);
-		printf("Voice TX add: %s-%d%s\n", callstr, ssid, multicast ? "" : "*");
-	}
-}
-
-static void dequeue_voice(void)
-{
-	uint8_t *data = queue_voice->data;
-	size_t len = queue_voice->len;
-	
-	check_tx_add();
-
-	while (len) {
-		if (len < bytes_per_codec_frame) {
-			len = 0;
+	if (rx_mode == RX_MODE_FREEDV ||
+	    rx_mode == RX_MODE_MIXED) {
+		if (freedv_rx_channel == 0) {
+			freedv_eth_rx(freedv, samples_l, nr_l);
 		} else {
-			double energy = codec2_get_energy(codec2, data);
-			bool fprs_late = nmea && tx_state_fprs_cnt >= tx_fprs && nmea->position_valid;
-			bool header_late = tx_state_data_header_cnt >= tx_header;
-			bool have_data = fprs_late || queue_data || header_late;
-			
-//			printf("e: %f %d\n", energy, vc_busy);
-
-			if (tx_state_data_header_cnt >= tx_header_max ||
-			    (have_data && energy < 15.0) ||
-			    (!vc_busy && energy < 1.0)) {
-				data_tx();
-				printf("+");
-				fflush(NULL);
-			} else {
-				freedv_codectx(freedv, mod_out, data);
-			
-				sound_out(mod_out, nom_modem_samples, true, true);
-
-				printf("-");
-				fflush(NULL);
-			}
-			len -= bytes_per_codec_frame;
+			freedv_eth_rx(freedv, samples_r, nr_r);
 		}
 	}
-	
-	struct tx_packet *old = queue_voice;
-	queue_voice = old->next;
-	
-	tx_packet_free(old);
 }
+
+
+
 
 static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
 {
-	struct tx_packet *packet, **queuep;
+	struct tx_packet *packet;
 	
-	packet = tx_packet_alloc();
-	packet->next = NULL;
-
-	if (eth_type == eth_type_tx) {
+	if (freedv_eth_type_isvoice(eth_type)) {
+		packet = tx_packet_alloc();
 		packet->len = len;
 		memcpy(packet->data, data, len);
 		memcpy(packet->from, from, 6);
 		
-		for (queuep = &queue_voice; *queuep; queuep = &(*queuep)->next);
-		*queuep = packet;
-	} else if (eth_type == ETH_P_AR_CONTROL && vc_control) {
-		memcpy(packet->data, data, len);
-		packet->len = len;
-		packet->off = 0;
-		
-		for (queuep = &queue_control; *queuep; queuep = &(*queuep)->next);
-		*queuep = packet;
-	} else {
-		if (queue_data_len >= QUEUE_DATA_MAX)
-			goto err_packet;
-			
-		packet->len = len + 6 + 6 + 2;
-		memcpy(packet->data + 0, to, 6);
-		memcpy(packet->data + 6, from, 6);
-		packet->data[12] = eth_type >> 8;
-		packet->data[13] = eth_type & 0xff;
-		memcpy(packet->data + 14, data, len);
+		freedv_eth_transcode(packet, tx_codecmode, eth_type);
 
-		for (queuep = &queue_data; *queuep; queuep = &(*queuep)->next);
-		
-		queue_data_len++;
-		*queuep = packet;
+		enqueue_voice(packet);
+	} else if (tx_mode == TX_MODE_FREEDV) {
+		/* TODO: send control as DTMF in analog mode */
+		if (eth_type == ETH_P_AR_CONTROL && vc_control) {
+			packet = tx_packet_alloc();
+			memcpy(packet->data, data, len);
+			packet->len = len;
+			packet->off = 0;
+			
+			enqueue_control(packet);
+		} else if (freedv_hasdata) {
+			packet = tx_packet_alloc();
+			packet->len = len + 6 + 6 + 2;
+			memcpy(packet->data + 0, to, 6);
+			memcpy(packet->data + 6, from, 6);
+			packet->data[12] = eth_type >> 8;
+			packet->data[13] = eth_type & 0xff;
+			memcpy(packet->data + 14, data, len);
+
+			enqueue_data(packet);
+		}
 	}
 
 	return 0;
-
-err_packet:
-	tx_packet_free(packet);
-	return -1;
 }
 
 
-static void freedv_cb_datatx(void *arg, unsigned char *packet, size_t *size)
-{
-	if (tx_state == TX_STATE_ON) {
-		bool fprs_late = nmea && tx_state_fprs_cnt >= tx_fprs && nmea->position_valid;
-//		printf("data %d %d %d\n", tx_state_fprs_cnt, fprs_late, tx_state_data_header_cnt);
-		
-		if ((!queue_data && !fprs_late) || 
-		    tx_state_data_header_cnt >= tx_header) {
-			tx_state_data_header_cnt = 0;
-			*size = 0;
-		} else if (fprs_late) {
-			printf("fprs\n");
-			/* Send fprs frame */
-			struct fprs_frame *frame = fprs_frame_create();
-			fprs_frame_add_position(frame, 
-			    nmea->longitude, nmea->latitude, false);
-			if (nmea->altitude_valid)
-				fprs_frame_add_altitude(frame, nmea->altitude);
-			if (nmea->speed_valid && nmea->course_valid &&
-			    nmea->speed >= FPRS_VECTOR_SPEED_EPSILON)
-				fprs_frame_add_vector(frame, nmea->course, 0.0, nmea->speed);
-			
-			fprs_frame_add_symbol(frame, (uint8_t[2]){'F','#'});
-			
-			size_t fprs_size = *size - 14;
-			uint16_t eth_type = ETH_P_FPRS;
-			
-			fprs_frame_data_get(frame, packet + 14, &fprs_size);
-			memcpy(packet + 0, bcast, 6);
-			memcpy(packet + 6, tx_add, 6);
-			packet[12] = eth_type >> 8;
-			packet[13] = eth_type & 0xff;
-			*size = fprs_size + 14;
-			
-			fprs_frame_destroy(frame);
-			tx_state_fprs_cnt = 0;
-		} else {
-			struct tx_packet *qp = queue_data;
-		
-			queue_data = qp->next;
-		
-			memcpy(packet, qp->data, qp->len);
-			*size = qp->len;
-			queue_data_len--;
-		
-			tx_packet_free(qp);
-		}
-	} else {
-		/* TX not on, just send header frames as filler */
-		*size = 0;
-	}
-}
 
 static int prio(void)
 {
@@ -318,110 +158,6 @@ static int prio(void)
 
 
 
-void tx_state_machine(void)
-{
-	bool ptt;
-	bool set_ptt = false;
-
-	tx_state_cnt++;
-	switch (tx_state) {
-		case TX_STATE_OFF:
-			if ((queue_voice || queue_data) && (!freedv_eth_rx_cdc() || fullduplex)) {
-//				printf("OFF -> DELAY\n");
-				tx_state = TX_STATE_DELAY;
-				tx_state_cnt = 0;
-				set_ptt = true;
-				ptt = true;
-
-				check_tx_add();
-			} else {
-				sound_silence();
-				break;
-			}
-		case TX_STATE_DELAY:
-//			printf("%d %d\n", tx_state_cnt, tx_delay);
-			if (tx_state_cnt >= tx_delay) {
-//				printf("DELAY -> ON\n");
-				tx_state = TX_STATE_ON;
-				tx_state_cnt = 0;
-				tx_state_data_header_cnt = 0;
-				tx_state_fprs_cnt = tx_fprs - tx_header - 1;
-			}
-			if (queue_voice) {
-				dequeue_voice();
-			} else {
-				data_tx();
-			}
-			break;
-		case TX_STATE_ON:
-			if (!queue_voice &&
-			    !queue_data && freedv_data_ntxframes(freedv) <= 1 &&
-			    !vc_busy) {
-//				printf("ON -> TAIL\n");
-				tx_state = TX_STATE_TAIL;
-				tx_state_cnt = 0;
-			}
-			tx_state_data_header_cnt++;
-			tx_state_fprs_cnt++;
-			if (queue_voice) {
-				dequeue_voice();
-			} else {
-				data_tx();
-			}
-			break;
-		case TX_STATE_TAIL:
-			if (tx_state_cnt >= tx_tail) {
-//				printf("TAIL -> OFF\n");
-				tx_state = TX_STATE_OFF;
-				tx_state_cnt = 0;
-				set_ptt = true;
-				ptt = false;
-			} else {
-				if (queue_voice || queue_data) {
-//					printf("TAIL -> ON\n");
-					tx_state = TX_STATE_ON;
-					tx_state_cnt = 0;
-					
-					check_tx_add();
-				}
-				if (queue_voice) {
-					dequeue_voice();
-				} else {
-					data_tx();
-				}
-				break;
-			}
-	}
-
-	if (set_ptt)
-		io_hl_ptt_set(ptt);
-}
-
-
-static char vc_callback_tx(void *arg)
-{
-	char c;
-	
-	if (queue_control && tx_state == TX_STATE_ON) {
-		struct tx_packet *qp = queue_control;
-		
-		c = qp->data[qp->off++];
-		if (c < 0)
-			c = 0;
-		if (qp->off >= qp->len) {
-			queue_control = qp->next;
-		
-			tx_packet_free(qp);
-		}
-		vc_busy = true;
-		printf("VC TX: 0x%x %c\n", c, c);
-	} else {
-		c = 0;
-		vc_busy = false;
-	}
-	
-	return c;
-}
 
 void read_nmea(int fd_nmea)
 {
@@ -441,31 +177,18 @@ void read_nmea(int fd_nmea)
 	}
 }
 
+bool freedv_eth_cdc(void)
+{
+	return freedv_eth_rx_cdc() || freedv_eth_rxa_cdc();
+}
 
 static void usage(void)
 {
-	printf("Options:\n");
-	printf("-M\tfreedv mode\n");
-	printf("-v\tverbose\n");
-	printf("-c [call]\town callsign\n");
-	printf("-f\tfull-duplex\n");
-	printf("-F [dev]\tNMEA device\n");
-	printf("-s [dev]\tSound device (default: \"default\")\n");
-	printf("-n [dev]\tNetwork device name (default: \"freedv\")\n");
-	printf("-m [model]\tHAMlib rig model\n");
-	printf("-P [type]\tHAMlib PTT type\n");
-	printf("-p [dev]\tHAMlib PTT device file\n");
-	printf("-d [msec]\tTX delay\n");
-	printf("-t [msec]\tTX tail\n");
-	printf("-D\tUse data frames for control instead of VC bits\n");
+	printf("freedv_eth <config file>\n");
 }
 
 int main(int argc, char **argv)
 {
-	char *call = "pirate";
-	char *sounddev = "default";
-	char *netname = "freedv";
-	char *nmeadev = NULL;
 	int fd_int;
 	int fd_nmea = -1;
 	struct pollfd *fds;
@@ -474,144 +197,203 @@ int main(int argc, char **argv)
 	int nfds;
 	int poll_int;
 	int poll_nmea = 0;
-	int opt;
-	uint16_t type = ETH_P_CODEC2_700;
+	uint16_t type;
 	int nr_samples;
-	int mode = FREEDV_MODE_700;
-	char *ptt_file = NULL;
+	int freedv_mode;
 	rig_model_t rig_model;
 	ptt_type_t ptt_type = RIG_PTT_NONE;
-	
-	rig_model = 1; // set to dummy.
-	
-	while ((opt = getopt(argc, argv, "c:d:DfF:M:m:n:P:p:s:t:v")) != -1) {
-		switch(opt) {
-			case 'M':
-				if (!strcmp(optarg, "1600")) {
-					mode = FREEDV_MODE_1600;
-					codec2 = codec2_create(CODEC2_MODE_1300);
-				} else if (!strcmp(optarg, "700")) {
-					mode = FREEDV_MODE_700;
-					codec2 = codec2_create(CODEC2_MODE_700);
-				} else if (!strcmp(optarg, "700B")) {
-					mode = FREEDV_MODE_700B;
-					codec2 = codec2_create(CODEC2_MODE_700B);
-				} else if (!strcmp(optarg, "2400A")) {
-					mode = FREEDV_MODE_2400A;
-					codec2 = codec2_create(CODEC2_MODE_1300);
-				} else if (!strcmp(optarg, "2400B")) {
-					mode = FREEDV_MODE_2400B;
-					codec2 = codec2_create(CODEC2_MODE_1300);
-				}
-				break;
-			case 'v':
-				verbose = true;
-				break;
-			case 'c':
-				call = optarg;
-				break;
-			case 'D':
-				vc_control = false;
-				break;
-			case 'F':
-				nmeadev = optarg;
-				break;
-			case 's':
-				sounddev = optarg;
-				break;
-			case 'n':
-				netname = optarg;
-				break;
-			case 'm':
-				rig_model = atoi(optarg);
-				break;
-			case 'p':
-				ptt_file = optarg;
-				break;
-			case 'P':
-				if (!strcmp(optarg, "RIG"))
-					ptt_type = RIG_PTT_RIG;
-				else if (!strcmp(optarg, "DTR"))
-					ptt_type = RIG_PTT_SERIAL_DTR;
-				else if (!strcmp(optarg, "RTS"))
-					ptt_type = RIG_PTT_SERIAL_RTS;
-				else if (!strcmp(optarg, "PARALLEL"))
-					ptt_type = RIG_PTT_PARALLEL;
-				else if (!strcmp(optarg, "CM108"))
-					ptt_type = RIG_PTT_CM108;
-				else if (!strcmp(optarg, "GPIO"))
-					ptt_type = RIG_PTT_GPIO;
-				else if (!strcmp(optarg, "GPION"))
-					ptt_type = RIG_PTT_GPION;
-				else if (!strcmp(optarg, "NONE"))
-					ptt_type = RIG_PTT_NONE;
-				else
-					ptt_type = atoi(optarg);
-				break;
-			case 'd':
-				tx_delay = atoi(optarg);
-				break;
-			case 't':
-				tx_tail = atoi(optarg);
-				break;
-			case 'f':
-				fullduplex = true;
-				break;
-			default:
-				usage();
-				return -1;
-		}
+	dcd_type_t dcd_type = RIG_DCD_NONE;
+
+	if (argc < 2) {
+		usage();
+		return -1;
 	}
 	
-	type = freedv_eth_mode2type(mode);
+	if (freedv_eth_config_load(argv[1])) {
+		printf("Failed to load config file %s\n", argv[1]);
+		return -1;
+	}
+	
+	char *nmeadev = freedv_eth_config_value("nmea_device", NULL, NULL);
+	char *sounddev = freedv_eth_config_value("sound_device", NULL, "default");
+	int sound_rate = atoi(freedv_eth_config_value("sound_rate", NULL, "48000"));
+	char *netname = freedv_eth_config_value("network_device", NULL, "freedv");
+	char *call = freedv_eth_config_value("callsign", NULL, "pirate");
+	tx_delay_msec = atoi(freedv_eth_config_value("tx_delay", NULL, "100"));
+	tx_tail_msec = atoi(freedv_eth_config_value("tx_tail", NULL, "100"));
+	fullduplex = atoi(freedv_eth_config_value("fullduplex", NULL, "0"));
+	verbose = atoi(freedv_eth_config_value("verbose", NULL, "0"));
+	char *freedv_mode_str = freedv_eth_config_value("freedv_mode", NULL, "700");
+	rig_model = atoi(freedv_eth_config_value("rig_model", NULL, "1"));
+	char *ptt_file = freedv_eth_config_value("rig_ptt_file", NULL, NULL);
+	vc_control = atoi(freedv_eth_config_value("control_vc", NULL, "0"));
+	char *rig_ptt_type = freedv_eth_config_value("rig_ptt_type", NULL, "NONE");
+	char *rig_dcd_type = freedv_eth_config_value("rig_dcd_type", NULL, "NONE");
+	char *freedv_rx_sound_channel = freedv_eth_config_value("freedv_rx_sound_channel", NULL, "left");
+	char *analog_rx_sound_channel = freedv_eth_config_value("analog_rx_sound_channel", NULL, "left");
+	char *tx_mode_str = freedv_eth_config_value("tx_mode", NULL, "freedv");
+	char *rx_mode_str = freedv_eth_config_value("rx_mode", NULL, "freedv");
+	double tx_ctcss_f = atof(freedv_eth_config_value("analog_tx_ctcss_frequency", NULL, "0.0"));
+	double tx_ctcss_amp = atof(freedv_eth_config_value("analog_tx_ctcss_amp", NULL, "0.15"));
+	int beacon_interval = atoi(freedv_eth_config_value("analog_tx_beacon_interval", NULL, "0"));
+	char *beacon_msg = freedv_eth_config_value("analog_tx_beacon_message", NULL, "");
+	bool tx_emphasis = atoi(freedv_eth_config_value("analog_tx_emphasis", NULL, "0"));
+	bool rx_emphasis = atoi(freedv_eth_config_value("analog_rx_emphasis", NULL, "0"));
+	int dcd_threshold = atoi(freedv_eth_config_value("analog_rx_dcd_threshold", NULL, "1"));
+	
+	if (!strcmp(freedv_mode_str, "1600")) {
+		freedv_mode = FREEDV_MODE_1600;
+		freedv_hasdata = false;
+	} else if (!strcmp(freedv_mode_str, "700")) {
+		freedv_mode = FREEDV_MODE_700;
+		freedv_hasdata = false;
+	} else if (!strcmp(freedv_mode_str, "700B")) {
+		freedv_mode = FREEDV_MODE_700B;
+		freedv_hasdata = false;
+	} else if (!strcmp(freedv_mode_str, "2400A")) {
+		freedv_mode = FREEDV_MODE_2400A;
+		freedv_hasdata = true;
+	} else if (!strcmp(freedv_mode_str, "2400B")) {
+		freedv_mode = FREEDV_MODE_2400B;
+		freedv_hasdata = true;
+	} else if (!strcmp(freedv_mode_str, "800XA")) {
+		freedv_mode = FREEDV_MODE_800XA;
+		freedv_hasdata = true;
+	} else {
+		printf("Invalid FreeDV mode\n");
+		return -1;
+	}
+	
+	if (!strcmp(tx_mode_str, "freedv")) {
+		tx_mode = TX_MODE_FREEDV;
+	} else if (!strcmp(tx_mode_str, "analog")) {
+		tx_mode = TX_MODE_ANALOG;
+	} else {
+		printf("Invalid tx_mode\n");
+		return -1;
+	}
+	
+	if (!strcmp(rx_mode_str, "none")) {
+		rx_mode = RX_MODE_NONE;
+	} else if (!strcmp(rx_mode_str, "freedv")) {
+		rx_mode = RX_MODE_FREEDV;
+	} else if (!strcmp(rx_mode_str, "analog")) {
+		rx_mode = RX_MODE_ANALOG;
+	} else if (!strcmp(rx_mode_str, "mixed")) {
+		rx_mode = RX_MODE_MIXED;
+	} else {
+		printf("Invalid rx_mode\n");
+		return -1;
+	}
+	
+	if (!strcmp(freedv_rx_sound_channel, "left")) {
+		freedv_rx_channel = 0;
+	} else if (!strcmp(freedv_rx_sound_channel, "right")) {
+		freedv_rx_channel = 1;
+	} else {
+		/* Assume it is a number and limit it to odd or even */
+		freedv_rx_channel = atoi(freedv_rx_sound_channel) & 0x1;
+	}
+
+	if (!strcmp(analog_rx_sound_channel, "left")) {
+		analog_rx_channel = 0;
+	} else if (!strcmp(analog_rx_sound_channel, "right")) {
+		analog_rx_channel = 1;
+	} else {
+		/* Assume it is a number and limit it to odd or even */
+		analog_rx_channel = atoi(analog_rx_sound_channel) & 0x1;
+	}
+	
+	if (!strcmp(rig_ptt_type, "RIG"))
+		ptt_type = RIG_PTT_RIG;
+	else if (!strcmp(rig_ptt_type, "DTR"))
+		ptt_type = RIG_PTT_SERIAL_DTR;
+	else if (!strcmp(rig_ptt_type, "RTS"))
+		ptt_type = RIG_PTT_SERIAL_RTS;
+	else if (!strcmp(rig_ptt_type, "PARALLEL"))
+		ptt_type = RIG_PTT_PARALLEL;
+	else if (!strcmp(rig_ptt_type, "CM108"))
+		ptt_type = RIG_PTT_CM108;
+	else if (!strcmp(rig_ptt_type, "GPIO"))
+		ptt_type = RIG_PTT_GPIO;
+	else if (!strcmp(rig_ptt_type, "GPION"))
+		ptt_type = RIG_PTT_GPION;
+	else if (!strcmp(rig_ptt_type, "NONE"))
+		ptt_type = RIG_PTT_NONE;
+	else
+		ptt_type = atoi(rig_ptt_type);
+
+	if (!strcmp(rig_dcd_type, "RIG"))
+		dcd_type = RIG_DCD_RIG;
+	else if (!strcmp(rig_dcd_type, "DSR"))
+		dcd_type = RIG_DCD_SERIAL_DSR;
+	else if (!strcmp(rig_dcd_type, "CTS"))
+		dcd_type = RIG_DCD_SERIAL_CTS;
+	else if (!strcmp(rig_dcd_type, "CD"))
+		dcd_type = RIG_DCD_SERIAL_CAR;
+	else if (!strcmp(rig_dcd_type, "PARALLEL"))
+		dcd_type = RIG_DCD_PARALLEL;
+	else if (!strcmp(rig_dcd_type, "CM108"))
+		dcd_type = RIG_DCD_CM108;
+	else if (!strcmp(rig_dcd_type, "NONE"))
+		dcd_type = RIG_DCD_NONE;
+	else
+		dcd_type = atoi(optarg);
+
+	io_hl_init(rig_model, dcd_threshold, ptt_type, ptt_file, dcd_type);
+	
+	type = freedv_eth_mode2type(freedv_mode);
 	
 	if (eth_ar_callssid2mac(mac, call, false)) {
 		printf("Callsign could not be converted to a valid MAC address\n");
 		return -1;
 	}
-	memcpy(tx_add, mac, 6);
 	
-	freedv = freedv_open(mode);
+	freedv = freedv_open(freedv_mode);
 
-	freedv_set_callback_txt(freedv, freedv_eth_rx_vc_callback, vc_callback_tx, NULL);
-	freedv_set_callback_data(freedv, freedv_eth_rx_cb_datarx, freedv_cb_datatx, NULL);
+	freedv_set_callback_txt(freedv, freedv_eth_rx_vc_callback, freedv_eth_tx_vc_callback, NULL);
+	freedv_set_callback_data(freedv, freedv_eth_rx_cb_datarx, freedv_eth_tx_cb_datatx, NULL);
 	freedv_set_data_header(freedv, mac);
 
-	freedv_eth_rx_init(freedv, mac);
-
-	nr_samples = freedv_get_n_max_modem_samples(freedv);
-	nom_modem_samples = freedv_get_n_nom_modem_samples(freedv);
-	mod_out = calloc(sizeof(int16_t), nom_modem_samples);
-	printf("max number of modem samples: %d\n", nr_samples);
-        bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
-	bytes_per_eth_frame += 7;
-	bytes_per_eth_frame /= 8;
-	printf("bytes per ethernet frame: %d\n", bytes_per_eth_frame);
-	int rat = freedv_get_n_codec_bits(freedv) / codec2_bits_per_frame(freedv_get_codec2(freedv));
-	printf("ehternet frames per freedv frame: %d\n", rat);
-	bytes_per_codec_frame = bytes_per_eth_frame * rat;
-
-	eth_type_tx = type;
+	if (tx_mode == TX_MODE_FREEDV) {
+		tx_codecmode = freedv_eth_type2codecmode(type);
+	} else {
+		/* Decode to speech shorts, but don't recode... */
+		tx_codecmode = 'S';
+	}
 	fd_int = interface_init(netname, mac, true, 0);
-	int rate = freedv_get_modem_sample_rate(freedv);
-	printf("sample rate: %d\n", rate);
-	sound_init(sounddev, cb_sound_in, nr_samples, nr_samples, rate, rate, rate, rate);
+	int freedv_rate = freedv_get_modem_sample_rate(freedv);
+	printf("freedv sample rate: %d\n", freedv_rate);
+	sound_init(sounddev, cb_sound_in, freedv_rate, freedv_rate, freedv_rate, sound_rate);
 
-	int period_msec = 1000 / (rate / nr_samples);
-	printf("TX period: %d msec\n", period_msec);
+	if (tx_mode == TX_MODE_FREEDV) {
+		nr_samples = freedv_get_n_nom_modem_samples(freedv) * sound_rate / freedv_rate;
+	} else {
+		nr_samples = FREEDV_ALAW_NR_SAMPLES * sound_rate / FREEDV_ALAW_RATE;
+	}
+	printf("nom number of modem samples: %d\n", nr_samples);
+
+	sound_set_nr(nr_samples);
+
+	freedv_eth_rx_init(freedv, mac);
+	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis);
 
 
-	tx_tail /= period_msec;
-	tx_delay /= period_msec;
-	tx_header /= period_msec;
-	tx_header_max /= period_msec;
-	tx_fprs /= period_msec;
+	if (tx_mode == TX_MODE_FREEDV) {
+		freedv_eth_tx_init(freedv, mac, nmea, fullduplex,
+		    sound_rate,
+		    tx_tail_msec, tx_delay_msec,
+		    tx_header_msec, tx_header_max_msec,
+		    tx_fprs_msec);
+	} else {
+		freedv_eth_txa_init(fullduplex, 
+		    sound_rate, 
+		    tx_tail_msec,
+		    tx_ctcss_f, tx_ctcss_amp,
+		    beacon_interval, beacon_msg,
+		    tx_emphasis);
+	}
 	
-	printf("TX delay: %d periods\n", tx_delay);
-	printf("TX tail: %d periods\n", tx_tail);
-	printf("TX header: %d periods\n", tx_header);
-	printf("TX header max: %d periods\n", tx_header_max);
-
 	if (nmeadev) {
 		fd_nmea = open(nmeadev, O_RDONLY);
 		if (fd_nmea >= 0) {
@@ -620,7 +402,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	io_hl_init(rig_model, 1, ptt_type, ptt_file, RIG_DCD_NONE);
 
 	prio();
 	
@@ -648,7 +429,10 @@ int main(int argc, char **argv)
 	do {
 		poll(fds, nfds, -1);
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
-			tx_state_machine();
+			if (tx_mode == TX_MODE_FREEDV)
+				freedv_eth_tx_state_machine();
+			else
+				freedv_eth_txa_state_machine();
 		}
 		if (fds[poll_int].revents & POLLIN) {
 			interface_tx(cb_int_tx);

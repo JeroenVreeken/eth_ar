@@ -28,6 +28,14 @@ struct emphasis *emphasis_init(void)
 	return calloc(1, sizeof(struct emphasis));
 }
 
+void emphasis_destroy(struct emphasis *emphasis)
+{
+	if (!emphasis)
+		return;
+	
+	free(emphasis);
+}
+
 int emphasis_reset(struct emphasis *emphasis)
 {
 	emphasis->prev_pre = 0;

@@ -24,6 +24,7 @@
 #include <stdint.h>
 
 struct emphasis *emphasis_init(void);
+void emphasis_destroy(struct emphasis *emphasis);
 
 int emphasis_reset(struct emphasis *emphasis);
 

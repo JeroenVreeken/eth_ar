@@ -27,14 +27,14 @@
 static bool cdc_voice = false;
 static int nr_rx;
 static float rx_sync = 0;
-static bool cdc = false;
+static bool cdc;
 
-static int16_t *samples_rx;
+static int16_t *samples_rx = NULL;
 
 static int bytes_per_codec_frame;
 static int bytes_per_eth_frame;
 static uint16_t eth_type_rx;
-static void *silence_packet;
+static void *silence_packet = NULL;
 
 static uint8_t rx_add[6], mac[6];
 
@@ -168,6 +168,8 @@ static void create_silence_packet(struct CODEC2 *c2)
 {
 	int nr = codec2_samples_per_frame(c2);
 	int16_t samples[nr];
+
+	free(silence_packet);
 	silence_packet = calloc(1, bytes_per_eth_frame);
 
 	memset(samples, 0, nr * sizeof(int16_t));
@@ -186,6 +188,8 @@ int freedv_eth_rx_init(struct freedv *freedv, uint8_t init_mac[6])
 {
 	int nr_samples;
 
+	cdc = false;
+
         bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
 	bytes_per_eth_frame += 7;
 	bytes_per_eth_frame /= 8;
@@ -194,6 +198,7 @@ int freedv_eth_rx_init(struct freedv *freedv, uint8_t init_mac[6])
 
 	nr_samples = freedv_get_n_max_modem_samples(freedv);
 	create_silence_packet(freedv_get_codec2(freedv));
+	free(samples_rx);
 	samples_rx = calloc(nr_samples, sizeof(samples_rx[0]));
 
 	int mode = freedv_get_mode(freedv);

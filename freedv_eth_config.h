@@ -15,19 +15,13 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
  */
-
-#ifndef _INCLUDE_CTCSS_H_
-#define _INCLUDE_CTCSS_H_
+#ifndef _INCLUDE_FREEDV_ETH_CONFIG_H_
+#define _INCLUDE_FREEDV_ETH_CONFIG_H_
 
 #include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
 
-struct ctcss *ctcss_init(int rate, double f, double amp);
-void ctcss_destroy(struct ctcss *ctcss);
+int freedv_eth_config_load(char *file);
 
-int ctcss_reset(struct ctcss *ctcss);
+char *freedv_eth_config_value(char *key, char *prev_value, char *def);
 
-int ctcss_add(struct ctcss *ctcss, int16_t *sound, int nr);
-
-#endif /* _INCLUDE_CTCSS_H_ */
+#endif /* _INCLUDE_FREEDV_ETH_CONFIG_H_ */
