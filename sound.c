@@ -253,16 +253,20 @@ int sound_param(snd_pcm_t *pcm_handle, bool is_tx, int hw_rate, int force_channe
 	}
 	printf("requested rate: %d got rate: %d\n", hw_rate, rrate);
 	
-	if (is_tx || channels == 1 || snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 1)) {
-		if (!is_tx && channels == 1)
-			printf("Could not set channels to 1\n");
-		if (snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 2)) {
-			printf("Could not set channels to 2\n");
-		} else {
+	if (channels == 1 && snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 1)) {
+		printf("Could not set channels to 1\n");
+		if (!force_channels)
 			channels = 2;
-		}
+		else
+			channels = 0;
+	}
+	if (channels == 2 && snd_pcm_hw_params_set_channels (pcm_handle, hw_params, 2)) {
+		printf("Could not set channels to 2\n");
+		channels = 0;
 	}
 	printf("Channels: %d\n", channels);
+	if (!channels)
+		return -1;
 	if (is_tx) {
 		channels_out = channels;
 	} else {
@@ -311,7 +315,7 @@ int sound_buffer(snd_pcm_t *pcm_handle, int buffer_nr, bool is_tx)
 
 int sound_init(char *device, 
     void (*in_cb)(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr_r),
-    int hw_rate)
+    int hw_rate, int force_channels_in)
 {
 	int err;
 	int rrate_tx, rrate_rx;
@@ -341,7 +345,7 @@ int sound_init(char *device,
 		return -1;
 	}
 	
-	if ((rrate_rx = sound_param(pcm_handle_rx, false, hw_rate, 2)) < 0)
+	if ((rrate_rx = sound_param(pcm_handle_rx, false, hw_rate, force_channels_in)) < 0)
 		return -1;
 
 	if (rrate_rx != rrate_tx) {
@@ -349,7 +353,7 @@ int sound_init(char *device,
 		return -1;
 	}
 
-	return hw_rate;
+	return rrate_rx;
 }
 
 int sound_set_nr(int nr_set)

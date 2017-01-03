@@ -47,9 +47,9 @@
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
-//#include <malloc.h>
 
 #include "dtmf.h"
+#include "ctcss.h"
 
 #define	DSP_DIGITMODE_DTMF			0				/*!< Detect DTMF digits */
 #define DSP_DIGITMODE_MF			1				/*!< Detect MF digits */
@@ -379,5 +379,54 @@ int dtmf_init(void)
     
     ast_digit_detect_init(&dtmf);
 
+	return 0;
+}
+
+
+static goertzel_state_t ctcss_gs;
+static int ctcss_samples;
+static int ctcss_samples_cur;
+static unsigned ctcss_result;
+static double ctcss_threshold_level = 4e10;
+static unsigned ctcss_threshold_mask = 0xf;
+
+bool ctcss_detect_rx(short *smp, int nr)
+{
+	while (nr) {
+		int nr_up = nr;
+		if ((ctcss_samples - ctcss_samples_cur) < nr_up) {
+			nr_up = ctcss_samples - ctcss_samples_cur;
+		}
+		
+		goertzel_update(&ctcss_gs, smp, nr_up);
+
+		ctcss_samples_cur += nr_up;
+		nr -= nr_up;
+		
+		if (ctcss_samples_cur == ctcss_samples) {
+			double r = goertzel_result(&ctcss_gs);
+			
+			ctcss_result <<= 1;
+			ctcss_result |= r > ctcss_threshold_level;
+			
+			printf("r: %e\t0x%08x\n", r, ctcss_result);
+		
+			goertzel_reset(&ctcss_gs);
+			ctcss_samples_cur = 0;
+		}
+	}
+	
+	return (ctcss_result & ctcss_threshold_mask) == ctcss_threshold_mask;
+}
+
+int ctcss_detect_init(double freq)
+{
+	ctcss_samples = (SAMPLE_RATE * 4)/freq;
+	printf("RX CTCSS: %fHz, %d samples in bin (%dms)\n", freq, ctcss_samples, ctcss_samples/8);
+	goertzel_init(&ctcss_gs, freq, ctcss_samples);
+	goertzel_reset(&ctcss_gs);
+	ctcss_samples_cur = 0;
+	ctcss_result = 0;
+	
 	return 0;
 }

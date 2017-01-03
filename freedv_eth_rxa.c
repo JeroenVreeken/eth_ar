@@ -23,6 +23,7 @@
 #include "interface.h"
 #include "alaw.h"
 #include "sound.h"
+#include "ctcss.h"
 
 #include <string.h>
 
@@ -31,6 +32,7 @@ static uint8_t mac[6];
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static bool dtmf_initialized = false;
 static bool cdc;
+static bool ctcss_sql;
 static struct sound_resample *sr = NULL;
 
 bool freedv_eth_rxa_cdc(void)
@@ -59,16 +61,20 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 
 	if (emphasis_d)
 		emphasis_de(emphasis_d, mod_a, nr_a);
+	if (ctcss_sql) {
+		ctcss_detect_rx(mod_a, nr_a);
+	}
 	dtmf_rx(mod_a, nr_a, cb_control);
 
 	uint8_t alaw[nr_a];
 		
 	alaw_encode(alaw, mod_a, nr_a);
-		
-	interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr);
+	
+	if (cdc)
+		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr);
 }
 
-int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], bool emphasis)
+int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], bool emphasis, double ctcss_freq)
 {
 	int a_rate = FREEDV_ALAW_RATE;
 	
@@ -89,5 +95,11 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], bool emphasis)
 	if (emphasis)
 		emphasis_d = emphasis_init();
 
+	if (ctcss_freq > 0.0) {
+		ctcss_detect_init(ctcss_freq);
+		ctcss_sql = true;
+	} else {
+		ctcss_sql = false;
+	}
 	return 0;
 }

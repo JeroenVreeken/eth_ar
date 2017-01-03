@@ -200,10 +200,10 @@ static void create_silence_packet(struct CODEC2 *c2)
 
 int freedv_eth_rx_init(struct freedv *init_freedv, uint8_t init_mac[6], int hw_rate)
 {
+	freedv = init_freedv;
 	int nr_samples;
 	int f_rate = freedv_get_modem_sample_rate(freedv);
 
-	freedv = init_freedv;
 	cdc = false;
 
 	sound_resample_destroy(sr);

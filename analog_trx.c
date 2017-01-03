@@ -81,6 +81,8 @@ static void cb_control(char *ctrl)
 static void cb_sound_in(int16_t *hw_samples, int16_t *samples_r, int hw_nr, int nr_r)
 {
 	bool rx_state = squelch();
+	if (!rx_state)
+		return;
 
 	int nr;
 	int16_t *samples;
@@ -413,11 +415,13 @@ int main(int argc, char **argv)
 	tx_data = calloc(16, sizeof(uint8_t));
 
 	fd_int = interface_init(netname, mac, tap, 0);
-	if ((rate = sound_init(sounddev, cb_sound_in, rate)) < 0) {
+	if ((rate = sound_init(sounddev, cb_sound_in, rate, 0)) < 0) {
 		printf("Could not open sound device\n");
 		return -1;
+	} else {
+		printf("Sound rate: %d\n", rate);
 	}
-	sound_set_nr(nr_samples);
+	sound_set_nr(nr_samples * rate / a_rate);
 
 	if (a_rate != rate) {
 		sr_out = sound_resample_create(rate, a_rate);

@@ -30,4 +30,10 @@ int ctcss_reset(struct ctcss *ctcss);
 
 int ctcss_add(struct ctcss *ctcss, int16_t *sound, int nr);
 
+
+/* detection code in dsp.c */
+
+int ctcss_detect_init(double freq);
+bool ctcss_detect_rx(short *smp, int nr);
+
 #endif /* _INCLUDE_CTCSS_H_ */

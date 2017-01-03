@@ -241,6 +241,7 @@ int main(int argc, char **argv)
 	char *analog_rx_sound_channel = freedv_eth_config_value("analog_rx_sound_channel", NULL, "left");
 	char *tx_mode_str = freedv_eth_config_value("tx_mode", NULL, "freedv");
 	char *rx_mode_str = freedv_eth_config_value("rx_mode", NULL, "freedv");
+	double rx_ctcss_f = atof(freedv_eth_config_value("analog_rx_ctcss_frequency", NULL, "0.0"));
 	double tx_ctcss_f = atof(freedv_eth_config_value("analog_tx_ctcss_frequency", NULL, "0.0"));
 	double tx_ctcss_amp = atof(freedv_eth_config_value("analog_tx_ctcss_amp", NULL, "0.15"));
 	int beacon_interval = atoi(freedv_eth_config_value("analog_tx_beacon_interval", NULL, "0"));
@@ -370,7 +371,7 @@ int main(int argc, char **argv)
 		tx_codecmode = 'S';
 	}
 	fd_int = interface_init(netname, mac, true, 0);
-	sound_rate = sound_init(sounddev, cb_sound_in, sound_rate);
+	sound_rate = sound_init(sounddev, cb_sound_in, sound_rate, 2);
 
 	if (tx_mode == TX_MODE_FREEDV) {
 		int freedv_rate = freedv_get_modem_sample_rate(freedv);
@@ -384,7 +385,7 @@ int main(int argc, char **argv)
 	sound_set_nr(nr_samples);
 
 	freedv_eth_rx_init(freedv, mac, sound_rate);
-	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis);
+	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis, rx_ctcss_f);
 
 
 	if (tx_mode == TX_MODE_FREEDV) {
