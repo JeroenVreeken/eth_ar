@@ -59,14 +59,38 @@ struct tx_packet {
 
 static struct tx_packet *queue_voice = NULL;
 
+static bool energy_squelch = false;
 
 
-
-static bool squelch(void)
+float samples_get_energy(short *samples, int nr)
 {
-	return io_state_rx_get();
+	float e = 0;
+	int i;
+	
+	for (i = 0; i < nr; i++) {
+		e += (float)(samples[i] * samples[i]) /  (8192);
+	}
+	e /= nr;
+	
+	return e;
 }
 
+static int energy_squelch_value = 0;
+#define ENERGY_SQUELCH_THRESHOLD 15.0
+#define ENERGY_SQUELCH_OPEN 4000
+
+static bool energy_squelch_state(double energy, int nr)
+{
+	if (energy >= ENERGY_SQUELCH_THRESHOLD) {
+		energy_squelch_value = ENERGY_SQUELCH_OPEN;
+		return true;
+	} else {
+		energy_squelch_value -= nr;
+		if (energy_squelch_value < 0)
+			energy_squelch_value = 0;
+		return energy_squelch_value;
+	}
+}
 
 static void cb_control(char *ctrl)
 {
@@ -80,8 +104,8 @@ static void cb_control(char *ctrl)
 
 static void cb_sound_in(int16_t *hw_samples, int16_t *samples_r, int hw_nr, int nr_r)
 {
-	bool rx_state = squelch();
-	if (!rx_state)
+	bool rx_state = io_state_rx_get();
+	if (!rx_state && !energy_squelch)
 		return;
 
 	int nr;
@@ -108,23 +132,28 @@ static void cb_sound_in(int16_t *hw_samples, int16_t *samples_r, int hw_nr, int 
 			nr_rx += copy;
 		
 			if (nr_rx == nr_samples) {
-				if (rx_state) {
-					int bytes_per_codec_frame = (codec2_bits_per_frame(rx_codec) + 7)/8;
-					unsigned char packed_codec_bits[bytes_per_codec_frame];
+				int bytes_per_codec_frame = (codec2_bits_per_frame(rx_codec) + 7)/8;
+				unsigned char packed_codec_bits[bytes_per_codec_frame];
 				
-					codec2_encode(rx_codec, packed_codec_bits, samples_rx);
+				codec2_encode(rx_codec, packed_codec_bits, samples_rx);
+				double energy = codec2_get_energy(rx_codec, packed_codec_bits);
 
+				if (rx_state || (energy_squelch && energy_squelch_state(energy, nr_samples)))
 					interface_rx(bcast, mac, rx_type, packed_codec_bits, bytes_per_codec_frame);
-				}
+
 				nr_rx = 0;
 			}
 		}
 	} else {
-		uint8_t alaw[nr];
+		double energy = samples_get_energy(samples, nr);
+
+		if (rx_state || (energy_squelch && energy_squelch_state(energy, nr))) {
+			uint8_t alaw[nr];
 		
-		alaw_encode(alaw, samples, nr);
+			alaw_encode(alaw, samples, nr);
 		
-		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr);
+			interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr);
+		}
 	}
 }
 
@@ -287,6 +316,7 @@ static void usage(void)
 	printf("Options:\n");
 	printf("-a\tUse A-Law encoding\n");
 	printf("-c [call]\town callsign\n");
+	printf("-e\tUse sample energy as voice squelch\n");
 	printf("-I\tUse input device as toggle instead of keypress\n");
 	printf("-i [dev]\tUse input device instead of DCD\n");
 	printf("-M [mode]\tCodec2 mode\n");
@@ -319,13 +349,16 @@ int main(int argc, char **argv)
 	int a_rate = 8000;
 	int rate = a_rate;
 
-	while ((opt = getopt(argc, argv, "ac:Ii:M:n:r:Ss:v")) != -1) {
+	while ((opt = getopt(argc, argv, "ac:eIi:M:n:r:Ss:v")) != -1) {
 		switch(opt) {
 			case 'a':
 				is_c2 = false;
 				break;
 			case 'c':
 				call = optarg;
+				break;
+			case 'e':
+				energy_squelch = true;
 				break;
 			case 'I':
 				inputtoggle = true;
