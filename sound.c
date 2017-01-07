@@ -27,9 +27,6 @@ static snd_pcm_t *pcm_handle_tx = NULL;
 static snd_pcm_t *pcm_handle_rx = NULL;
 static void (*sound_in_cb)(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr_r);
 
-static double ratio_out = 1.0;
-static double ratio_in = 1.0;
-
 static int channels_out = 1;
 static int channels_in = 1;
 
@@ -104,16 +101,21 @@ int failed;
 int sound_out(int16_t *samples, int nr, bool left, bool right)
 {
 	int r;
-	int play_nr = nr * ratio_out;
-	int16_t play_samples[play_nr * channels_out];
+	int16_t *play_samples;
+	int16_t samples_2[nr * channels_out];
 	int i;
 	
-	/* Output is always multiple channels */
-	for (i = play_nr; i >= 0; i--) {
-		if (left) 
-			play_samples[i * 2 + 0] = samples[i];
-		if (right)
-			play_samples[i * 2 + 1] = samples[i];
+	if (channels_out == 2) {
+		/* Output is 2 channels */
+		for (i = nr; i >= 0; i--) {
+			if (left) 
+				samples_2[i * 2 + 0] = samples[i];
+			if (right)
+				samples_2[i * 2 + 1] = samples[i];
+		}
+		play_samples = samples_2;
+	} else {
+		play_samples = samples;
 	}
 	
 	r = snd_pcm_writei (pcm_handle_tx, play_samples, nr);
@@ -198,7 +200,7 @@ int sound_rx(void)
 {
 	int i;
 	int r;
-	int rec_nr = nr * 1.0/ratio_in;
+	int rec_nr = nr;
 	int16_t rec_samples[rec_nr * channels_in];
 	int16_t rec_samples_l[rec_nr];
 	int16_t rec_samples_r[rec_nr];
@@ -369,7 +371,7 @@ int sound_set_nr(int nr_set)
 		return -1;
 	}
 
-	silence_nr = nr_set * ratio_out;
+	silence_nr = nr_set;
 	free(silence);
 	silence = calloc(silence_nr * 2, sizeof(int16_t));
 

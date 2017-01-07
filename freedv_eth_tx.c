@@ -99,6 +99,13 @@ static void data_tx(void)
 	freedv_datatx(freedv, mod_out);
 	
 	tx_sound_out(mod_out, nom_modem_samples);
+	
+	if (tx_state == TX_STATE_ON) {
+		printf("+");
+	} else {
+		printf("~");
+	}
+	fflush(NULL);
 }
 
 static void tx_voice(void)
@@ -123,8 +130,6 @@ static void tx_voice(void)
 			    (have_data && energy < 15.0) ||
 			    (!vc_busy && energy < 1.0)) {
 				data_tx();
-				printf("+");
-				fflush(NULL);
 			} else {
 				freedv_codectx(freedv, mod_out, data);
 			

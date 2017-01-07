@@ -18,6 +18,7 @@
 
 #include "freedv_eth.h"
 #include "alaw.h"
+#include "stdio.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -89,7 +90,7 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 			if (to_codecmode != trans_enc_mode) {
 				if (trans_enc)
 					codec2_destroy(trans_enc);
-				trans_enc_mode = from_codecmode;
+				trans_enc_mode = to_codecmode;
 				trans_enc = codec2_create(trans_enc_mode);
 				trans_enc_samples_frame = codec2_samples_per_frame(trans_enc);
 				trans_enc_bytes_frame = codec2_bits_per_frame(trans_enc);
@@ -106,9 +107,8 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 			}
 			if (off && off != trans_speech_pos) {
 				memmove(trans_speech, trans_speech + off, sizeof(short)*(trans_speech_pos - off));
-				trans_speech_pos -= off;
-				off = 0;
 			}
+			trans_speech_pos -= off;
 			break;
 	}
 

@@ -20,6 +20,7 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -140,6 +141,7 @@ err_ioctl:
 err_len:
 	close(sock);
 err_socket:
+	printf("Could not open socket for dev '%s': %s\n", dev, strerror(errno));
 
 	return -1;
 }

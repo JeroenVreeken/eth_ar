@@ -119,6 +119,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 
 		enqueue_voice(packet);
 	} else if (tx_mode == TX_MODE_FREEDV) {
+//		printf("Data: %d %x\n", eth_type, eth_type);
 		/* TODO: send control as DTMF in analog mode */
 		if (eth_type == ETH_P_AR_CONTROL && vc_control) {
 			packet = tx_packet_alloc();
