@@ -338,8 +338,7 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
 	} else {
 		sr = NULL;
 	}
-	int nr_samples = freedv_get_n_max_modem_samples(freedv);
-	int period_msec = 1000 / (freedv_rate / nr_samples);
+	int period_msec = 1000 / (freedv_rate / freedv_get_n_nom_modem_samples(freedv));
 	printf("TX period: %d msec\n", period_msec);
 
 	tx_tail = tx_tail_msec / period_msec;
