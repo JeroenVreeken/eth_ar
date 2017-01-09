@@ -124,8 +124,8 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 					}
 				}
 			}
-			if (sync)
-				printf(" %f\t%f\t%f\n", snr_est, rx_sync, snr_est-RX_SYNC_ZERO);
+//			if (sync)
+//				printf(" %f\t%f\t%f\n", snr_est, rx_sync, snr_est-RX_SYNC_ZERO);
 
 			/* Reset rx address for voice to our own mac */
 			if (!cdc && cdc != old_cdc) {

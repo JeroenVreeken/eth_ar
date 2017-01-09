@@ -19,6 +19,10 @@
 #ifndef _INCLUDE_FPRS_H_
 #define _INCLUDE_FPRS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -135,5 +139,9 @@ int fprs_frame_add_dmlstream(struct fprs_frame *, char *);
 int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *callsign, char *gate_call);
 int fprs2aprs_login(char *loginline, size_t *loginline_len, char *call);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _INCLUDE_FPRS_H_ */

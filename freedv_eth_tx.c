@@ -101,7 +101,10 @@ static void data_tx(void)
 	tx_sound_out(mod_out, nom_modem_samples);
 	
 	if (tx_state == TX_STATE_ON) {
-		printf("+");
+		if (queue_voice_filled())
+			printf("x");
+		else
+			printf("+");
 	} else {
 		printf("~");
 	}
@@ -124,7 +127,7 @@ static void tx_voice(void)
 			bool header_late = tx_state_data_header_cnt >= tx_header;
 			bool have_data = fprs_late || queue_data_filled() || header_late;
 			
-//			printf("e: %f %d\n", energy, vc_busy);
+//			printf("e: %f %d %d\n", energy, vc_busy, tx_state_data_header_cnt);
 
 			if (tx_state_data_header_cnt >= tx_header_max ||
 			    (have_data && energy < 15.0) ||

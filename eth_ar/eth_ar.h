@@ -18,6 +18,10 @@
 #ifndef _INCLUDE_ETH_AR_H_
 #define _INCLUDE_ETH_AR_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -42,5 +46,9 @@ int eth_ar_call2mac(uint8_t mac[6], char *callsign, int ssid, bool multicast);
 int eth_ar_callssid2mac(uint8_t mac[6], char *callsign, bool multicast);
 int eth_ar_mac2call(char *callsign, int *ssid, bool *multicast, uint8_t mac[6]);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _INCLUDE_ETH_AR_H_ */
