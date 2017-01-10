@@ -34,6 +34,7 @@
 #include "sound.h"
 #include "alaw.h"
 #include "io.h"
+#include "ctcss.h"
 
 static bool verbose = false;
 
@@ -49,6 +50,7 @@ static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 static struct sound_resample *sr_out = NULL;
 static struct sound_resample *sr_in = NULL;
+static struct iir *iir;
 
 struct tx_packet {
 	int16_t *samples;
@@ -118,6 +120,10 @@ static void cb_sound_in(int16_t *hw_samples, int16_t *samples_r, int hw_nr, int 
 	} else {
 		nr = hw_nr;
 		samples = hw_samples;
+	}
+
+	if (iir) {
+		filter_iir_2nd(iir, samples, nr);
 	}
 
 	if (rx_codec) {
@@ -315,6 +321,7 @@ static void usage(void)
 {
 	printf("Options:\n");
 	printf("-a\tUse A-Law encoding\n");
+	printf("-b\tFilter voice band\n");
 	printf("-c [call]\town callsign\n");
 	printf("-e\tUse sample energy as voice squelch\n");
 	printf("-I\tUse input device as toggle instead of keypress\n");
@@ -349,10 +356,13 @@ int main(int argc, char **argv)
 	int a_rate = 8000;
 	int rate = a_rate;
 
-	while ((opt = getopt(argc, argv, "ac:eIi:M:n:r:Ss:v")) != -1) {
+	while ((opt = getopt(argc, argv, "abc:eIi:M:n:r:Ss:v")) != -1) {
 		switch(opt) {
 			case 'a':
 				is_c2 = false;
+				break;
+			case 'b':
+				iir = filter_iir_create_8k_hp_300hz();
 				break;
 			case 'c':
 				call = optarg;

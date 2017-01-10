@@ -81,7 +81,6 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 			unsigned char packed_codec_bits[bytes_per_codec_frame];
 			
 			bool old_cdc = cdc;
-			cdc = false;
 			
 			int ret = freedv_codecrx(freedv, packed_codec_bits, samples_rx);
 
@@ -94,6 +93,7 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 				if (old_cdc)
 					printf("RX sync lost\n");
 				rx_sync = RX_SYNC_ZERO;
+				cdc = false;
 			} else {
 				rx_sync += snr_est - RX_SYNC_ZERO;
 			}
@@ -142,6 +142,7 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 
 void freedv_eth_rx_cb_datarx(void *arg, unsigned char *packet, size_t size)
 {
+	cdc = true;
 	if (size == 12) {
 		if (memcmp(rx_add, packet + 6, 6)) {
 			char callstr[9];

@@ -36,4 +36,9 @@ int ctcss_add(struct ctcss *ctcss, int16_t *sound, int nr);
 int ctcss_detect_init(double freq);
 bool ctcss_detect_rx(short *smp, int nr);
 
+struct iir;
+
+struct iir *filter_iir_create_8k_hp_300hz();
+int filter_iir_2nd(struct iir *iir, short *smp, int nr);
+
 #endif /* _INCLUDE_CTCSS_H_ */

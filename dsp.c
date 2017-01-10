@@ -430,3 +430,76 @@ int ctcss_detect_init(double freq)
 	
 	return 0;
 }
+
+
+struct iir {
+	float z[3];
+	float den[4];
+	float num[4];
+};
+
+struct iir *filter_iir_create_8k_hp_300hz()
+{
+	struct iir *iir = calloc(1, sizeof(struct iir));
+
+	// Butterworth 2nd
+/*	iir->den[0] = 1;
+	iir->den[1] = -1.6692;
+	iir->den[2] = 0.716634;
+	
+	iir->num[0] = 0.846459;
+	iir->num[1] = -1.69292;
+	iir->num[2] = 0.846459;
+*/
+
+	// Chebyshev 2nd
+/*	iir->den[0] = 1;
+	iir->den[1] = -1.7384;
+	iir->den[2] = 0.808669;
+	
+	iir->num[0] = 0.627783;
+	iir->num[1] = -1.25557;
+	iir->num[2] = 0.627783;
+*/
+	// Butterworth 3nd
+	iir->den[0] = 1;
+	iir->den[1] = -2.52981;
+	iir->den[2] = 2.16382;
+	iir->den[3] = -0.623539;
+	
+	iir->num[0] = 0.789646;
+	iir->num[1] = -2.36894;
+	iir->num[2] = 2.36894;
+	iir->num[3] = -0.789646;
+
+	return iir;
+}
+
+int filter_iir_2nd(struct iir *iir, short *smp, int nr)
+{
+	int i;
+	
+	for (i = 0; i < nr; i++) {
+		float newz = smp[i] * iir->den[0] 
+		    - iir->z[0] * iir->den[1] 
+		    - iir->z[1] * iir->den[2]
+		    - iir->z[2] * iir->den[3];
+		
+		float newy = newz * iir->num[0]
+		     + iir->z[0] * iir->num[1] 
+		     + iir->z[1] * iir->num[2]
+		     + iir->z[2] * iir->num[3];
+		
+		iir->z[2] = iir->z[1];
+		iir->z[1] = iir->z[0];
+		iir->z[0] = newz;
+
+		if (newy > 32767)
+			newy = 32767;
+		if (newy < -32768)
+			newy = -32768;
+		smp[i] = newy;
+	}
+	
+	return 0;
+}
