@@ -159,6 +159,7 @@ void freedv_eth_rx_cb_datarx(void *arg, unsigned char *packet, size_t size)
 		if (memcmp(packet+6, mac, 6)) {
 			uint16_t type = (packet[12] << 8) | packet[13];
 			interface_rx(packet, packet+6, type, packet + 14, size - 14);
+			printf("^\n");
 		}
 	}
 }
