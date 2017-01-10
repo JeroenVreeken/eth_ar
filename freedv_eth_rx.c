@@ -90,7 +90,7 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 			float snr_est;
 			freedv_get_modem_stats(freedv, &sync, &snr_est);
 			if (!sync) {
-				if (old_cdc)
+				if (cdc)
 					printf("RX sync lost\n");
 				rx_sync = RX_SYNC_ZERO;
 				cdc = false;
@@ -98,7 +98,7 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 				rx_sync += snr_est - RX_SYNC_ZERO;
 			}
 			
-			cdc = (ret && rx_sync > RX_SYNC_THRESHOLD);
+			cdc |= (ret && rx_sync > RX_SYNC_THRESHOLD);
 			if (ret && cdc) {
 				int i;
 				for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
@@ -128,7 +128,7 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 //				printf(" %f\t%f\t%f\n", snr_est, rx_sync, snr_est-RX_SYNC_ZERO);
 
 			/* Reset rx address for voice to our own mac */
-			if (!cdc && cdc != old_cdc) {
+			if (!cdc && old_cdc) {
 				printf("Reset RX add\n");
 				memcpy(rx_add, mac, 6);
 				cdc_voice = false;
