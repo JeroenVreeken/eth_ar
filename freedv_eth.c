@@ -348,7 +348,7 @@ int main(int argc, char **argv)
 	else if (!strcmp(rig_dcd_type, "NONE"))
 		dcd_type = RIG_DCD_NONE;
 	else
-		dcd_type = atoi(optarg);
+		dcd_type = atoi(rig_dcd_type);
 
 	io_hl_init(rig_model, dcd_threshold, ptt_type, ptt_file, dcd_type);
 	

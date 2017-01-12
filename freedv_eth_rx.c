@@ -41,8 +41,8 @@ struct freedv *freedv;
 
 static uint8_t rx_add[6], mac[6];
 
-#define RX_SYNC_ZERO -3.0
-#define RX_SYNC_THRESHOLD 10.0
+#define RX_SYNC_ZERO 15.0
+#define RX_SYNC_THRESHOLD 40.0
 
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 

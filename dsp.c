@@ -409,7 +409,8 @@ bool ctcss_detect_rx(short *smp, int nr)
 			ctcss_result <<= 1;
 			ctcss_result |= r > ctcss_threshold_level;
 			
-			printf("r: %e\t0x%08x\n", r, ctcss_result);
+			printf("r: %e\t0x%08x %d\n", r, ctcss_result,
+			    (ctcss_result & ctcss_threshold_mask) == ctcss_threshold_mask);
 		
 			goertzel_reset(&ctcss_gs);
 			ctcss_samples_cur = 0;
@@ -421,7 +422,7 @@ bool ctcss_detect_rx(short *smp, int nr)
 
 int ctcss_detect_init(double freq)
 {
-	ctcss_samples = (SAMPLE_RATE * 4)/freq;
+	ctcss_samples = (SAMPLE_RATE * 8)/freq;
 	printf("RX CTCSS: %fHz, %d samples in bin (%dms)\n", freq, ctcss_samples, ctcss_samples/8);
 	goertzel_init(&ctcss_gs, freq, ctcss_samples);
 	goertzel_reset(&ctcss_gs);

@@ -62,7 +62,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	if (emphasis_d)
 		emphasis_de(emphasis_d, mod_a, nr_a);
 	if (ctcss_sql) {
-		ctcss_detect_rx(mod_a, nr_a);
+		cdc |= ctcss_detect_rx(mod_a, nr_a);
 	}
 	dtmf_rx(mod_a, nr_a, cb_control);
 
@@ -71,7 +71,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	alaw_encode(alaw, mod_a, nr_a);
 	
 	if (cdc)
-		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr);
+		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr_a);
 }
 
 int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], bool emphasis, double ctcss_freq)
