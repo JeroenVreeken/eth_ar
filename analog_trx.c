@@ -142,9 +142,13 @@ static void cb_sound_in(int16_t *hw_samples, int16_t *samples_r, int hw_nr, int 
 				unsigned char packed_codec_bits[bytes_per_codec_frame];
 				
 				codec2_encode(rx_codec, packed_codec_bits, samples_rx);
-				double energy = codec2_get_energy(rx_codec, packed_codec_bits);
-
-				if (rx_state || (energy_squelch && energy_squelch_state(energy, nr_samples)))
+				
+				bool pass = rx_state;
+				if (energy_squelch) {
+					double energy = codec2_get_energy(rx_codec, packed_codec_bits);
+					pass |= energy_squelch_state(energy, nr_samples);
+				}
+				if (pass)
 					interface_rx(bcast, mac, rx_type, packed_codec_bits, bytes_per_codec_frame);
 
 				nr_rx = 0;
