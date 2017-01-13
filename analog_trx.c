@@ -223,6 +223,9 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		case ETH_P_CODEC2_700B:
 			newmode = CODEC2_MODE_700B;
 			break;
+		case ETH_P_CODEC2_700C:
+			newmode = CODEC2_MODE_700C;
+			break;
 		case ETH_P_ALAW:
 			is_c2 = false;
 			break;
@@ -393,6 +396,8 @@ int main(int argc, char **argv)
 					mode = CODEC2_MODE_700;
 				} else if (!strcmp(optarg, "700B")) {
 					mode = CODEC2_MODE_700B;
+				} else if (!strcmp(optarg, "700C")) {
+					mode = CODEC2_MODE_700C;
 				}
 				break;
 			case 'n':
@@ -448,6 +453,9 @@ int main(int argc, char **argv)
 				break;
 			case CODEC2_MODE_700B:
 				rx_type = ETH_P_CODEC2_700B;
+				break;
+			case CODEC2_MODE_700C:
+				rx_type = ETH_P_CODEC2_700C;
 				break;
 		}
 	} else {
