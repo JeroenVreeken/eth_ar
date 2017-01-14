@@ -83,15 +83,24 @@ static int energy_squelch_value = 0;
 
 static bool energy_squelch_state(double energy, int nr)
 {
+	bool old_state = energy_squelch_value;
+	bool new_state;
+	
 	if (energy >= ENERGY_SQUELCH_THRESHOLD) {
 		energy_squelch_value = ENERGY_SQUELCH_OPEN;
-		return true;
+		new_state = true;
 	} else {
 		energy_squelch_value -= nr;
 		if (energy_squelch_value < 0)
 			energy_squelch_value = 0;
-		return energy_squelch_value;
+		new_state = energy_squelch_value;
 	}
+	
+	if (new_state != old_state) {
+		printf("Energy squelch: %d\n", new_state);
+	}
+	
+	return new_state;
 }
 
 static void cb_control(char *ctrl)

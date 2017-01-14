@@ -109,6 +109,7 @@ int eth_ar_mac2call(char *callsign, int *ssid, bool *multicast, uint8_t mac[6])
 
 	if (!memcmp(mac, (uint8_t[6]){ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, 6)) {
 		*ssid = 0;
+		*multicast = true;
 		strcpy(callsign, "*");
 		return 0;
 	}
