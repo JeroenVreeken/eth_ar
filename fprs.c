@@ -703,12 +703,13 @@ char *fprs_element2stra(struct fprs_element *el)
 			bool fixed;
 			
 			fprs_position_dec(&lon, &lat, &fixed, el_data);
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"longitude\": %f, "
 			    "\"latitude\": %f, "
 			    "\"fixed\": %s "
 			    "}", 
-			    type_str, lon, lat, fixed ? "true" : "false");
+			    type_str, lon, lat, fixed ? "true" : "false") < 0)
+				stra = NULL;
 			break;
 		}
 		case FPRS_CALLSIGN: {
@@ -718,59 +719,65 @@ char *fprs_element2stra(struct fprs_element *el)
 			
 			eth_ar_mac2call(callsign, &ssid, &multicast, el_data);
 			
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"callsign\": \"%s\", "
 			    "\"ssid\": %d, "
 			    "\"multicast\": %s "
 			    "}",
-			    type_str, callsign, ssid, multicast ? "true" : "false");
+			    type_str, callsign, ssid, multicast ? "true" : "false") < 0)
+				stra = NULL;
 			break;
 		}
 		case FPRS_ALTITUDE: {
 			double altitude;
 			
 			fprs_altitude_dec(&altitude, el_data);
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"altitude\": %f "
 			    "}",
-			    type_str, altitude);
+			    type_str, altitude) < 0)
+				stra = NULL;
 			break;
 		}
 		case FPRS_VECTOR: {
 			double az, el, speed;
 			
 			fprs_vector_dec(&az, &el, &speed, el_data);
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"azimuth\": %f, "
 			    "\"elevation\": %f, "
 			    "\"speed\": %f, "
 			    "}",
-			    type_str, az, el, speed);
+			    type_str, az, el, speed) < 0)
+				stra = NULL;
 			break;
 		}
 		case FPRS_SYMBOL: {
 			char *symbol = el_data;
 			
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"symbol\": \"%c%c\" "
 			    "}",
-			    type_str, symbol[0], symbol[1]);
+			    type_str, symbol[0], symbol[1]) < 0)
+				stra = NULL;
 		
 			break;
 		}
 		case FPRS_OBJECTNAME: {
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"objectname\": \"%.*s\" "
 			    "}",
-			    type_str, (int)el_size, (char*)el_data);
+			    type_str, (int)el_size, (char*)el_data) < 0)
+				stra = NULL;
 		
 			break;
 		}
 		case FPRS_COMMENT: {
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"comment\": \"%.*s\" "
 			    "}",
-			    type_str, (int)el_size, (char*)el_data);
+			    type_str, (int)el_size, (char*)el_data) < 0)
+				stra = NULL;
 		
 			break;
 		}
@@ -796,13 +803,14 @@ char *fprs_element2stra(struct fprs_element *el)
 				el_str = concat(el_str, "\"");
 			}
 			
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"callsign\": \"%s\", "
 			    "\"ssid\": %d, "
 			    "\"multicast\": %s, "
 			    "\"elements\": [ %s ] "
 			    "}",
-			    type_str, callsign, ssid, multicast ? "true" : "false", el_str);
+			    type_str, callsign, ssid, multicast ? "true" : "false", el_str) < 0)
+				stra = NULL;
 			free(el_str);
 			break;
 		}
@@ -813,42 +821,47 @@ char *fprs_element2stra(struct fprs_element *el)
 			
 			eth_ar_mac2call(callsign, &ssid, &multicast, el_data);
 			
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"callsign\": \"%s\", "
 			    "\"ssid\": %d, "
 			    "\"multicast\": %s "
 			    "}",
-			    type_str, callsign, ssid, multicast ? "true" : "false");
+			    type_str, callsign, ssid, multicast ? "true" : "false") < 0)
+				stra = NULL;
 			break;
 		}
 		case FPRS_TIMESTAMP: {
 			time_t timestamp;
 			fprs_timestamp_dec(&timestamp, el_data, el_size);
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"timestamp\": %lld "
 			    "}",
-			    type_str, (long long)timestamp);
+			    type_str, (long long)timestamp) < 0)
+				stra = NULL;
 		
 			break;
 		}
 		case FPRS_DMLSTREAM: {
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"stream\": \"%.*s\" "
 			    "}",
-			    type_str, (int)el_size, (char*)el_data);
+			    type_str, (int)el_size, (char*)el_data) < 0)
+				stra = NULL;
 		
 			break;
 		}
 		case FPRS_DMLASSOC: {
-			asprintf(&stra, "\"%s\": { "
+			if (asprintf(&stra, "\"%s\": { "
 			    "\"stream\": \"%.*s\" "
 			    "}",
-			    type_str, (int)el_size, (char*)el_data);
+			    type_str, (int)el_size, (char*)el_data) < 0)
+				stra = NULL;
 		
 			break;
 		}
 		default: 
-			asprintf(&stra, "\"%s\": { }", type_str);
+			if (asprintf(&stra, "\"%s\": { }", type_str) < 0)
+				stra = NULL;
 			break;
 	}
 	

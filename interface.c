@@ -45,8 +45,7 @@ int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *dat
 	memcpy(packet + 14, data, len);
 	
 //	printf("Packet to interface %zd\n", sizeof(packet));
-	write(fd, packet, sizeof(packet));
-	return 0;
+	return write(fd, packet, sizeof(packet)) <= 0;
 }
 
 static int interface_tx_tap(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))

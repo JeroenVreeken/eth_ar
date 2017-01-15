@@ -148,11 +148,10 @@ static int aprs_is_in(void)
 	
 	r = read(fd_is, buffer, 256);
 	if (r > 0) {
-		write(2, buffer, r);
+		return write(2, buffer, r) != r;
 	} else {
 		return -1;
 	}
-	return 0;
 }
 
 static int fprs2aprs_is(struct fprs_frame *frame, uint8_t *from)
@@ -164,7 +163,8 @@ static int fprs2aprs_is(struct fprs_frame *frame, uint8_t *from)
 		return -1;
 
 	printf("%s", aprs);
-	write(fd_is, aprs, strlen(aprs));
+	if (write(fd_is, aprs, strlen(aprs)) <= 0)
+		return -1;
 
 	return 0;
 }
@@ -265,8 +265,11 @@ int main(int argc, char **argv)
 				char loginline[256];
 				size_t loginline_len = sizeof(loginline) - 1;
 				fprs2aprs_login(loginline, &loginline_len, call);
-				write(fd_is, loginline, strlen(loginline));
-				fds[poll_is].fd = fd_is;
+				if (write(fd_is, loginline, strlen(loginline)) < 0) {
+					close(fd_is);
+				} else {
+					fds[poll_is].fd = fd_is;
+				}
 			}
 		}
 		poll(fds, nfds, 1000);
