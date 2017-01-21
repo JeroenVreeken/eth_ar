@@ -260,6 +260,9 @@ int main(int argc, char **argv)
 	} else if (!strcmp(freedv_mode_str, "700B")) {
 		freedv_mode = FREEDV_MODE_700B;
 		freedv_hasdata = false;
+	} else if (!strcmp(freedv_mode_str, "700C")) {
+		freedv_mode = FREEDV_MODE_700C;
+		freedv_hasdata = false;
 	} else if (!strcmp(freedv_mode_str, "2400A")) {
 		freedv_mode = FREEDV_MODE_2400A;
 		freedv_hasdata = true;
