@@ -38,22 +38,24 @@ static enum tx_state tx_state;
 static bool tx_hadvoice;
 static int tx_tail;
 static int tx_state_cnt;
-static struct sound_resample *sr = NULL;
+static struct sound_resample *sr_l, *sr_r = NULL;
 static struct ctcss *ctcss = NULL;
 static struct beacon *beacon = NULL;
 static struct emphasis *emphasis_p = NULL;
 static int nr_samples = FREEDV_ALAW_NR_SAMPLES;
 
-static int tx_sound_out(int16_t *samples, int nr)
+static int tx_sound_out(int16_t *samples, int16_t *samples_bb, int nr)
 {
-	if (!sr) {
-		sound_out(samples, nr, true, true);
+	if (!sr_l) {
+		sound_out_lr(samples, samples_bb, nr);
 	} else {
-		int nr_out = sound_resample_nr_out(sr, nr);
-		int16_t hw_mod_out[nr_out];
+		int nr_out = sound_resample_nr_out(sr_l, nr);
+		int16_t hw_mod_out_l[nr_out];
+		int16_t hw_mod_out_r[nr_out];
 					
-		sound_resample_perform(sr, hw_mod_out, samples, nr_out, nr);
-		sound_out(hw_mod_out, nr_out, true, true);
+		sound_resample_perform(sr_l, hw_mod_out_l, samples, nr_out, nr);
+		sound_resample_perform(sr_r, hw_mod_out_r, samples_bb, nr_out, nr);
+		sound_out_lr(hw_mod_out_l, hw_mod_out_r, nr_out);
 	}
 	return 0;
 }
@@ -61,7 +63,9 @@ static int tx_sound_out(int16_t *samples, int nr)
 static void tx_silence(void)
 {
 	int16_t buffer[nr_samples];
+	int16_t buffer_bb[nr_samples];
 	memset(buffer, 0, sizeof(int16_t)*nr_samples);
+	memset(buffer_bb, 0, sizeof(int16_t)*nr_samples);
 	
 	if (tx_hadvoice) {
 		if (ctcss)
@@ -69,7 +73,7 @@ static void tx_silence(void)
 		if (emphasis_p)
 			emphasis_pre(emphasis_p, buffer, nr_samples);
 	}
-	tx_sound_out(buffer, nr_samples);
+	tx_sound_out(buffer, buffer_bb, nr_samples);
 }
 
 static void tx_voice(void)
@@ -81,6 +85,8 @@ static void tx_voice(void)
 			tx_silence();
 		} else {
 			int16_t buffer[nr_samples];
+			int16_t buffer_bb[nr_samples];
+			memset(buffer_bb, 0, sizeof(int16_t)*nr_samples);
 			
 			beacon_generate(beacon, buffer, nr_samples);
 			if (tx_hadvoice) {
@@ -89,14 +95,16 @@ static void tx_voice(void)
 			}
 			if (emphasis_p)
 				emphasis_pre(emphasis_p, buffer, nr_samples);
-			tx_sound_out(buffer, nr_samples);
+			tx_sound_out(buffer, buffer_bb, nr_samples);
 		}
 	} else {
 		int nr = packet->len / sizeof(short);
 		int16_t buffer[nr];
+		int16_t buffer_bb[nr];
 		
 		tx_hadvoice = true;
 		memcpy(buffer, packet->data, packet->len);
+		memcpy(buffer_bb, packet->data, packet->len);
 		
 		if (beacon)
 			beacon_generate_add(beacon, buffer, nr);
@@ -104,7 +112,7 @@ static void tx_voice(void)
 			ctcss_add(ctcss, buffer, nr);
 		if (emphasis_p)
 			emphasis_pre(emphasis_p, buffer, nr);
-		tx_sound_out(buffer, nr);
+		tx_sound_out(buffer, buffer_bb, nr);
 
 		packet = dequeue_voice();
 		tx_packet_free(packet);
@@ -190,11 +198,14 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
 	tx_tail = tx_tail_msec / period_msec;
 	printf("TX tail: %d periods\n", tx_tail);
 
-	sound_resample_destroy(sr);
+	sound_resample_destroy(sr_l);
+	sound_resample_destroy(sr_r);
 	if (a_rate != hw_rate) {
-		sr = sound_resample_create(hw_rate, a_rate);
+		sr_l = sound_resample_create(hw_rate, a_rate);
+		sr_r = sound_resample_create(hw_rate, a_rate);
 	} else {
-		sr = NULL;
+		sr_l = NULL;
+		sr_r = NULL;
 	}
 	
 	ctcss_destroy(ctcss);

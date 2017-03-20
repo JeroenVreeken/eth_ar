@@ -98,9 +98,39 @@ int sound_resample_nr_in(struct sound_resample *sr, int nr_out)
 
 int written;
 int failed;
-int sound_out(int16_t *samples, int nr, bool left, bool right)
+
+static int sound_out_alsa(int16_t *play_samples, int nr)
 {
 	int r;
+	
+	r = snd_pcm_writei (pcm_handle_tx, play_samples, nr);
+//	printf("alsa: %d\n", r);
+	if (r < 0) {
+		failed++;
+		printf("recover output %d %d %d\n", written, failed, written/failed);
+		snd_pcm_recover(pcm_handle_tx, r, 1);
+		snd_pcm_writei (pcm_handle_tx, play_samples, nr);
+	}
+	written++;
+
+	return 0;
+}
+
+int sound_out_lr(int16_t *samples_l, int16_t *samples_r, int nr)
+{
+	int16_t samples[nr];
+	int i;
+	
+	for (i = 0; i < nr; i++) {
+		samples[i * 2 + 0] = samples_l[i];
+		samples[i * 2 + 1] = samples_r[i];
+	}
+
+	return sound_out_alsa(samples, nr);
+}
+
+int sound_out(int16_t *samples, int nr, bool left, bool right)
+{
 	int16_t *play_samples;
 	int16_t samples_2[nr * channels_out];
 	int i;
@@ -118,17 +148,7 @@ int sound_out(int16_t *samples, int nr, bool left, bool right)
 		play_samples = samples;
 	}
 	
-	r = snd_pcm_writei (pcm_handle_tx, play_samples, nr);
-//	printf("alsa: %d\n", r);
-	if (r < 0) {
-		failed++;
-		printf("recover output %d %d %d\n", written, failed, written/failed);
-		snd_pcm_recover(pcm_handle_tx, r, 1);
-		snd_pcm_writei (pcm_handle_tx, samples, nr);
-	}
-	written++;
-
-	return 0;
+	return sound_out_alsa(play_samples, nr);
 }
 
 int16_t *silence = NULL;
@@ -317,7 +337,7 @@ int sound_buffer(snd_pcm_t *pcm_handle, int buffer_nr, bool is_tx)
 
 int sound_init(char *device, 
     void (*in_cb)(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr_r),
-    int hw_rate, int force_channels_in)
+    int hw_rate, int force_channels_in, int force_channels_out)
 {
 	int err;
 	int rrate_tx, rrate_rx;
@@ -338,7 +358,7 @@ int sound_init(char *device,
 		return -1;
 	}
 
-	if ((rrate_tx = sound_param(pcm_handle_tx, true, hw_rate, 0)) < 0)
+	if ((rrate_tx = sound_param(pcm_handle_tx, true, hw_rate, force_channels_out)) < 0)
 		return -1;
 
 	err = snd_pcm_open (&pcm_handle_rx, device_name, SND_PCM_STREAM_CAPTURE, 0);

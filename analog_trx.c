@@ -479,7 +479,7 @@ int main(int argc, char **argv)
 	tx_data = calloc(16, sizeof(uint8_t));
 
 	fd_int = interface_init(netname, mac, tap, 0);
-	if ((rate = sound_init(sounddev, cb_sound_in, rate, 0)) < 0) {
+	if ((rate = sound_init(sounddev, cb_sound_in, rate, 0, 0)) < 0) {
 		printf("Could not open sound device\n");
 		return -1;
 	} else {

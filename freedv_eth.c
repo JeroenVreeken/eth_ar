@@ -64,6 +64,7 @@ static uint8_t mac[6];
 static struct nmea_state *nmea;
 
 enum tx_mode {
+	TX_MODE_NONE,
 	TX_MODE_FREEDV,
 	TX_MODE_ANALOG,
 };
@@ -277,7 +278,9 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	
-	if (!strcmp(tx_mode_str, "freedv")) {
+	if (!strcmp(tx_mode_str, "none")) {
+		tx_mode = TX_MODE_NONE;
+	} else if (!strcmp(tx_mode_str, "freedv")) {
 		tx_mode = TX_MODE_FREEDV;
 	} else if (!strcmp(tx_mode_str, "analog")) {
 		tx_mode = TX_MODE_ANALOG;
@@ -375,7 +378,7 @@ int main(int argc, char **argv)
 		tx_codecmode = 'S';
 	}
 	fd_int = interface_init(netname, mac, true, 0);
-	sound_rate = sound_init(sounddev, cb_sound_in, sound_rate, 2);
+	sound_rate = sound_init(sounddev, cb_sound_in, sound_rate, 2, 2);
 
 	if (tx_mode == TX_MODE_FREEDV) {
 		int freedv_rate = freedv_get_modem_sample_rate(freedv);

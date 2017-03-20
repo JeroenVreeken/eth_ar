@@ -23,11 +23,12 @@
 #include <stdbool.h>
 
 int sound_out(int16_t *samples, int nr, bool left, bool right);
+int sound_out_lr(int16_t *samples_l, int16_t *samples_r, int nr);
 int sound_silence(void);
 /* Returns hw_rate or negative error*/
 int sound_init(char *device, 
     void (*in_cb)(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr_r),
-    int hw_rate, int force_channels_in);
+    int hw_rate, int force_channels_in, int force_channels_out);
 int sound_set_nr(int nr_set);
 int sound_poll_count_tx(void);
 int sound_poll_fill_tx(struct pollfd *fds, int count);
