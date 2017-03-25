@@ -239,6 +239,9 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		case ETH_P_CODEC2_700C:
 			newmode = CODEC2_MODE_700C;
 			break;
+		case ETH_P_CODEC2_1300C:
+			newmode = CODEC2_MODE_1300C;
+			break;
 		case ETH_P_ALAW:
 			is_c2 = false;
 			break;
@@ -411,6 +414,8 @@ int main(int argc, char **argv)
 					mode = CODEC2_MODE_700B;
 				} else if (!strcmp(optarg, "700C")) {
 					mode = CODEC2_MODE_700C;
+				} else if (!strcmp(optarg, "1300C")) {
+					mode = CODEC2_MODE_1300C;
 				}
 				break;
 			case 'n':

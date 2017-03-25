@@ -34,6 +34,7 @@ extern "C" {
 #define ETH_P_CODEC2_700	0x7306
 #define ETH_P_CODEC2_700B	0x7307
 #define ETH_P_CODEC2_700C	0x7308
+#define ETH_P_CODEC2_1300C	0x7309
 
 #define ETH_P_AR_CONTROL	0x7342
 

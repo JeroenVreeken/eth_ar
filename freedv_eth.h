@@ -38,10 +38,12 @@ static inline uint16_t freedv_eth_mode2type(int mode)
 		case FREEDV_MODE_700B:
 			type = ETH_P_CODEC2_700B;
 			break;
-		case FREEDV_MODE_2400A:
-		case FREEDV_MODE_2400B:
 		case FREEDV_MODE_1600:
 			type = ETH_P_CODEC2_1300;
+			break;
+		case FREEDV_MODE_2400A:
+		case FREEDV_MODE_2400B:
+			type = ETH_P_CODEC2_1300C;
 			break;
 		default:
 			break;
@@ -69,6 +71,10 @@ static inline int freedv_eth_type2codecmode(uint16_t type)
 			return CODEC2_MODE_700;
 		case ETH_P_CODEC2_700B:
 			return CODEC2_MODE_700B;
+		case ETH_P_CODEC2_700C:
+			return CODEC2_MODE_700C;
+		case ETH_P_CODEC2_1300C:
+			return CODEC2_MODE_1300C;
 		case ETH_P_ALAW:
 			return 'A';
 		default:
@@ -88,6 +94,8 @@ static inline bool freedv_eth_type_isvoice(uint16_t type)
 		case ETH_P_CODEC2_1200:
 		case ETH_P_CODEC2_700:
 		case ETH_P_CODEC2_700B:
+		case ETH_P_CODEC2_700C:
+		case ETH_P_CODEC2_1300C:
 		case ETH_P_ALAW:
 			return true;
 		default:
