@@ -43,7 +43,7 @@ static inline uint16_t freedv_eth_mode2type(int mode)
 			break;
 		case FREEDV_MODE_2400A:
 		case FREEDV_MODE_2400B:
-			type = ETH_P_CODEC2_1300C;
+			type = ETH_P_CODEC2_1300;
 			break;
 		default:
 			break;
@@ -77,6 +77,8 @@ static inline int freedv_eth_type2codecmode(uint16_t type)
 			return CODEC2_MODE_1300C;
 		case ETH_P_ALAW:
 			return 'A';
+		case ETH_P_ULAW:
+			return 'U';
 		default:
 			break;
 	}
@@ -97,6 +99,7 @@ static inline bool freedv_eth_type_isvoice(uint16_t type)
 		case ETH_P_CODEC2_700C:
 		case ETH_P_CODEC2_1300C:
 		case ETH_P_ALAW:
+		case ETH_P_ULAW:
 			return true;
 		default:
 			break;
@@ -154,7 +157,9 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
     int tx_tail_msec, 
     double ctcss_f, double ctcss_amp,
     int beacon_interval, char *beacon_msg,
-    bool emphasis);
+    bool emphasis,
+    bool init_output_bb,
+    bool init_output_tone);
 void freedv_eth_txa_state_machine(void);
 bool freedv_eth_txa_ptt(void);
 

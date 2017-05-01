@@ -19,8 +19,8 @@
 #include "emphasis.h"
 
 struct emphasis {
+	float prev_de;
 	int16_t prev_pre;
-	int16_t prev_de;
 };
 
 struct emphasis *emphasis_init(void)
@@ -43,20 +43,27 @@ int emphasis_reset(struct emphasis *emphasis)
 	return 0;
 }
 
+// Set factor to 0.5 for 0db @ 3kHz (3kHz-4kHz is flattened)
+// Set factor to 1.0 for 0db @ 1.5kHz (1.33kHz implementation)
+#define AFACTOR_PRE 1.0
+#define AFACTOR_DE  (1.0/AFACTOR_PRE)
+
 int emphasis_pre(struct emphasis *emphasis, int16_t *sound, int nr)
 {
 	int i;
 	
 	for (i = 0; i < nr; i++) {
-		long sample = sound[i];
+		float sample = sound[i];
 		
 		sample -= emphasis->prev_pre;
 		emphasis->prev_pre = sound[i];
 
-		if (sample > 16535)
-			sample = 16535;
-		if (sample < -16536)
-			sample = -16536;
+		sample *= AFACTOR_PRE;
+ 
+		if (sample > 32767)
+			sample = 32767;
+		if (sample < -32768)
+			sample = -32768;
 		
 		sound[i] = sample;
 	}
@@ -69,16 +76,18 @@ int emphasis_de(struct emphasis *emphasis, int16_t *sound, int nr)
 	int i;
 	
 	for (i = 0; i < nr; i++) {
-		long sample = sound[i];
+		float sample = sound[i];
 		
 		sample += emphasis->prev_de;
-		
-		if (sample > 16535)
-			sample = 16535;
-		if (sample < -16536)
-			sample = -16536;
-		
 		emphasis->prev_de = sample;
+		
+		sample *= AFACTOR_DE;
+
+		if (sample > 32767)
+			sample = 32767;
+		if (sample < -32768)
+			sample = -32768;
+
 		sound[i] = sample;
 	}
 	

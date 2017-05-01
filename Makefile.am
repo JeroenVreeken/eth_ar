@@ -12,7 +12,7 @@ nobase_include_HEADERS = eth_ar/eth_ar.h eth_ar/fprs.h
 
 
 bin_PROGRAMS = analog_trx freedv_eth fprs2aprs_gate eth_ar_if fprs_request fprs_destination fprs_monitor
-noinst_PROGRAMS = fprs_test
+noinst_PROGRAMS = fprs_test emphasis_test
 
 analog_trx_SOURCES = sound.c alaw.c dsp.c io.c interface.c analog_trx.c
 analog_trx_LDADD = libeth_ar.la
@@ -39,3 +39,6 @@ fprs_monitor_LDADD = libeth_ar.la
 
 eth_ar_if_SOURCES = eth_ar_if.c
 eth_ar_if_LDADD = libeth_ar.la
+
+emphasis_test_SOURCES = emphasis_test.c emphasis.c
+emphasis_test_LDFLAGS = -lm

@@ -475,6 +475,9 @@ int main(int argc, char **argv)
 			case CODEC2_MODE_700C:
 				rx_type = ETH_P_CODEC2_700C;
 				break;
+			case CODEC2_MODE_1300C:
+				rx_type = ETH_P_CODEC2_1300C;
+				break;
 		}
 	} else {
 		rx_codec = NULL;

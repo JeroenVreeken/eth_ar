@@ -251,6 +251,8 @@ int main(int argc, char **argv)
 	bool tx_emphasis = atoi(freedv_eth_config_value("analog_tx_emphasis", NULL, "0"));
 	bool rx_emphasis = atoi(freedv_eth_config_value("analog_rx_emphasis", NULL, "0"));
 	int dcd_threshold = atoi(freedv_eth_config_value("analog_rx_dcd_threshold", NULL, "1"));
+	bool tx_bb = atoi(freedv_eth_config_value("analog_tx_baseband", NULL, "0"));
+	bool tx_tone = atoi(freedv_eth_config_value("analog_tx_tone", NULL, "0"));
 	
 	if (!strcmp(freedv_mode_str, "1600")) {
 		freedv_mode = FREEDV_MODE_1600;
@@ -407,7 +409,8 @@ int main(int argc, char **argv)
 		    tx_tail_msec,
 		    tx_ctcss_f, tx_ctcss_amp,
 		    beacon_interval, beacon_msg,
-		    tx_emphasis);
+		    tx_emphasis,
+		    tx_bb, tx_tone);
 	}
 	
 	if (nmeadev) {

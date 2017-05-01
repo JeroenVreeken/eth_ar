@@ -42,7 +42,7 @@ struct ctcss *ctcss_init(int rate, double f, double amp)
 	int i;
 	
 	for (i = 0; i < ctcss->tone_nr; i++) {
-		ctcss->tone[i] = sin((2*M_PI * f * i) / (double)(rate)) * amp * 16535.0;
+		ctcss->tone[i] = sin((2*M_PI * f * i) / (double)(rate)) * amp * 32767.0;
 	}
 	
 	return ctcss;
@@ -66,10 +66,10 @@ int ctcss_add(struct ctcss *ctcss, int16_t *sound, int nr)
 		
 		sample += ctcss->tone[ctcss->cur];
 		
-		if (sample > 16535)
-			sample = 16535;
-		if (sample < -16536)
-			sample = -16536;
+		if (sample > 32767)
+			sample = 32767;
+		if (sample < -32768)
+			sample = -32768;
 		
 		sound[i] = sample;
 		

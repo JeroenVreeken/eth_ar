@@ -43,6 +43,8 @@ static struct ctcss *ctcss = NULL;
 static struct beacon *beacon = NULL;
 static struct emphasis *emphasis_p = NULL;
 static int nr_samples = FREEDV_ALAW_NR_SAMPLES;
+static bool output_bb = false;
+static bool output_tone = false;
 
 static int tx_sound_out(int16_t *samples, int16_t *samples_bb, int nr)
 {
@@ -68,8 +70,12 @@ static void tx_silence(void)
 	memset(buffer_bb, 0, sizeof(int16_t)*nr_samples);
 	
 	if (tx_hadvoice) {
-		if (ctcss)
-			ctcss_add(ctcss, buffer, nr_samples);
+		if (ctcss) {
+			if (output_tone)
+				ctcss_add(ctcss, buffer_bb, nr_samples);
+			else
+				ctcss_add(ctcss, buffer, nr_samples);
+		}
 		if (emphasis_p)
 			emphasis_pre(emphasis_p, buffer, nr_samples);
 	}
@@ -90,8 +96,12 @@ static void tx_voice(void)
 			
 			beacon_generate(beacon, buffer, nr_samples);
 			if (tx_hadvoice) {
-				if (ctcss)
-					ctcss_add(ctcss, buffer, nr_samples);
+				if (ctcss) {
+					if (output_tone)
+						ctcss_add(ctcss, buffer_bb, nr_samples);
+					else
+						ctcss_add(ctcss, buffer, nr_samples);
+				}
 			}
 			if (emphasis_p)
 				emphasis_pre(emphasis_p, buffer, nr_samples);
@@ -104,14 +114,21 @@ static void tx_voice(void)
 		
 		tx_hadvoice = true;
 		memcpy(buffer, packet->data, packet->len);
-		memcpy(buffer_bb, packet->data, packet->len);
+		if (output_bb)
+			memcpy(buffer_bb, packet->data, packet->len);
+		else
+			memset(buffer_bb, 0, packet->len);
 		
 		if (beacon)
 			beacon_generate_add(beacon, buffer, nr);
-		if (ctcss)
-			ctcss_add(ctcss, buffer, nr);
 		if (emphasis_p)
 			emphasis_pre(emphasis_p, buffer, nr);
+		if (ctcss) {
+			if (output_tone)
+				ctcss_add(ctcss, buffer_bb, nr);
+			else
+				ctcss_add(ctcss, buffer, nr);
+		}
 		tx_sound_out(buffer, buffer_bb, nr);
 
 		packet = dequeue_voice();
@@ -180,11 +197,15 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
     int tx_tail_msec, 
     double ctcss_f, double ctcss_amp,
     int beacon_interval, char *beacon_msg,
-    bool emphasis)
+    bool emphasis,
+    bool init_output_bb,
+    bool init_output_tone)
 {
 	int a_rate = FREEDV_ALAW_RATE;
 
 	fullduplex = init_fullduplex;
+	output_bb = init_output_bb;
+	output_tone = init_output_tone;
 	
 	tx_state = TX_STATE_OFF;
 	io_hl_ptt_set(false);
