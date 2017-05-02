@@ -33,6 +33,7 @@ static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static bool dtmf_initialized = false;
 static bool cdc;
 static bool ctcss_sql;
+static bool dtmf_mute = false;
 static struct sound_resample *sr = NULL;
 
 bool freedv_eth_rxa_cdc(void)
@@ -54,6 +55,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 {
 	int nr_a = sound_resample_nr_out(sr, nr);
 	int16_t mod_a[nr_a];
+	bool detected;
 
 	sound_resample_perform(sr, mod_a, samples, nr_a, nr);
 
@@ -64,7 +66,10 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	if (ctcss_sql) {
 		cdc |= ctcss_detect_rx(mod_a, nr_a);
 	}
-	dtmf_rx(mod_a, nr_a, cb_control);
+	dtmf_rx(mod_a, nr_a, cb_control, &detected);
+	if (dtmf_mute && detected) {
+		memset(mod_a, 0, nr_a * sizeof(int16_t)); 
+	}
 
 	uint8_t alaw[nr_a];
 		
@@ -74,7 +79,8 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr_a);
 }
 
-int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], bool emphasis, double ctcss_freq)
+int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], 
+    bool emphasis, double ctcss_freq, bool dtmf_mute_init)
 {
 	int a_rate = FREEDV_ALAW_RATE;
 	
@@ -89,6 +95,7 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], bool emphasis, double 
 		dtmf_init();
 		dtmf_initialized = true;
 	}
+	dtmf_mute = dtmf_mute_init;
 	
 	emphasis_destroy(emphasis_d);
 	emphasis_d = NULL;

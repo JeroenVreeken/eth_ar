@@ -244,7 +244,7 @@ static void store_digit(digit_detect_state_t *s, char digit)
 */
 
 static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples, 
-		 int digitmode, int *writeback, void (*cb)(char *))
+		 int digitmode, int *writeback, void (*cb)(char *), bool *detected)
 {
 	double row_energy[4];
 	double col_energy[4];
@@ -257,6 +257,7 @@ static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples,
 	int hit;
 	int limit;
 
+	*detected = false;
 	hit = 0;
 	for (sample = 0;  sample < samples;  sample = limit) {
 		/* DTMF_OPTIMIZED_VALUE is optimised to meet the DTMF specs. */
@@ -332,7 +333,9 @@ static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples,
 					*writeback = 1;
 				}
 			}
-		} 
+		}
+		
+		*detected |= hit;
 
 		/* The logic in the next test is:
 		   For digits we need two successive identical clean detects, with
@@ -365,11 +368,11 @@ static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples,
 
 static digit_detect_state_t dtmf;
 
-int dtmf_rx(short *smp, int nr, void (*cb)(char *))
+int dtmf_rx(short *smp, int nr, void (*cb)(char *), bool *detected)
 {
 	int writeback;
 	
-	dtmf_detect(&dtmf, smp, nr, DSP_DIGITMODE_NOQUELCH, &writeback, cb);
+	dtmf_detect(&dtmf, smp, nr, DSP_DIGITMODE_NOQUELCH, &writeback, cb, detected);
 
 	return 0;
 }

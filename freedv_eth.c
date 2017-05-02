@@ -253,6 +253,7 @@ int main(int argc, char **argv)
 	int dcd_threshold = atoi(freedv_eth_config_value("analog_rx_dcd_threshold", NULL, "1"));
 	bool tx_bb = atoi(freedv_eth_config_value("analog_tx_baseband", NULL, "0"));
 	bool tx_tone = atoi(freedv_eth_config_value("analog_tx_tone", NULL, "0"));
+	bool dtmf_mute = atoi(freedv_eth_config_value("analog_dtmf_mute", NULL, "0"));
 	
 	if (!strcmp(freedv_mode_str, "1600")) {
 		freedv_mode = FREEDV_MODE_1600;
@@ -394,7 +395,7 @@ int main(int argc, char **argv)
 	sound_set_nr(nr_samples);
 
 	freedv_eth_rx_init(freedv, mac, sound_rate);
-	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis, rx_ctcss_f);
+	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis, rx_ctcss_f, dtmf_mute);
 
 
 	if (tx_mode == TX_MODE_FREEDV) {

@@ -1,7 +1,9 @@
 #ifndef _INCLUDE_DTMF_H_
 #define _INCLUDE_DTMF_H_
 
-int dtmf_rx(short *smp, int nr, void (*cb)(char *));
+#include <stdbool.h>
+
+int dtmf_rx(short *smp, int nr, void (*cb)(char *), bool *detected);
 
 int dtmf_init(void);
 
