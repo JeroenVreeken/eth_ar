@@ -118,7 +118,7 @@ static int sound_out_alsa(int16_t *play_samples, int nr)
 
 int sound_out_lr(int16_t *samples_l, int16_t *samples_r, int nr)
 {
-	int16_t samples[nr];
+	int16_t samples[nr * 2];
 	int i;
 	
 	for (i = 0; i < nr; i++) {
