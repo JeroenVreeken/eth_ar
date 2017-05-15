@@ -35,6 +35,7 @@
 
 #include "interface.h"
 #include <eth_ar/eth_ar.h>
+#include "eth_ar_codec2.h"
 #include "sound.h"
 #include <eth_ar/fprs.h>
 #include "nmea.h"
@@ -325,6 +326,8 @@ int main(int argc, char **argv)
 	
 	if (!strcmp(rig_ptt_type, "RIG"))
 		ptt_type = RIG_PTT_RIG;
+	else if (!strcmp(rig_ptt_type, "RIGMICDATA"))
+		ptt_type = RIG_PTT_RIG_MICDATA;
 	else if (!strcmp(rig_ptt_type, "DTR"))
 		ptt_type = RIG_PTT_SERIAL_DTR;
 	else if (!strcmp(rig_ptt_type, "RTS"))
@@ -375,7 +378,7 @@ int main(int argc, char **argv)
 	freedv_set_data_header(freedv, mac);
 
 	if (tx_mode == TX_MODE_FREEDV) {
-		tx_codecmode = freedv_eth_type2codecmode(type);
+		tx_codecmode = eth_ar_eth_p_codecmode(type);
 	} else {
 		/* Decode to speech shorts, but don't recode... */
 		tx_codecmode = 'S';

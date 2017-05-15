@@ -45,6 +45,7 @@ static struct emphasis *emphasis_p = NULL;
 static int nr_samples = FREEDV_ALAW_NR_SAMPLES;
 static bool output_bb = false;
 static bool output_tone = false;
+static enum io_hl_ptt ptt = IO_HL_PTT_OFF;
 
 static int tx_sound_out(int16_t *samples, int16_t *samples_bb, int nr)
 {
@@ -138,6 +139,7 @@ static void tx_voice(void)
 
 void freedv_eth_txa_state_machine(void)
 {
+	enum io_hl_ptt new_ptt = ptt;
 	tx_state_cnt++;
 	bool bcn;
 	if (beacon) {
@@ -150,8 +152,7 @@ void freedv_eth_txa_state_machine(void)
 	switch (tx_state) {
 		case TX_STATE_OFF:
 			if (queue_voice_filled() || bcn) {
-				tx_state = TX_STATE_ON;
-				io_hl_ptt_set(true);
+				new_ptt = IO_HL_PTT_OTHER;
 				tx_state_cnt = 0;
 				if (ctcss)
 					ctcss_reset(ctcss);
@@ -172,7 +173,7 @@ void freedv_eth_txa_state_machine(void)
 				tx_state = TX_STATE_OFF;
 				tx_state_cnt = 0;
 				tx_hadvoice = false;
-				io_hl_ptt_set(false);
+				new_ptt = IO_HL_PTT_OFF;
 				
 				tx_silence();
 			} else {
@@ -185,6 +186,13 @@ void freedv_eth_txa_state_machine(void)
 					tx_silence();
 				}
 			}
+	}
+
+	if (new_ptt != IO_HL_PTT_OFF && tx_hadvoice)
+		new_ptt = IO_HL_PTT_AUDIO;
+	if (new_ptt != ptt) {
+		io_hl_ptt_set(ptt);
+		ptt = new_ptt;
 	}
 }
 

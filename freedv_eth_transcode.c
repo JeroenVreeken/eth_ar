@@ -17,7 +17,9 @@
  */
 
 #include "freedv_eth.h"
+#include "eth_ar_codec2.h"
 #include "alaw.h"
+#include "ulaw.h"
 #include "stdio.h"
 
 #include <stdlib.h>
@@ -35,13 +37,14 @@ static int trans_enc_bytes_frame;
 
 int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t from_type)
 {
-	int from_codecmode = freedv_eth_type2codecmode(from_type);
+	int from_codecmode = eth_ar_eth_p_codecmode(from_type);
 	int samples;
 
 	if (to_codecmode == from_codecmode)
 		return 0;
 
-	if (from_codecmode != 'A') {
+	if (from_codecmode != CODEC2_MODE_ALAW &&
+	    from_codecmode != CODEC2_MODE_ULAW) {
 		if (from_codecmode != trans_dec_mode) {
 			if (trans_dec)
 				codec2_destroy(trans_dec);
@@ -62,17 +65,30 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 	}
 	short *speech = trans_speech + trans_speech_pos;
 	
-	if (from_codecmode != 'A') {
-		codec2_decode(trans_dec, speech, packet->data);
-	} else {
-		alaw_decode(speech, packet->data, samples);
+	switch (from_codecmode) {
+		case CODEC2_MODE_ALAW:
+			alaw_decode(speech, packet->data, samples);
+			break;
+		case CODEC2_MODE_ULAW:
+			ulaw_decode(speech, packet->data, samples);
+			break;
+		default:
+			codec2_decode(trans_dec, speech, packet->data);
+			break;
 	}
 	trans_speech_pos += samples;
 
 
 	switch(to_codecmode) {
-		case 'A': {
+		case CODEC2_MODE_ALAW: {
 			alaw_encode(packet->data, trans_speech, trans_speech_pos);
+			packet->len = trans_speech_pos;
+			trans_speech_pos = 0;
+		
+			break;
+		}
+		case CODEC2_MODE_ULAW: {
+			ulaw_encode(packet->data, trans_speech, trans_speech_pos);
 			packet->len = trans_speech_pos;
 			trans_speech_pos = 0;
 		

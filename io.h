@@ -35,6 +35,13 @@ int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *));
 int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file, dcd_type_t dcd);
 
 bool io_hl_dcd_get(void);
-void io_hl_ptt_set(bool state);
+
+enum io_hl_ptt {
+	IO_HL_PTT_OFF = 0,
+	IO_HL_PTT_AUDIO,
+	IO_HL_PTT_OTHER,
+};
+
+void io_hl_ptt_set(enum io_hl_ptt state);
 
 #endif /* _INCLUDE_INPUT_H_ */

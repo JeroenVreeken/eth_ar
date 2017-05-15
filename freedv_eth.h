@@ -52,39 +52,6 @@ static inline uint16_t freedv_eth_mode2type(int mode)
 	return type;
 }
 
-static inline int freedv_eth_type2codecmode(uint16_t type)
-{
-	switch(type) {
-		case ETH_P_CODEC2_3200:
-			return CODEC2_MODE_3200;
-		case ETH_P_CODEC2_2400:
-			return CODEC2_MODE_2400;
-		case ETH_P_CODEC2_1600:
-			return CODEC2_MODE_1600;
-		case ETH_P_CODEC2_1400:
-			return CODEC2_MODE_1400;
-		case ETH_P_CODEC2_1300:
-			return CODEC2_MODE_1300;
-		case ETH_P_CODEC2_1200:
-			return CODEC2_MODE_1200;
-		case ETH_P_CODEC2_700:
-			return CODEC2_MODE_700;
-		case ETH_P_CODEC2_700B:
-			return CODEC2_MODE_700B;
-		case ETH_P_CODEC2_700C:
-			return CODEC2_MODE_700C;
-		case ETH_P_CODEC2_1300C:
-			return CODEC2_MODE_1300C;
-		case ETH_P_ALAW:
-			return 'A';
-		case ETH_P_ULAW:
-			return 'U';
-		default:
-			break;
-	}
-	return -1;
-}
-
 static inline bool freedv_eth_type_isvoice(uint16_t type)
 {
 	switch(type) {
@@ -97,7 +64,9 @@ static inline bool freedv_eth_type_isvoice(uint16_t type)
 		case ETH_P_CODEC2_700:
 		case ETH_P_CODEC2_700B:
 		case ETH_P_CODEC2_700C:
+#ifdef CODEC2_MODE_1300C
 		case ETH_P_CODEC2_1300C:
+#endif
 		case ETH_P_ALAW:
 		case ETH_P_ULAW:
 			return true;

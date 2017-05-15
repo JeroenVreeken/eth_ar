@@ -33,8 +33,10 @@
 #include <eth_ar/eth_ar.h>
 #include "sound.h"
 #include "alaw.h"
+#include "ulaw.h"
 #include "io.h"
 #include "ctcss.h"
+#include "eth_ar_codec2.h"
 
 static bool verbose = false;
 
@@ -211,43 +213,8 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	int newmode = 0;
 	bool is_c2 = true;
 
-	switch (eth_type) {
-		case ETH_P_CODEC2_3200:
-			newmode = CODEC2_MODE_3200;
-			break;
-		case ETH_P_CODEC2_2400:
-			newmode = CODEC2_MODE_2400;
-			break;
-		case ETH_P_CODEC2_1600:
-			newmode = CODEC2_MODE_1600;
-			break;
-		case ETH_P_CODEC2_1400:
-			newmode = CODEC2_MODE_1400;
-			break;
-		case ETH_P_CODEC2_1300:
-			newmode = CODEC2_MODE_1300;
-			break;
-		case ETH_P_CODEC2_1200:
-			newmode = CODEC2_MODE_1200;
-			break;
-		case ETH_P_CODEC2_700:
-			newmode = CODEC2_MODE_700;
-			break;
-		case ETH_P_CODEC2_700B:
-			newmode = CODEC2_MODE_700B;
-			break;
-		case ETH_P_CODEC2_700C:
-			newmode = CODEC2_MODE_700C;
-			break;
-		case ETH_P_CODEC2_1300C:
-			newmode = CODEC2_MODE_1300C;
-			break;
-		case ETH_P_ALAW:
-			is_c2 = false;
-			break;
-		default:
-			return 0;
-	}
+	is_c2 = eth_ar_eth_p_iscodec2(eth_type);
+	newmode = eth_ar_eth_p_codecmode(eth_type);
 	
 	if (is_c2 && newmode != tx_mode) {
 		if (tx_codec)
@@ -285,7 +252,11 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	} else {
 		int16_t mod_out[len];
 		
-		alaw_decode(mod_out, data, len);
+		if (newmode == CODEC2_MODE_ULAW)
+			ulaw_decode(mod_out, data, len);
+		else
+			alaw_decode(mod_out, data, len);
+		
 		
 		queue_add(mod_out, len);
 	}

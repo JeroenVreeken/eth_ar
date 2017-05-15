@@ -155,11 +155,26 @@ bool io_hl_dcd_get(void)
 	return dcd_level >= dcd_threshold;
 }
 
-void io_hl_ptt_set(bool state)
+void io_hl_ptt_set(enum io_hl_ptt state)
 {
-	rig_set_ptt(rig, RIG_VFO_CURR, state ? RIG_PTT_ON : RIG_PTT_OFF);
+	ptt_t pstate;
+	
+	switch (state) {
+		case IO_HL_PTT_AUDIO:
+			pstate = RIG_PTT_ON_MIC;
+			break;
+		case IO_HL_PTT_OTHER:
+			pstate = RIG_PTT_ON_DATA;
+			break;
+		case IO_HL_PTT_OFF:
+		default:
+			pstate = RIG_PTT_OFF;
+			break;
+	}
 
-	if (!state) {
+	rig_set_ptt(rig, RIG_VFO_CURR, pstate);
+
+	if (pstate == RIG_PTT_OFF && dcd_level <= 0) {
 		/* make dcd insensitive for a little while */
 		dcd_level = -dcd_threshold;
 	}

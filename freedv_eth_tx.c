@@ -177,7 +177,7 @@ char freedv_eth_tx_vc_callback(void *arg)
 
 void freedv_eth_tx_state_machine(void)
 {
-	bool ptt;
+	enum io_hl_ptt ptt;
 	bool set_ptt = false;
 
 	tx_state_cnt++;
@@ -187,7 +187,7 @@ void freedv_eth_tx_state_machine(void)
 //				printf("OFF -> DELAY\n");
 				tx_state = TX_STATE_DELAY;
 				tx_state_cnt = 0;
-				set_ptt = true;
+				set_ptt = IO_HL_PTT_OTHER;
 				ptt = true;
 
 				check_tx_add();
@@ -232,7 +232,7 @@ void freedv_eth_tx_state_machine(void)
 				tx_state = TX_STATE_OFF;
 				tx_state_cnt = 0;
 				set_ptt = true;
-				ptt = false;
+				ptt = IO_HL_PTT_OFF;
 			} else {
 				if (queue_voice_filled() || queue_data_filled()) {
 //					printf("TAIL -> ON\n");
@@ -323,7 +323,7 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
 	memcpy(tx_add, mac, 6);
 	
 	tx_state = TX_STATE_OFF;
-	io_hl_ptt_set(false);
+	io_hl_ptt_set(IO_HL_PTT_OFF);
 
         bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
 	bytes_per_eth_frame += 7;
