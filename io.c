@@ -228,6 +228,9 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 
 	dcd_threshold = dcd_th;
 	
+	int verbose = 0;
+	rig_set_debug(verbose);
+
 	rig = rig_init(rig_model);
 	if (!rig) {
 		printf("Could not init rig\n");
