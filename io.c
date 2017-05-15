@@ -25,6 +25,7 @@
 #include <linux/input.h>
 #include <termios.h>
 #include <string.h>
+#include <pthread.h>
 
 static RIG *rig;
 static int dcd_level = 0;
@@ -32,9 +33,13 @@ static int dcd_threshold = 1;
 static ptt_type_t ptt_type = RIG_PTT_NONE;
 static dcd_type_t dcd_type = RIG_DCD_NONE;
 
+static ptt_t rig_thread_ptt = RIG_PTT_OFF;
+static dcd_t rig_thread_dcd = RIG_DCD_OFF;
+
 static bool toggle;
 static bool input_state = false;
 static int fd_input = -1;
+
 
 int io_init_input(char *device, bool inputtoggle)
 {
@@ -146,7 +151,7 @@ bool io_hl_dcd_get(void)
 	if (dcd_type == RIG_DCD_NONE)
 		return false;
 
-	rig_get_dcd(rig, RIG_VFO_CURR, &dcd);
+	dcd = rig_thread_dcd;
 	if (dcd == RIG_DCD_ON)
 		dcd_level++;
 	else
@@ -172,11 +177,46 @@ void io_hl_ptt_set(enum io_hl_ptt state)
 			break;
 	}
 
-	rig_set_ptt(rig, RIG_VFO_CURR, pstate);
+	rig_thread_ptt = pstate;
+	__sync_synchronize();
 
 	if (pstate == RIG_PTT_OFF && dcd_level <= 0) {
 		/* make dcd insensitive for a little while */
 		dcd_level = -dcd_threshold;
+	}
+}
+
+#define CYCLE_NS (20*1000*1000)
+void *io_hl_rig_thread(void *arg)
+{
+	ptt_t cur_ptt = rig_thread_ptt;
+	struct timespec t_cycle_start;
+	struct timespec t_cycle_end;
+	struct timespec t_wait;
+	
+	while (1) {
+		clock_gettime(CLOCK_MONOTONIC, &t_cycle_start);
+		__sync_synchronize();
+		if (rig_thread_ptt != cur_ptt) {
+			cur_ptt = rig_thread_ptt;
+			rig_set_ptt(rig, RIG_VFO_CURR, cur_ptt);
+		}
+		rig_get_dcd(rig, RIG_VFO_CURR, &rig_thread_dcd);
+		__sync_synchronize();
+		clock_gettime(CLOCK_MONOTONIC, &t_cycle_end);
+
+		t_wait.tv_sec = 0;
+		t_wait.tv_nsec = CYCLE_NS;
+		
+		t_wait.tv_nsec -= t_cycle_end.tv_nsec - t_cycle_start.tv_nsec;
+		t_wait.tv_nsec -= (t_cycle_end.tv_sec - t_cycle_start.tv_sec) * 1000000000;
+		if (t_wait.tv_nsec > CYCLE_NS) {
+			/* Clock not monotonic? */
+			t_wait.tv_nsec = CYCLE_NS;
+		}
+		if (t_wait.tv_nsec > 0) {
+			nanosleep(&t_wait, NULL);
+		}
 	}
 }
 
@@ -212,6 +252,9 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 	}
 
 	rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
+	
+	pthread_t rig_thread;
+	pthread_create(&rig_thread, NULL, io_hl_rig_thread, NULL);
 
 	return 0;
 }
