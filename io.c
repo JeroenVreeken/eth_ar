@@ -33,8 +33,8 @@ static int dcd_threshold = 1;
 static ptt_type_t ptt_type = RIG_PTT_NONE;
 static dcd_type_t dcd_type = RIG_DCD_NONE;
 
-static ptt_t rig_thread_ptt = RIG_PTT_OFF;
-static dcd_t rig_thread_dcd = RIG_DCD_OFF;
+static volatile ptt_t rig_thread_ptt = RIG_PTT_OFF;
+static volatile dcd_t rig_thread_dcd = RIG_DCD_OFF;
 
 static bool toggle;
 static bool input_state = false;
@@ -189,6 +189,7 @@ void io_hl_ptt_set(enum io_hl_ptt state)
 #define CYCLE_NS (20*1000*1000)
 void *io_hl_rig_thread(void *arg)
 {
+	dcd_t cur_dcd = rig_thread_dcd;
 	ptt_t cur_ptt = rig_thread_ptt;
 	struct timespec t_cycle_start;
 	struct timespec t_cycle_end;
@@ -197,11 +198,13 @@ void *io_hl_rig_thread(void *arg)
 	while (1) {
 		clock_gettime(CLOCK_MONOTONIC, &t_cycle_start);
 		__sync_synchronize();
+//		printf("%d %d\n", rig_thread_ptt, cur_ptt);
 		if (rig_thread_ptt != cur_ptt) {
 			cur_ptt = rig_thread_ptt;
 			rig_set_ptt(rig, RIG_VFO_CURR, cur_ptt);
 		}
-		rig_get_dcd(rig, RIG_VFO_CURR, &rig_thread_dcd);
+		rig_get_dcd(rig, RIG_VFO_CURR, &cur_dcd);
+		rig_thread_dcd = cur_dcd;
 		__sync_synchronize();
 		clock_gettime(CLOCK_MONOTONIC, &t_cycle_end);
 
@@ -228,7 +231,7 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 
 	dcd_threshold = dcd_th;
 	
-	int verbose = 0;
+	int verbose = 1;
 	rig_set_debug(verbose);
 
 	rig = rig_init(rig_model);

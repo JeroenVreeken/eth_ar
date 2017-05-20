@@ -81,6 +81,8 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 
 	switch(to_codecmode) {
 		case CODEC2_MODE_ALAW: {
+			if (trans_speech_pos > tx_packet_max())
+				trans_speech_pos = tx_packet_max();
 			alaw_encode(packet->data, trans_speech, trans_speech_pos);
 			packet->len = trans_speech_pos;
 			trans_speech_pos = 0;
@@ -88,6 +90,8 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 			break;
 		}
 		case CODEC2_MODE_ULAW: {
+			if (trans_speech_pos > tx_packet_max())
+				trans_speech_pos = tx_packet_max();
 			ulaw_encode(packet->data, trans_speech, trans_speech_pos);
 			packet->len = trans_speech_pos;
 			trans_speech_pos = 0;
@@ -96,7 +100,8 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 		}
 		case 'S': {
 			/* Fill packet with native short samples */
-			packet->len = trans_speech_pos * sizeof(short);
+			size_t len = trans_speech_pos * sizeof(short);
+			packet->len = len <= tx_packet_max() ? len : tx_packet_max();
 			memcpy(packet->data, trans_speech, packet->len);
 			trans_speech_pos = 0;
 			

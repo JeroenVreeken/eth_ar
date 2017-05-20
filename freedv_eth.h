@@ -76,16 +76,21 @@ static inline bool freedv_eth_type_isvoice(uint16_t type)
 	return false;
 }
 
-
+#define TX_PACKET_LEN_MAX 4096
 struct tx_packet {
 	uint8_t from[6];
-	uint8_t data[2048];
+	uint8_t data[TX_PACKET_LEN_MAX];
 	size_t len;
 	size_t off;
 	
 	struct tx_packet *next;
 	struct tx_packet *prev;
 };
+
+static inline size_t tx_packet_max(void)
+{
+	return TX_PACKET_LEN_MAX;
+}
 
 struct tx_packet *tx_packet_alloc(void);
 void tx_packet_free(struct tx_packet *packet);
@@ -134,7 +139,8 @@ bool freedv_eth_txa_ptt(void);
 
 bool freedv_eth_rxa_cdc(void);
 int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], 
-    bool emphasis, double ctcss_freq, bool dtmf_mute);
+    bool emphasis, double ctcss_freq, int dtmf_mute,
+    float rx_gain);
 void freedv_eth_rxa(int16_t *samples, int nr);
 
 #endif /* _INCLUDE_FREEDV_ETH_H_ */

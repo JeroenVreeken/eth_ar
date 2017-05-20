@@ -43,6 +43,7 @@ struct sound_resample;
 struct sound_resample *sound_resample_create(int rate_out, int rate_in);
 void sound_resample_destroy(struct sound_resample *sr);
 int sound_resample_perform(struct sound_resample *sr, int16_t *out, int16_t *in, int nr_out, int nr_in);
+int sound_resample_perform_gain(struct sound_resample *sr, int16_t *out, int16_t *in, int nr_out, int nr_in, float gain);
 int sound_resample_nr_out(struct sound_resample *sr, int nr_in);
 int sound_resample_nr_in(struct sound_resample *sr, int nr_out);
 

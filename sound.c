@@ -86,6 +86,28 @@ int sound_resample_perform(struct sound_resample *sr, int16_t *out, int16_t *in,
 	return 0;
 }
 
+int sound_resample_perform_gain(struct sound_resample *sr, int16_t *out, int16_t *in, int nr_out, int nr_in, float gain)
+{
+	float fl_in[nr_in], fl_out[nr_out];
+	SRC_DATA data;
+	data.data_in = fl_in;
+	data.data_out = fl_out;
+	data.input_frames = nr_in;
+	data.output_frames = nr_out;
+	data.end_of_input = 0;
+	data.src_ratio = sr->ratio;
+	int i;
+	
+	src_short_to_float_array(in, fl_in, nr_in);
+	src_process(sr->src, &data);
+	for (i = 0; i < nr_out; i++) {
+		fl_out[i] *= gain;
+	}
+	src_float_to_short_array(fl_out, out, nr_out);
+	
+	return 0;
+}
+
 int sound_resample_nr_out(struct sound_resample *sr, int nr_in)
 {
 	return nr_in * sr->ratio;

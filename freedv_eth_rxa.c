@@ -33,18 +33,40 @@ static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static bool dtmf_initialized = false;
 static bool cdc;
 static bool ctcss_sql;
-static bool dtmf_mute = false;
+static int dtmf_mute = 1;
 static struct sound_resample *sr = NULL;
+static float rx_gain = 1.0;
+
+static char dtmf_control_start = '*';
+static char dtmf_control_stop = '#';
+
+enum dtmf_state {
+	DTMF_IDLE,
+	DTMF_CONTROL,
+	DTMF_CONTROL_TAIL,
+};
+
+static enum dtmf_state dtmf_state = DTMF_IDLE;
 
 bool freedv_eth_rxa_cdc(void)
 {
 	return cdc;
 }
 
+
+
 static void cb_control(char *ctrl)
 {
 	uint8_t *msg = (uint8_t *)ctrl;
 	
+	if (ctrl[0] == dtmf_control_start) {
+		dtmf_state = DTMF_CONTROL;
+	} else if (ctrl[0] == dtmf_control_stop) {
+		dtmf_state = DTMF_CONTROL_TAIL;
+	} else {
+		if (dtmf_state == DTMF_CONTROL_TAIL)
+			dtmf_state = DTMF_IDLE;
+	}
 	printf("DTMF: %s\n", ctrl);
 	
 	interface_rx(bcast, mac, ETH_P_AR_CONTROL, msg, strlen(ctrl));
@@ -57,7 +79,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	int16_t mod_a[nr_a];
 	bool detected;
 
-	sound_resample_perform(sr, mod_a, samples, nr_a, nr);
+	sound_resample_perform_gain(sr, mod_a, samples, nr_a, nr, rx_gain);
 
 	cdc = io_hl_dcd_get();
 
@@ -66,9 +88,13 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	if (ctcss_sql) {
 		cdc |= ctcss_detect_rx(mod_a, nr_a);
 	}
+
 	dtmf_rx(mod_a, nr_a, cb_control, &detected);
-	if (dtmf_mute && detected) {
-		memset(mod_a, 0, nr_a * sizeof(int16_t)); 
+	if (detected) {
+		if ((dtmf_mute == 1) ||
+		    (dtmf_mute == 2 && dtmf_state == DTMF_CONTROL) ||
+		    (dtmf_mute == 2 && dtmf_state == DTMF_CONTROL_TAIL))
+			memset(mod_a, 0, nr_a * sizeof(int16_t)); 
 	}
 
 	uint8_t alaw[nr_a];
@@ -77,14 +103,20 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	
 	if (cdc)
 		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr_a);
+	else {
+		dtmf_state = DTMF_IDLE;
+	}
 }
 
 int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], 
-    bool emphasis, double ctcss_freq, bool dtmf_mute_init)
+    bool emphasis, double ctcss_freq, int dtmf_mute_init,
+    float rx_gain_init)
 {
 	int a_rate = FREEDV_ALAW_RATE;
 	
+	rx_gain = rx_gain_init;
 	memcpy(mac, mac_init, 6);
+	printf("Analog rx gain: %f\n", rx_gain);
 
 	cdc = false;
 

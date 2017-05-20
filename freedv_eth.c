@@ -112,6 +112,8 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	struct tx_packet *packet;
 	
 	if (freedv_eth_type_isvoice(eth_type)) {
+		if (len > tx_packet_max())
+			return 0;
 		packet = tx_packet_alloc();
 		packet->len = len;
 		memcpy(packet->data, data, len);
@@ -243,6 +245,7 @@ int main(int argc, char **argv)
 	char *rig_dcd_type = freedv_eth_config_value("rig_dcd_type", NULL, "NONE");
 	char *freedv_rx_sound_channel = freedv_eth_config_value("freedv_rx_sound_channel", NULL, "left");
 	char *analog_rx_sound_channel = freedv_eth_config_value("analog_rx_sound_channel", NULL, "left");
+	float analog_rx_gain = atof(freedv_eth_config_value("analog_rx_gain", NULL, "1.0"));
 	char *tx_mode_str = freedv_eth_config_value("tx_mode", NULL, "freedv");
 	char *rx_mode_str = freedv_eth_config_value("rx_mode", NULL, "freedv");
 	double rx_ctcss_f = atof(freedv_eth_config_value("analog_rx_ctcss_frequency", NULL, "0.0"));
@@ -255,7 +258,7 @@ int main(int argc, char **argv)
 	int dcd_threshold = atoi(freedv_eth_config_value("analog_rx_dcd_threshold", NULL, "1"));
 	bool tx_bb = atoi(freedv_eth_config_value("analog_tx_baseband", NULL, "0"));
 	bool tx_tone = atoi(freedv_eth_config_value("analog_tx_tone", NULL, "0"));
-	bool dtmf_mute = atoi(freedv_eth_config_value("analog_dtmf_mute", NULL, "0"));
+	int dtmf_mute = atoi(freedv_eth_config_value("analog_dtmf_mute", NULL, "1"));
 	
 	if (!strcmp(freedv_mode_str, "1600")) {
 		freedv_mode = FREEDV_MODE_1600;
@@ -399,7 +402,7 @@ int main(int argc, char **argv)
 	sound_set_nr(nr_samples);
 
 	freedv_eth_rx_init(freedv, mac, sound_rate);
-	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis, rx_ctcss_f, dtmf_mute);
+	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis, rx_ctcss_f, dtmf_mute, analog_rx_gain);
 
 
 	if (tx_mode == TX_MODE_FREEDV) {

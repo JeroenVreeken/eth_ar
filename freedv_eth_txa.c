@@ -112,7 +112,7 @@ static void tx_voice(void)
 		int nr = packet->len / sizeof(short);
 		int16_t buffer[nr];
 		int16_t buffer_bb[nr];
-		
+
 		tx_hadvoice = true;
 		memcpy(buffer, packet->data, packet->len);
 		if (output_bb)
@@ -153,6 +153,7 @@ void freedv_eth_txa_state_machine(void)
 		case TX_STATE_OFF:
 			if (queue_voice_filled() || bcn) {
 				new_ptt = IO_HL_PTT_OTHER;
+				tx_state = TX_STATE_ON;
 				tx_state_cnt = 0;
 				if (ctcss)
 					ctcss_reset(ctcss);
@@ -191,7 +192,7 @@ void freedv_eth_txa_state_machine(void)
 	if (new_ptt != IO_HL_PTT_OFF && tx_hadvoice)
 		new_ptt = IO_HL_PTT_AUDIO;
 	if (new_ptt != ptt) {
-		io_hl_ptt_set(ptt);
+		io_hl_ptt_set(new_ptt);
 		ptt = new_ptt;
 	}
 }

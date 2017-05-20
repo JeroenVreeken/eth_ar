@@ -17,6 +17,7 @@
  */
 
 #include "beacon.h"
+#include <stdio.h>
 
 #include <string.h>
 #include <math.h>
@@ -80,8 +81,8 @@ static char *beacon_morsecode[][2] = {
 
 #define MORSE_WPM	20
 #define MORSE_PARIS_DOTS	50
-#define MORSE_SINE_FREQ		400
-#define MORSE_SINE_AMP		4096
+#define MORSE_SINE_FREQ		500
+#define MORSE_SINE_AMP		8192
 #define MORSE_SINE_MUL_SILENCE	2
 #define MORSE_FACTOR_DASH	3
 #define MORSE_FACTOR_IGAP	1
@@ -138,6 +139,15 @@ int beacon_morsecode_index(char c)
 	return i;
 }
 
+static int16_t double2int16(double v)
+{
+	if (v > 32767)
+		return 32767;
+	if (v < -32768)
+		return -32768;
+	return v;
+}
+
 struct beacon *beacon_init(int rate, int state_interval, int beacon_interval, char *message)
 {
 	struct beacon *beacon;
@@ -151,6 +161,8 @@ struct beacon *beacon_init(int rate, int state_interval, int beacon_interval, ch
 	beacon->state_interval = state_interval;
 	beacon->interval = beacon_interval * rate;
 	beacon->msg = strdup(message);
+	/* Trigger the first after 1 second */
+	beacon->cnt = beacon->interval - rate;
 
 	if (!morse_dot) {
 		morse_dot_size = (60 * rate) / (MORSE_PARIS_DOTS * MORSE_WPM);
@@ -165,10 +177,10 @@ struct beacon *beacon_init(int rate, int state_interval, int beacon_interval, ch
 		morse_lgap = calloc(sizeof(int16_t), morse_lgap_size);
 		morse_wgap = calloc(sizeof(int16_t), morse_wgap_size);
 		for (i = 0; i < morse_dot_size; i++) {
-			morse_dot[i] = sin((M_PI*2*i)/(rate/MORSE_SINE_FREQ))*MORSE_SINE_AMP;
+			morse_dot[i] = double2int16(sin((M_PI*2*i)/(rate/MORSE_SINE_FREQ))*MORSE_SINE_AMP);
 		}
 		for (i = 0; i < morse_dash_size; i++) {
-			morse_dash[i] = sin((M_PI*2*i)/(rate/MORSE_SINE_FREQ))*MORSE_SINE_AMP;
+			morse_dash[i] = double2int16(sin((M_PI*2*i)/(rate/MORSE_SINE_FREQ))*MORSE_SINE_AMP);
 		}
 
 	}
@@ -204,7 +216,12 @@ int beacon_generate(struct beacon *beacon, int16_t *sound, int nr)
 	beacon_generate_add(beacon, sound, nr);
 	
 	for (i = 0; i < nr; i++) {
-		sound[i] *= MORSE_SINE_MUL_SILENCE;
+		int val = sound[i] * MORSE_SINE_MUL_SILENCE;
+		if (val > 32767)
+			val = 32767;
+		if (val < -32768)
+			val = -32768;
+		sound[i] = val;
 	}
 	
 	return 0;
