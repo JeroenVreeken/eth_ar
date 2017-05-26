@@ -385,8 +385,10 @@ int main(int argc, char **argv)
 					mode = CODEC2_MODE_700B;
 				} else if (!strcmp(optarg, "700C")) {
 					mode = CODEC2_MODE_700C;
+#ifdef CODEC2_MODE_1300C
 				} else if (!strcmp(optarg, "1300C")) {
 					mode = CODEC2_MODE_1300C;
+#endif
 				}
 				break;
 			case 'n':
@@ -446,9 +448,11 @@ int main(int argc, char **argv)
 			case CODEC2_MODE_700C:
 				rx_type = ETH_P_CODEC2_700C;
 				break;
+#ifdef CODEC2_MODE_1300C
 			case CODEC2_MODE_1300C:
 				rx_type = ETH_P_CODEC2_1300C;
 				break;
+#endif
 		}
 	} else {
 		rx_codec = NULL;
