@@ -23,6 +23,7 @@
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
+#include <time.h>
 
 int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *callsign, char *gate_call)
 {
@@ -30,14 +31,20 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 	double lat, lon;
 	bool pos_fixed = true;
 	bool have_position = false;
-	uint8_t symbol[2];
+	char symbol1[2] = "";
+	char symbol2[2] = "";
 	bool have_symbol = false;
 	double az, el, speed;
 	bool have_vector = false;
 	double alt;
 	bool have_altitude = false;
 	char comment[256] = "";
-	bool allow = false;
+	time_t timestamp;
+	bool have_timestamp = false;
+	char dmlassoc[300] = "";
+	bool have_dmlassoc = false;
+	char dmlstream[300] = "";
+	bool have_dmlstream = false;
 	
 	if (callsign) {
 		memcpy(origin, callsign, 6);
@@ -56,7 +63,6 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 			case FPRS_POSITION:
 				fprs_position_dec(&lon, &lat, &pos_fixed, fprs_element_data(element));
 				have_position = true;
-				allow = true;
 				break;
 			case FPRS_ALTITUDE:
 				fprs_altitude_dec(&alt, fprs_element_data(element));
@@ -67,21 +73,48 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 				have_vector = true;
 				break;
 			case FPRS_SYMBOL:
-				memcpy(symbol, fprs_element_data(element), 2);
+				symbol1[0] = fprs_element_data(element)[0];
+				symbol2[0] = fprs_element_data(element)[1];
+				symbol1[1] = 0;
+				symbol2[1] = 0;
 				have_symbol = true;
 				break;
 			case FPRS_COMMENT: {
 				size_t comment_len = fprs_element_size(element);
 				memcpy(comment, fprs_element_data(element), comment_len);
 				comment[comment_len] = 0;
-				allow = true;
 				break;
 			}
+			case FPRS_TIMESTAMP:
+				fprs_timestamp_dec(&timestamp, 
+				    fprs_element_data(element), fprs_element_size(element));
+				have_timestamp = true;
+				break;
+			case FPRS_DMLSTREAM: {
+				char tmp[256];
+				size_t dmlstream_len = fprs_element_size(element);
+				memcpy(tmp, fprs_element_data(element), dmlstream_len);
+				tmp[dmlstream_len] = 0;
+				sprintf(dmlstream, "DMLSTREAM:%s ", tmp);
+				have_dmlstream = true;
+				break;
+			}
+			case FPRS_DMLASSOC: {
+				char tmp[256];
+				size_t dmlassoc_len = fprs_element_size(element);
+				memcpy(tmp, fprs_element_data(element), dmlassoc_len);
+				tmp[dmlassoc_len] = 0;
+				sprintf(dmlassoc, "DMLASSOC:%s ", tmp);
+				have_dmlassoc = true;
+				break;
+			}
+				
+				break;
 			default:
 				break;
 		}
 	}
-	if (!allow)
+	if (!have_position && !have_dmlstream && !have_dmlassoc)
 		return -1;
 
 	char sender_call[9];
@@ -92,14 +125,30 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 	eth_ar_mac2call(sender_call, &sender_ssid, &sender_mcast, origin);
 
 	if (!have_symbol) {
-		symbol[0] = 'F';
-		symbol[1] = 'A';
+		strcpy(symbol1, "F");
+		strcpy(symbol2, "A");
+	}
+	if (!have_position) {
+		symbol1[0] = 0;
+		symbol2[0] = 0;
+	}
+	
+	char timestampstr[8] = { 0 };
+	if (have_timestamp) {
+		struct tm tmbd;
+		
+		gmtime_r(&timestamp, &tmbd);
+		sprintf(timestampstr, "%02d%02d%02dz", 
+		    tmbd.tm_mday, tmbd.tm_hour, tmbd.tm_min);
 	}
 	
 	char lonstr[10] = { 0 };
 	char latstr[9] = { 0 };
 	if (have_position) {
-		type = '!';
+		if (have_timestamp)
+			type = '/';
+		else
+			type = '!';
 		
 		int lond = fabs(lon);
 		double lonmin = fabs(lon - (int)lon) * 60;
@@ -110,6 +159,8 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 		double latmin = fabs(lat - (int)lat) * 60;
 		char lats = lat < 0 ? 'S' : 'N';
 		sprintf(latstr, "%02d%05.02f%c", latd, latmin, lats);
+	} else {
+		type = '>';
 	}
 	
 	char course_speed[8] = { 0 };
@@ -127,10 +178,16 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 		sprintf(altstr, "/A=%06d", (int)alt);
 	}
 	
-	snprintf(aprs, *aprs_len, "%s-%d>APFPRS,qAR,%s:%c%s%c%s%c%s%s%s\r\n", 
+	snprintf(aprs, *aprs_len, "%s-%d>APFPRS,qAR,%s:"
+	    "%c"
+	    "%s%s%s%s%s"
+	    "%s%s"
+	    "%s%s%s\r\n", 
 	    sender_call, sender_ssid, gate_call, 
-	    type, latstr, symbol[0], lonstr, symbol[1], course_speed, altstr,
-	    comment);
+	    type, 
+	    timestampstr, latstr, symbol1, lonstr, symbol2, 
+	    course_speed, altstr,
+	    dmlstream, dmlassoc, comment);
 	aprs[*aprs_len] = 0;
 	*aprs_len = strlen(aprs);
 	
