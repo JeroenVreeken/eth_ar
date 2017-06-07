@@ -111,7 +111,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 {
 	struct tx_packet *packet;
 	
-	if (freedv_eth_type_isvoice(eth_type)) {
+	if (eth_ar_eth_p_isvoice(eth_type)) {
 		if (len > tx_packet_max())
 			return 0;
 		packet = tx_packet_alloc();

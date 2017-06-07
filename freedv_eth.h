@@ -52,30 +52,6 @@ static inline uint16_t freedv_eth_mode2type(int mode)
 	return type;
 }
 
-static inline bool freedv_eth_type_isvoice(uint16_t type)
-{
-	switch(type) {
-		case ETH_P_CODEC2_3200:
-		case ETH_P_CODEC2_2400:
-		case ETH_P_CODEC2_1600:
-		case ETH_P_CODEC2_1400:
-		case ETH_P_CODEC2_1300:
-		case ETH_P_CODEC2_1200:
-		case ETH_P_CODEC2_700:
-		case ETH_P_CODEC2_700B:
-		case ETH_P_CODEC2_700C:
-#ifdef CODEC2_MODE_1300C
-		case ETH_P_CODEC2_1300C:
-#endif
-		case ETH_P_ALAW:
-		case ETH_P_ULAW:
-			return true;
-		default:
-			break;
-	}
-	return false;
-}
-
 #define TX_PACKET_LEN_MAX 4096
 struct tx_packet {
 	uint8_t from[6];

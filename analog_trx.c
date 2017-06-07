@@ -213,6 +213,9 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	int newmode = 0;
 	bool is_c2 = true;
 
+	if (!eth_ar_eth_p_isvoice(eth_type))
+		return 0;
+	
 	is_c2 = eth_ar_eth_p_iscodec2(eth_type);
 	newmode = eth_ar_eth_p_codecmode(eth_type);
 	

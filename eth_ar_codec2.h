@@ -89,6 +89,21 @@ static inline bool eth_ar_eth_p_iscodec2(uint16_t type)
 }
 
 
+static inline bool eth_ar_eth_p_isvoice(uint16_t type)
+{
+	if (eth_ar_eth_p_iscodec2(type))
+		return true;
+
+	switch(type) {
+		case ETH_P_ALAW:
+		case ETH_P_ULAW:
+			return true;
+		default:
+			break;
+	}
+	return false;
+}
+
 
 #ifdef __cplusplus
 }
