@@ -375,6 +375,33 @@ int fprs_frame_add_dmlstream(struct fprs_frame *frame, char *name)
 	return fprs_frame_add_string(frame, FPRS_DMLSTREAM, name);
 }
 
+int fprs_frame_add_message(struct fprs_frame *frame, uint8_t *data, size_t size)
+{
+	struct fprs_element *element;
+	
+	element = fprs_frame_element_add(frame, FPRS_MESSAGE, size);
+	if (!element)
+		return -1;
+
+	memcpy(fprs_element_data(element), data, size);
+
+	return 0;
+}
+
+int fprs_frame_add_messageid(struct fprs_frame *frame, uint8_t *data, size_t size)
+{
+	struct fprs_element *element;
+	
+	element = fprs_frame_element_add(frame, FPRS_MESSAGEID, size);
+	if (!element)
+		return -1;
+
+	memcpy(fprs_element_data(element), data, size);
+
+	return 0;
+}
+
+
 #define FPRS_LON_SCALE 134217728
 #define FPRS_LON_MAX 134217727
 #define FPRS_LON_MIN -134217728
@@ -659,6 +686,12 @@ char *fprs_type2str(enum fprs_type type)
 			return "FPRS_DMLSTREAM";
 		case FPRS_DMLASSOC:
 			return "FPRS_DMLASSOC";
+		case FPRS_MESSAGE:
+			return "FPRS_MESSAGE";
+		case FPRS_MESSAGEID:
+			return "FPRS_MESSAGEID";
+		case FPRS_MESSAGEACK:
+			return "FPRS_MESSAGEACK";
 		default:
 			return "FPRS_UNKNOWN";
 	}

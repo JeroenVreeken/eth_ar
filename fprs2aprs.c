@@ -25,9 +25,102 @@
 #include <ctype.h>
 #include <time.h>
 
+struct fprs_frame *aprs2fprs(char *aprs)
+{
+	int i;
+	
+	/* skip comments */
+	if (aprs[0] == '#')
+		return NULL;
+	
+	struct fprs_frame *frame = fprs_frame_create();
+	
+	for (i = 0; i < strlen(aprs); i++) {
+		if (i > 9)
+			goto err_nocall;
+		if (aprs[i] == '>') {
+			char from_call[10];
+			memcpy(from_call, aprs, i);
+			from_call[i] = 0;
+			uint8_t from_ar[6];
+			
+			printf("call: %s\n", from_call);
+
+			if (eth_ar_callssid2mac(from_ar, from_call, false))
+				goto err_ar;
+
+			fprs_frame_add_callsign(frame, from_ar);
+			break;
+		}
+	}
+	for (i++; i < strlen(aprs); i++) {
+		if (aprs[i] == ':') {
+			i++;
+			break;
+		}
+	}
+	if (i >= strlen(aprs)-1)
+		goto err_nopayload;
+	int payloadlen = strlen(aprs) - i;
+	
+	if (payloadlen > 10 && 
+	    aprs[i] == ':' && 
+	    aprs[i+10] == ':') {
+		char dest_call[10];
+		memcpy(dest_call, aprs+i+1, 9);
+		dest_call[9] = 0;
+		uint8_t dest_ar[6];
+		
+		printf("to  : %s\n", dest_call);
+		
+		if (eth_ar_callssid2mac(dest_ar, dest_call, false))
+			goto err_ar_dest;
+		
+		fprs_frame_add_destination(frame, dest_ar);
+		
+		int msg_start = i + 11;
+		for (i = msg_start; i < strlen(aprs); i++) {
+			if (aprs[i] == '{')
+				break;
+		}
+		int msg_end = i;
+		int msg_len = (msg_end - msg_start);
+		
+		printf("MSG len: %d\n", msg_len);
+		if (!memcmp(aprs + msg_start, "ack", 3)) {
+			fprs_frame_add_messageid(frame, 
+			    (uint8_t *)aprs + msg_start + 3, msg_len - 3);
+			printf("ACK size: %d\n", msg_len - 3);
+		} else if (!memcmp(aprs + msg_start, "rej", 3)) {
+			/* No reject yet */
+		} else {
+			if (fprs_frame_add_message(frame, 
+			    (uint8_t *)aprs + msg_start, msg_len))
+				goto err_msg;
+		
+			if (aprs[msg_end] == '{') {
+				int id_size = (strlen(aprs) - msg_end) -1;
+				printf("ID size: %d\n", id_size);
+				fprs_frame_add_messageid(frame, 
+				    (uint8_t *)aprs +msg_end + 1, id_size);
+			}
+		}
+	}
+
+	return frame;
+err_msg:
+err_ar_dest:
+err_nopayload:
+err_ar:
+err_nocall:
+	fprs_frame_destroy(frame);
+	return NULL;
+}
+
 int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *callsign, char *gate_call)
 {
 	uint8_t origin[6] = { 0 };
+	bool have_origin = false;
 	double lat, lon;
 	bool pos_fixed = true;
 	bool have_position = false;
@@ -48,6 +141,7 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 	
 	if (callsign) {
 		memcpy(origin, callsign, 6);
+		have_origin = true;
 	}
 	
 	struct fprs_element *element = NULL;
@@ -59,6 +153,7 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 				return -1;
 			case FPRS_CALLSIGN:
 				memcpy(origin, fprs_element_data(element), 6);
+				have_origin = true;
 				break;
 			case FPRS_POSITION:
 				fprs_position_dec(&lon, &lat, &pos_fixed, fprs_element_data(element));
@@ -114,6 +209,8 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 				break;
 		}
 	}
+	if (!have_origin)
+		return -1;
 	if (!have_position && !have_dmlstream && !have_dmlassoc)
 		return -1;
 

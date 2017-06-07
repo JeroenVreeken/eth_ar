@@ -91,6 +91,10 @@ enum fprs_type {
 
 	FPRS_DMLSTREAM = 21,	/* DML stream name (variable length) */
 	FPRS_DMLASSOC = 22,	/* DML stream name (variable length) */
+	
+	FPRS_MESSAGE = 32,	/* Message text */
+	FPRS_MESSAGEID = 33,	/* Message ID */
+	FPRS_MESSAGEACK = 34,	/* Message acknowledge */
 };
 
 char *fprs_type2str(enum fprs_type);
@@ -134,11 +138,15 @@ int fprs_frame_add_objectname(struct fprs_frame *, char *);
 int fprs_frame_add_comment(struct fprs_frame *, char *);
 int fprs_frame_add_dmlassoc(struct fprs_frame *, char *);
 int fprs_frame_add_dmlstream(struct fprs_frame *, char *);
+int fprs_frame_add_message(struct fprs_frame *frame, uint8_t *data, size_t size);
+int fprs_frame_add_messageid(struct fprs_frame *frame, uint8_t *data, size_t size);
 
 /* Conversion of a fprs frame to aprs ASCII format */
 int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *callsign, char *gate_call);
 int fprs2aprs_login(char *loginline, size_t *loginline_len, char *call);
 
+/* Conversion of aprs packet (in APRS-IS format) to fprs */
+struct fprs_frame *aprs2fprs(char *aprs);
 
 #ifdef __cplusplus
 }

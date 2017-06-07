@@ -91,6 +91,8 @@ int eth_ar_callssid2mac(uint8_t mac[6], char *callsign, bool multicast)
 			break;
 		if (callsign[i] == 0)
 			break;
+		if (callsign[i] == ' ')
+			break;
 		call[i] = callsign[i];
 	}
 	call[i] = 0;
