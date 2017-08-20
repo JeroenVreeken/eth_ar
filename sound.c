@@ -16,7 +16,7 @@
 
  */
 #include "sound.h"
-
+#include <math.h>
 #include <endian.h>
 #include <alsa/asoundlib.h>
 
@@ -108,8 +108,8 @@ int sound_resample_perform_gain_limit(struct sound_resample *sr, int16_t *out, i
 	
 	float max = 1.0 / (gain * limitgain);
 	for (i = 0; i < nr_out; i++) {
-		if (fl_out[i] > max) {
-			limitgain = max / fl_out[i];
+		if (fabsf(fl_out[i]) > max) {
+			limitgain = max / fabsf(fl_out[i]);
 		}
 	}
 	
@@ -119,8 +119,7 @@ int sound_resample_perform_gain_limit(struct sound_resample *sr, int16_t *out, i
 	}
 	
 	src_float_to_short_array(fl_out, out, nr_out);
-	
-	limitgain = limitgain * 8000 + (1.0 * nr_out) / (8000 + nr_out);
+	limitgain = (limitgain * 8000 + (1.0 * nr_out)) / (8000 + nr_out);
 	sr->limit = limitgain;
 	
 	return 0;
