@@ -35,6 +35,7 @@ struct sound_resample {
 	int rate_in;
 	int rate_out;
 	double ratio;
+	float limit;
 };
 
 struct sound_resample *sound_resample_create(int rate_out, int rate_in)
@@ -50,6 +51,8 @@ struct sound_resample *sound_resample_create(int rate_out, int rate_in)
 		goto err_src;
 
 	sr->ratio = (double)rate_out / (double)rate_in;
+	
+	sr->limit = 1.0;
 
 	return sr;
 
@@ -86,7 +89,7 @@ int sound_resample_perform(struct sound_resample *sr, int16_t *out, int16_t *in,
 	return 0;
 }
 
-int sound_resample_perform_gain(struct sound_resample *sr, int16_t *out, int16_t *in, int nr_out, int nr_in, float gain)
+int sound_resample_perform_gain_limit(struct sound_resample *sr, int16_t *out, int16_t *in, int nr_out, int nr_in, float gain)
 {
 	float fl_in[nr_in], fl_out[nr_out];
 	SRC_DATA data;
@@ -100,10 +103,25 @@ int sound_resample_perform_gain(struct sound_resample *sr, int16_t *out, int16_t
 	
 	src_short_to_float_array(in, fl_in, nr_in);
 	src_process(sr->src, &data);
+	
+	float limitgain = sr->limit;
+	
+	float max = 1.0 / (gain * limitgain);
 	for (i = 0; i < nr_out; i++) {
-		fl_out[i] *= gain;
+		if (fl_out[i] > max) {
+			limitgain = max / fl_out[i];
+		}
 	}
+	
+	float realgain = gain * limitgain;
+	for (i = 0; i < nr_out; i++) {
+		fl_out[i] *= realgain;
+	}
+	
 	src_float_to_short_array(fl_out, out, nr_out);
+	
+	limitgain = limitgain * 8000 + (1.0 * nr_out) / (8000 + nr_out);
+	sr->limit = limitgain;
 	
 	return 0;
 }

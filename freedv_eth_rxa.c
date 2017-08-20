@@ -79,7 +79,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	int16_t mod_a[nr_a];
 	bool detected;
 
-	sound_resample_perform_gain(sr, mod_a, samples, nr_a, nr, rx_gain);
+	sound_resample_perform_gain_limit(sr, mod_a, samples, nr_a, nr, rx_gain);
 
 	cdc = io_hl_dcd_get();
 
