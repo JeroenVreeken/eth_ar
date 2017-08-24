@@ -82,8 +82,8 @@ static char *beacon_morsecode[][2] = {
 #define MORSE_WPM	20
 #define MORSE_PARIS_DOTS	50
 #define MORSE_SINE_FREQ		500
-#define MORSE_SINE_AMP		8192
-#define MORSE_SINE_MUL_SILENCE	2
+#define MORSE_SINE_AMP		4096
+#define MORSE_SINE_MUL_SILENCE	4
 #define MORSE_FACTOR_DASH	3
 #define MORSE_FACTOR_IGAP	1
 #define MORSE_FACTOR_LGAP	2 /* I+L = 3 */

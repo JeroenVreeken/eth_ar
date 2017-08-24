@@ -89,6 +89,8 @@ int sound_resample_perform(struct sound_resample *sr, int16_t *out, int16_t *in,
 	return 0;
 }
 
+#define GAIN_LP_LENGTH 16000
+
 int sound_resample_perform_gain_limit(struct sound_resample *sr, int16_t *out, int16_t *in, int nr_out, int nr_in, float gain)
 {
 	float fl_in[nr_in], fl_out[nr_out];
@@ -116,10 +118,10 @@ int sound_resample_perform_gain_limit(struct sound_resample *sr, int16_t *out, i
 	float realgain = gain * limitgain;
 	for (i = 0; i < nr_out; i++) {
 		fl_out[i] *= realgain;
+		limitgain = ((limitgain * GAIN_LP_LENGTH - 1) + 1.0) / GAIN_LP_LENGTH;
 	}
 	
 	src_float_to_short_array(fl_out, out, nr_out);
-	limitgain = (limitgain * 8000 + (1.0 * nr_out)) / (8000 + nr_out);
 	sr->limit = limitgain;
 	
 	return 0;
