@@ -93,12 +93,13 @@ static void tx_silence(void)
 static void tx_beep(void)
 {
 	struct beacon_sample *bs;
-	if (tx_state == TX_STATE_BEEP1)
+	if (tx_state == TX_STATE_BEEP1) {
 		bs = beep_1k;
-	if (tx_state == TX_STATE_BEEP2)
+	} else if (tx_state == TX_STATE_BEEP2) {
 		bs = beep_1k2;
-	if (tx_state == TX_STATE_BEEPD)
+	} else {
 		bs = beep_2k;
+	}
 	int16_t buffer[nr_samples];
 	int16_t buffer_bb[nr_samples];
 	memcpy(buffer, bs->samples + tx_state_cnt * nr_samples, sizeof(int16_t)*nr_samples);
