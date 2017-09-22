@@ -32,9 +32,15 @@ static int dcd_level = 0;
 static int dcd_threshold = 1;
 static ptt_type_t ptt_type = RIG_PTT_NONE;
 static dcd_type_t dcd_type = RIG_DCD_NONE;
+static long token_aux1 = -1;
+static long token_aux2 = -1;
+static long token_aux3 = -1;
 
 static volatile ptt_t rig_thread_ptt = RIG_PTT_OFF;
 static volatile dcd_t rig_thread_dcd = RIG_DCD_OFF;
+static volatile bool rig_thread_aux1 = false;
+static volatile bool rig_thread_aux2 = false;
+static volatile bool rig_thread_aux3 = false;
 
 static bool toggle;
 static bool input_state = false;
@@ -160,6 +166,19 @@ bool io_hl_dcd_get(void)
 	return dcd_level >= dcd_threshold;
 }
 
+bool io_hl_aux1_get(void)
+{
+	return rig_thread_aux1;
+}
+bool io_hl_aux2_get(void)
+{
+	return rig_thread_aux2;
+}
+bool io_hl_aux3_get(void)
+{
+	return rig_thread_aux3;
+}
+
 void io_hl_ptt_set(enum io_hl_ptt state)
 {
 	ptt_t pstate;
@@ -191,6 +210,7 @@ void *io_hl_rig_thread(void *arg)
 {
 	dcd_t cur_dcd = rig_thread_dcd;
 	ptt_t cur_ptt = rig_thread_ptt;
+	value_t cur_value;
 	struct timespec t_cycle_start;
 	struct timespec t_cycle_end;
 	struct timespec t_wait;
@@ -204,6 +224,18 @@ void *io_hl_rig_thread(void *arg)
 			rig_set_ptt(rig, RIG_VFO_CURR, cur_ptt);
 		}
 		rig_get_dcd(rig, RIG_VFO_CURR, &cur_dcd);
+		if (token_aux1 >= 0) {
+			if (rig_get_ext_parm(rig, token_aux1, &cur_value) == RIG_OK)
+				rig_thread_aux1 = cur_value.i;
+		}
+		if (token_aux2 >= 0) {
+			if (rig_get_ext_parm(rig, token_aux2, &cur_value) == RIG_OK)
+				rig_thread_aux2 = cur_value.i;
+		}
+		if (token_aux3 >= 0) {
+			if (rig_get_ext_parm(rig, token_aux3, &cur_value) == RIG_OK)
+				rig_thread_aux3 = cur_value.i;
+		}
 		rig_thread_dcd = cur_dcd;
 		__sync_synchronize();
 		clock_gettime(CLOCK_MONOTONIC, &t_cycle_end);
@@ -259,8 +291,15 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 		return -2;
 	}
 
+	/* Init to sane status */
 	rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
+	rig_get_dcd(rig, RIG_VFO_CURR, (dcd_t*)&rig_thread_dcd);
 	
+	token_aux1 = rig_ext_token_lookup(rig, "AUX1");
+	token_aux2 = rig_ext_token_lookup(rig, "AUX2");
+	token_aux3 = rig_ext_token_lookup(rig, "AUX3");
+	printf("rig AUX tokens: %ld %ld %ld\n", token_aux1, token_aux2, token_aux3);
+
 	pthread_t rig_thread;
 	pthread_create(&rig_thread, NULL, io_hl_rig_thread, NULL);
 
@@ -294,5 +333,17 @@ int io_poll_fill(struct pollfd *fds, int count)
 		nr++;
 	}
 	return 0;
+}
+
+static bool io_dmlassoc = false;
+
+bool io_dmlassoc_get(void)
+{
+	return io_dmlassoc;	
+}
+
+void io_dmlassoc_set(bool val)
+{
+	io_dmlassoc = val;
 }
 

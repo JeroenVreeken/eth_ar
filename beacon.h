@@ -30,4 +30,11 @@ bool beacon_state_check(struct beacon *beacon);
 int beacon_generate(struct beacon *beacon, int16_t *sound, int nr);
 int beacon_generate_add(struct beacon *beacon, int16_t *sound, int nr);
 
+struct beacon_sample {
+	size_t nr;
+	int16_t *samples;
+};
+
+struct beacon_sample *beacon_beep_create(int rate, double f, double t_off, double t_on, double amp);
+
 #endif /* _INCLUDE_BEACON_H_ */

@@ -332,3 +332,28 @@ int beacon_generate_add(struct beacon *beacon, int16_t *sound, int nr)
 	return 0;
 }
 
+
+struct beacon_sample *beacon_beep_create(int rate, double f, double t_off, double t_on, double amp)
+{
+	size_t nr_off = rate * t_off;
+	size_t nr_on = rate * t_on;
+	size_t nr = nr_on + nr_off;
+	int i;
+	
+	struct beacon_sample *bs = calloc(sizeof(struct beacon_sample), 1);
+	if (!bs)
+		return NULL;
+	
+	bs->samples = calloc(sizeof(int16_t), nr);
+	bs->nr = nr;
+	if (!bs->samples) {
+		free(bs);
+		return NULL;
+	}
+	
+	for (i = 0; i < nr_on; i++) {
+		bs->samples[nr_off + i] = double2int16(sin((M_PI*2*i)/(rate/f))*(amp * 16384));
+	}
+	
+	return bs;
+}

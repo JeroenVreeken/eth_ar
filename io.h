@@ -44,4 +44,11 @@ enum io_hl_ptt {
 
 void io_hl_ptt_set(enum io_hl_ptt state);
 
+bool io_hl_aux1_get(void);
+bool io_hl_aux2_get(void);
+bool io_hl_aux3_get(void);
+
+bool io_dmlassoc_get(void);
+void io_dmlassoc_set(bool val);
+
 #endif /* _INCLUDE_INPUT_H_ */

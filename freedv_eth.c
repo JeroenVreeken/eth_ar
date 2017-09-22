@@ -122,26 +122,44 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		freedv_eth_transcode(packet, tx_codecmode, eth_type);
 
 		enqueue_voice(packet);
-	} else if (tx_mode == TX_MODE_FREEDV) {
-//		printf("Data: %d %x\n", eth_type, eth_type);
-		/* TODO: send control as DTMF in analog mode */
-		if (eth_type == ETH_P_AR_CONTROL && vc_control) {
-			packet = tx_packet_alloc();
-			memcpy(packet->data, data, len);
-			packet->len = len;
-			packet->off = 0;
+	} else {
+		if (eth_type == ETH_P_FPRS && !memcmp(mac, from, 6)) {
+			struct fprs_frame *frame = fprs_frame_create();
+			fprs_frame_data_set(frame, data, len);
 			
-			enqueue_control(packet);
-		} else if (freedv_hasdata) {
-			packet = tx_packet_alloc();
-			packet->len = len + 6 + 6 + 2;
-			memcpy(packet->data + 0, to, 6);
-			memcpy(packet->data + 6, from, 6);
-			packet->data[12] = eth_type >> 8;
-			packet->data[13] = eth_type & 0xff;
-			memcpy(packet->data + 14, data, len);
+			struct fprs_element *el = NULL;
+			el = fprs_frame_element_by_type(frame, FPRS_DMLASSOC);
+			if (el) {
+				bool assoc = false;
+				if (fprs_element_size(el)) {
+					assoc = true;
+				}
+				io_dmlassoc_set(assoc);
+				printf("DMLASSOC state: %d", assoc);
+			}
+			fprs_frame_destroy(frame);
+		}
+		if (tx_mode == TX_MODE_FREEDV) {
+//			printf("Data: %d %x\n", eth_type, eth_type);
+			/* TODO: send control as DTMF in analog mode */
+			if (eth_type == ETH_P_AR_CONTROL && vc_control) {
+				packet = tx_packet_alloc();
+				memcpy(packet->data, data, len);
+				packet->len = len;
+				packet->off = 0;
+			
+				enqueue_control(packet);
+			} else if (freedv_hasdata) {
+				packet = tx_packet_alloc();
+				packet->len = len + 6 + 6 + 2;
+				memcpy(packet->data + 0, to, 6);
+				memcpy(packet->data + 6, from, 6);
+				packet->data[12] = eth_type >> 8;
+				packet->data[13] = eth_type & 0xff;
+				memcpy(packet->data + 14, data, len);
 
-			enqueue_data(packet);
+				enqueue_data(packet);
+			}
 		}
 	}
 

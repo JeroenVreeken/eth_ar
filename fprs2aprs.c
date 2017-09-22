@@ -44,7 +44,7 @@ struct fprs_frame *aprs2fprs(char *aprs)
 			from_call[i] = 0;
 			uint8_t from_ar[6];
 			
-			printf("call: %s\n", from_call);
+//			printf("call: %s\n", from_call);
 
 			if (eth_ar_callssid2mac(from_ar, from_call, false))
 				goto err_ar;
@@ -71,7 +71,7 @@ struct fprs_frame *aprs2fprs(char *aprs)
 		dest_call[9] = 0;
 		uint8_t dest_ar[6];
 		
-		printf("to  : %s\n", dest_call);
+//		printf("to  : %s\n", dest_call);
 		
 		if (eth_ar_callssid2mac(dest_ar, dest_call, false))
 			goto err_ar_dest;
@@ -86,11 +86,11 @@ struct fprs_frame *aprs2fprs(char *aprs)
 		int msg_end = i;
 		int msg_len = (msg_end - msg_start);
 		
-		printf("MSG len: %d\n", msg_len);
+//		printf("MSG len: %d\n", msg_len);
 		if (!memcmp(aprs + msg_start, "ack", 3)) {
 			fprs_frame_add_messageid(frame, 
 			    (uint8_t *)aprs + msg_start + 3, msg_len - 3);
-			printf("ACK size: %d\n", msg_len - 3);
+//			printf("ACK size: %d\n", msg_len - 3);
 		} else if (!memcmp(aprs + msg_start, "rej", 3)) {
 			/* No reject yet */
 		} else {
@@ -100,7 +100,7 @@ struct fprs_frame *aprs2fprs(char *aprs)
 		
 			if (aprs[msg_end] == '{') {
 				int id_size = (strlen(aprs) - msg_end) -1;
-				printf("ID size: %d\n", id_size);
+//				printf("ID size: %d\n", id_size);
 				fprs_frame_add_messageid(frame, 
 				    (uint8_t *)aprs +msg_end + 1, id_size);
 			}
