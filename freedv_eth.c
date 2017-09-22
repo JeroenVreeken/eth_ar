@@ -135,7 +135,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 					assoc = true;
 				}
 				io_dmlassoc_set(assoc);
-				printf("DMLASSOC state: %d", assoc);
+				printf("DMLASSOC state: %d\n", assoc);
 			}
 			fprs_frame_destroy(frame);
 		}
