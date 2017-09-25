@@ -26,6 +26,7 @@
 #include <termios.h>
 #include <string.h>
 #include <pthread.h>
+#include "freedv_eth_config.h"
 
 static RIG *rig;
 static int dcd_level = 0;
@@ -224,15 +225,15 @@ void *io_hl_rig_thread(void *arg)
 			rig_set_ptt(rig, RIG_VFO_CURR, cur_ptt);
 		}
 		rig_get_dcd(rig, RIG_VFO_CURR, &cur_dcd);
-		if (token_aux1 >= 0) {
+		if (token_aux1 > 0) {
 			if (rig_get_ext_parm(rig, token_aux1, &cur_value) == RIG_OK)
 				rig_thread_aux1 = cur_value.i;
 		}
-		if (token_aux2 >= 0) {
+		if (token_aux2 > 0) {
 			if (rig_get_ext_parm(rig, token_aux2, &cur_value) == RIG_OK)
 				rig_thread_aux2 = cur_value.i;
 		}
-		if (token_aux3 >= 0) {
+		if (token_aux3 > 0) {
 			if (rig_get_ext_parm(rig, token_aux3, &cur_value) == RIG_OK)
 				rig_thread_aux3 = cur_value.i;
 		}
@@ -284,6 +285,32 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 		strncpy(rig->state.dcdport.pathname, ptt_file, FILPATHLEN - 1);
 	if (rig_file)
 		strncpy(rig->state.rigport.pathname, rig_file, FILPATHLEN - 1);
+
+	char *conf_set = NULL;
+	while ((conf_set = freedv_eth_config_value("rig_conf_set", conf_set, NULL))) {
+		char conf[80];
+		strncpy(conf, conf_set, 80);
+		conf_set[79] = 0;
+		
+		char *conf_tok;
+		char *conf_val;
+		char *svp;
+		
+		conf_tok = strtok_r(conf, " \t=:", &svp);
+		conf_val = strtok_r(NULL, " \t=:", &svp);
+		if (conf_tok && conf_val) {
+			printf("Conf param: '%s' will be set to: '%s'\n", conf_tok, conf_val);
+			long token = rig_token_lookup(rig, conf_tok);
+			if (token > 0) {
+				if (rig_set_conf(rig, token, conf_val)) {
+					printf("Conf param with token %ld could not be set\n", token);
+				}
+			} else {
+				printf("Could not get token for '%s'\n", conf_tok);
+			}
+		}
+	}
+
 
 	retcode = rig_open(rig);
 	if (retcode != RIG_OK) {
