@@ -211,6 +211,13 @@ void freedv_eth_txa_state_machine(void)
 		case TX_STATE_BEEP1:
 		case TX_STATE_BEEP2:
 		case TX_STATE_BEEPD:
+			if (queue_voice_filled() || bcn) {
+					tx_state = TX_STATE_ON;
+					tx_state_cnt = 0;
+					
+					tx_voice();
+					break;
+			}
 			if (tx_state == TX_STATE_BEEP1) {
 				if (tx_state_cnt >= beep_1k->nr / nr_samples) {
 					tx_state_cnt = 0;
