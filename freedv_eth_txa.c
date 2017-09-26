@@ -199,7 +199,7 @@ void freedv_eth_txa_state_machine(void)
 				tx_state_cnt = 0;
 				if (io_hl_aux2_get()) {
 					tx_state = TX_STATE_BEEP1;
-				} if (io_dmlassoc_get()) {
+				} else if (io_dmlassoc_get()) {
 					tx_state = TX_STATE_BEEPD;
 				} else {
 					tx_state = TX_STATE_TAIL;
@@ -293,9 +293,9 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
 {
 	int a_rate = FREEDV_ALAW_RATE;
 
-	beep_1k = beacon_beep_create(a_rate, 1000.0, 0.2, 0.3, 0.25);
-	beep_1k2 = beacon_beep_create(a_rate, 1200.0, 0.2, 0.3, 0.25);
-	beep_2k = beacon_beep_create(a_rate, 2000.0, 0.2, 0.3, 0.25);
+	beep_1k = beacon_beep_create(a_rate, 1000.0, 0.15, 0.25, 0.25);
+	beep_1k2 = beacon_beep_create(a_rate, 1200.0, 0.05, 0.15, 0.25);
+	beep_2k = beacon_beep_create(a_rate, 2000.0, 0.15, 0.25, 0.25);
 
 	fullduplex = init_fullduplex;
 	output_bb = init_output_bb;
