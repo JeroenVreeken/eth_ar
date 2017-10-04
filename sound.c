@@ -101,6 +101,7 @@ int sound_resample_perform_gain_limit(struct sound_resample *sr, int16_t *out, i
 	data.output_frames = nr_out;
 	data.end_of_input = 0;
 	data.src_ratio = sr->ratio;
+	bool newlimit = false;
 	int i;
 	
 	src_short_to_float_array(in, fl_in, nr_in);
@@ -115,12 +116,14 @@ int sound_resample_perform_gain_limit(struct sound_resample *sr, int16_t *out, i
 	float max = 1.0 / (gain * limitgain);
 	if (topval > max) {
 		limitgain = 0.90 / (topval * gain);
+		newlimit = true;
 	}
 	
 	float realgain = gain * limitgain;
 	for (i = 0; i < nr_out; i++) {
 		fl_out[i] *= realgain;
-		limitgain = ((limitgain * (GAIN_LP_LENGTH - 1)) + 1.0) / GAIN_LP_LENGTH;
+		if (!newlimit)
+			limitgain = ((limitgain * (GAIN_LP_LENGTH - 1)) + 1.0) / GAIN_LP_LENGTH;
 	}
 	
 	src_float_to_short_array(fl_out, out, nr_out);
