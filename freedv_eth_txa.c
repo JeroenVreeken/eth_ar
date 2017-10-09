@@ -22,6 +22,7 @@
 #include "ctcss.h"
 #include "beacon.h"
 #include "emphasis.h"
+#include "freedv_eth_config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -49,6 +50,7 @@ static int nr_samples = FREEDV_ALAW_NR_SAMPLES;
 static bool output_bb = false;
 static bool output_tone = false;
 static enum io_hl_ptt ptt = IO_HL_PTT_OFF;
+static bool tx_tail_other = false;
 
 struct beacon_sample *beep_1k;
 struct beacon_sample *beep_1k2;
@@ -211,6 +213,8 @@ void freedv_eth_txa_state_machine(void)
 		case TX_STATE_BEEP1:
 		case TX_STATE_BEEP2:
 		case TX_STATE_BEEPD:
+			if (tx_tail_other)
+				new_ptt = IO_HL_PTT_OTHER;
 			if (queue_voice_filled() || bcn) {
 					tx_state = TX_STATE_ON;
 					tx_state_cnt = 0;
@@ -250,6 +254,8 @@ void freedv_eth_txa_state_machine(void)
 				}
 			}
 		case TX_STATE_TAIL:
+			if (tx_tail_other)
+				new_ptt = IO_HL_PTT_OTHER;
 			if (tx_state_cnt >= tx_tail) {
 				tx_state = TX_STATE_OFF;
 				tx_state_cnt = 0;
@@ -339,6 +345,8 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
 	emphasis_p = NULL;
 	if (emphasis)
 		emphasis_p = emphasis_init();
+
+	tx_tail_other = atoi(freedv_eth_config_value("analog_tx_tail_other", NULL, "0"));
 
 	return 0;
 }
