@@ -335,8 +335,6 @@ static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples,
 			}
 		}
 		
-		*detected |= hit;
-
 		/* The logic in the next test is:
 		   For digits we need two successive identical clean detects, with
 		   something different preceeding it. This can work with
@@ -351,6 +349,9 @@ static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples,
 			} else if (s->dtmf.lasthit != s->dtmf.current_hit) {
 				s->dtmf.current_hit = 0;
 			}
+		}
+		if (hit && s->dtmf.lasthit) {
+			*detected |= hit;
 		}
 		s->dtmf.lasthit = hit;
 
