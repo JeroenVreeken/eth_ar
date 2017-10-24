@@ -81,7 +81,7 @@
 static double DTMF_OPTIMIZED_VALUE =    102;
  
 //#define DTMF_THRESHOLD		8.0e7
-static double DTMF_THRESHOLD =     800000000.0; // aluigi work-around
+static double DTMF_THRESHOLD =     8000000000.0; // aluigi work-around
 static double DTMF_NORMAL_TWIST	= 6.3;     /* 8dB */
 
 #if 0
@@ -325,6 +325,15 @@ static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples,
 			if (i >= 4 /*&&
 			    (row_energy[best_row] + col_energy[best_col]) > DTMF_TO_TOTAL_ENERGY*s->dtmf.energy*/) {     // aluigi work-around
 				/* Got a hit */
+
+//printf("%e\t%e\t%e\t"
+//"%e %e %e %e | "
+//"%e %e %e %e"
+//"\n", DTMF_THRESHOLD, col_energy[best_col],
+//row_energy[best_row],
+//col_energy[0],col_energy[1],col_energy[2],col_energy[3],
+//row_energy[0],row_energy[1],row_energy[2],row_energy[3]
+//);
 				hit = dtmf_positions[(best_row << 2) + best_col];
 				if (!(digitmode & DSP_DIGITMODE_NOQUELCH)) {
 					/* Zero out frame data if this is part DTMF */
