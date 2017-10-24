@@ -111,6 +111,9 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 {
 	struct tx_packet *packet;
 	
+	if (tx_mode == TX_MODE_NONE)
+		return 0;
+	
 	if (eth_ar_eth_p_isvoice(eth_type)) {
 		if (len > tx_packet_max())
 			return 0;
@@ -429,7 +432,7 @@ int main(int argc, char **argv)
 		    tx_tail_msec, tx_delay_msec,
 		    tx_header_msec, tx_header_max_msec,
 		    tx_fprs_msec);
-	} else {
+	} else  if (tx_mode == TX_MODE_ANALOG) {
 		freedv_eth_txa_init(fullduplex, 
 		    sound_rate, 
 		    tx_tail_msec,
@@ -476,7 +479,7 @@ int main(int argc, char **argv)
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
 			if (tx_mode == TX_MODE_FREEDV)
 				freedv_eth_tx_state_machine();
-			else
+			else if (tx_mode == TX_MODE_ANALOG)
 				freedv_eth_txa_state_machine();
 		}
 		if (fds[poll_int].revents & POLLIN) {

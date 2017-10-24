@@ -273,11 +273,9 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 		return -1;
 	}
 
-	if (ptt_type != RIG_PTT_NONE)
-		rig->state.pttport.type.ptt = ptt_type;
+	rig->state.pttport.type.ptt = ptt_type;
 
-	if (dcd_type != RIG_DCD_NONE)
-		rig->state.dcdport.type.dcd = dcd_type;
+	rig->state.dcdport.type.dcd = dcd_type;
 
 	if (ptt_file)
 		strncpy(rig->state.pttport.pathname, ptt_file, FILPATHLEN - 1);
