@@ -177,6 +177,8 @@ void freedv_eth_txa_state_machine(void)
 	enum io_hl_ptt new_ptt = ptt;
 	tx_state_cnt++;
 	bool bcn;
+	bool tail = false;
+
 	if (beacon) {
 		bcn = beacon_state_check(beacon);
 		bcn = bcn && (!freedv_eth_cdc() || fullduplex);
@@ -213,6 +215,7 @@ void freedv_eth_txa_state_machine(void)
 		case TX_STATE_BEEP1:
 		case TX_STATE_BEEP2:
 		case TX_STATE_BEEPD:
+			tail = true;
 			if (tx_tail_other)
 				new_ptt = IO_HL_PTT_OTHER;
 			if (queue_voice_filled() || bcn) {
@@ -254,6 +257,7 @@ void freedv_eth_txa_state_machine(void)
 				}
 			}
 		case TX_STATE_TAIL:
+			tail = true;
 			if (tx_tail_other)
 				new_ptt = IO_HL_PTT_OTHER;
 			if (tx_state_cnt >= tx_tail) {
@@ -276,7 +280,7 @@ void freedv_eth_txa_state_machine(void)
 			break;
 	}
 
-	if (new_ptt != IO_HL_PTT_OFF && tx_hadvoice)
+	if (new_ptt != IO_HL_PTT_OFF && tx_hadvoice && !tail)
 		new_ptt = IO_HL_PTT_AUDIO;
 	if (new_ptt != ptt) {
 		io_hl_ptt_set(new_ptt);
@@ -299,9 +303,9 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
 {
 	int a_rate = FREEDV_ALAW_RATE;
 
-	beep_1k = beacon_beep_create(a_rate, 1000.0, 0.15, 0.25, 0.25);
-	beep_1k2 = beacon_beep_create(a_rate, 1200.0, 0.05, 0.15, 0.25);
-	beep_2k = beacon_beep_create(a_rate, 2000.0, 0.15, 0.25, 0.25);
+	beep_1k = beacon_beep_create(a_rate, 1000.0, 0.45, 0.25, 0.25);
+	beep_1k2 = beacon_beep_create(a_rate, 1200.0, 0.15, 0.15, 0.25);
+	beep_2k = beacon_beep_create(a_rate, 2000.0, 0.35, 0.25, 0.25);
 
 	fullduplex = init_fullduplex;
 	output_bb = init_output_bb;
