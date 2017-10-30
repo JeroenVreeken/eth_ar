@@ -40,7 +40,9 @@ extern "C" {
 
 #define ETH_P_ALAW		0x7365
 #define ETH_P_FPRS		0x7370
-#define ETH_P_ULAW		0x7385
+#define ETH_P_ULAW		0x7355
+#define ETH_P_LE16		0x7373
+#define ETH_P_BE16		0x7353
 
 #define ETH_AR_CALL_LEN_MAX	8
 #define ETH_AR_CALL_SIZE	9

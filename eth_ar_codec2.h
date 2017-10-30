@@ -28,7 +28,16 @@ extern "C" {
 /* Not really codec2 modes */
 #define CODEC2_MODE_ALAW	'A'
 #define CODEC2_MODE_ULAW	'U'
+#define CODEC2_MODE_LE16	's'
+#define CODEC2_MODE_BE16	'S'
 
+#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#define CODEC2_MODE_NATIVE16	CODEC2_MODE_LE16
+#define ETH_P_NATIVE16		ETH_P_LE16
+#else
+#define CODEC2_MODE_NATIVE16	CODEC2_MODE_BE16
+#define ETH_P_NATIVE16		ETH_P_BE16
+#endif
 
 static inline int eth_ar_eth_p_codecmode(uint16_t type)
 {
@@ -59,6 +68,10 @@ static inline int eth_ar_eth_p_codecmode(uint16_t type)
 			return CODEC2_MODE_ALAW;
 		case ETH_P_ULAW:
 			return CODEC2_MODE_ULAW;
+		case ETH_P_LE16:
+			return CODEC2_MODE_LE16;
+		case ETH_P_BE16:
+			return CODEC2_MODE_BE16;
 		default:
 			break;
 	}
@@ -97,6 +110,8 @@ static inline bool eth_ar_eth_p_isvoice(uint16_t type)
 	switch(type) {
 		case ETH_P_ALAW:
 		case ETH_P_ULAW:
+		case ETH_P_LE16:
+		case ETH_P_BE16:
 			return true;
 		default:
 			break;

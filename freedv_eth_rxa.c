@@ -17,6 +17,7 @@
  */
 
 #include "freedv_eth.h"
+#include "freedv_eth_config.h"
 #include "io.h"
 #include "dtmf.h"
 #include "emphasis.h"
@@ -24,6 +25,7 @@
 #include "alaw.h"
 #include "sound.h"
 #include "ctcss.h"
+#include "eth_ar_codec2.h"
 
 #include <string.h>
 
@@ -36,7 +38,7 @@ static bool ctcss_sql;
 static int dtmf_mute = 1;
 static struct sound_resample *sr = NULL;
 static float rx_gain = 1.0;
-
+static int voice_mode = CODEC2_MODE_ALAW;
 static char dtmf_control_start = '*';
 static char dtmf_control_stop = '#';
 
@@ -97,12 +99,18 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 			memset(mod_a, 0, nr_a * sizeof(int16_t)); 
 	}
 
-	uint8_t alaw[nr_a];
-		
-	alaw_encode(alaw, mod_a, nr_a);
-	
 	if (cdc)
-		interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr_a);
+		switch (voice_mode) {
+			case CODEC2_MODE_ALAW: {
+				uint8_t alaw[nr_a];
+		
+				alaw_encode(alaw, mod_a, nr_a);
+				interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr_a);
+			}
+			case CODEC2_MODE_NATIVE16: {
+				interface_rx(bcast, mac, ETH_P_NATIVE16, (uint8_t *)mod_a, nr_a * sizeof(int16_t));
+			}
+		}
 	else {
 		dtmf_state = DTMF_IDLE;
 	}
@@ -113,6 +121,11 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
     float rx_gain_init)
 {
 	int a_rate = FREEDV_ALAW_RATE;
+	bool use_short = atoi(freedv_eth_config_value("analog_rx_short", NULL, "0"));
+	
+	if (use_short) {
+		voice_mode = CODEC2_MODE_NATIVE16;
+	}
 	
 	rx_gain = rx_gain_init;
 	memcpy(mac, mac_init, 6);

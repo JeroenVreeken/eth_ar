@@ -406,7 +406,7 @@ int main(int argc, char **argv)
 		tx_codecmode = eth_ar_eth_p_codecmode(type);
 	} else {
 		/* Decode to speech shorts, but don't recode... */
-		tx_codecmode = 'S';
+		tx_codecmode = CODEC2_MODE_NATIVE16;
 	}
 	fd_int = interface_init(netname, mac, true, 0);
 	sound_rate = sound_init(sounddev, cb_sound_in, sound_rate, 2, 2);

@@ -98,11 +98,34 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 		
 			break;
 		}
-		case 'S': {
+		case CODEC2_MODE_LE16: {
 			/* Fill packet with native short samples */
-			size_t len = trans_speech_pos * sizeof(short);
-			packet->len = len <= tx_packet_max() ? len : tx_packet_max();
-			memcpy(packet->data, trans_speech, packet->len);
+			size_t len = trans_speech_pos;
+			size_t i;
+			if (len > tx_packet_max()/sizeof(short))
+				len = tx_packet_max()/sizeof(short);
+			packet->len = len;
+			for (i = 0; i < len; i++) {
+				uint16_t org = trans_speech[i];
+				uint16_t le = le16toh(org);
+				memcpy(&packet->data[i * sizeof(short)], &le, sizeof(short));
+			}
+			trans_speech_pos = 0;
+			
+			break;
+		}
+		case CODEC2_MODE_BE16: {
+			/* Fill packet with native short samples */
+			size_t len = trans_speech_pos;
+			size_t i;
+			if (len > tx_packet_max()/sizeof(short))
+				len = tx_packet_max()/sizeof(short);
+			packet->len = len;
+			for (i = 0; i < len; i++) {
+				uint16_t org = trans_speech[i];
+				uint16_t le = be16toh(org);
+				memcpy(&packet->data[i * sizeof(short)], &le, sizeof(short));
+			}
 			trans_speech_pos = 0;
 			
 			break;
