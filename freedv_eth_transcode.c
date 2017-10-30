@@ -137,7 +137,7 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 			if (trans_speech_pos > tx_packet_max())
 				trans_speech_pos = tx_packet_max();
 			memcpy(packet->data, trans_speech, trans_speech_pos * sizeof(short));
-			packet->len = trans_speech_pos;
+			packet->len = trans_speech_pos * sizeof(short);
 			trans_speech_pos = 0;
 			break;
 		}
