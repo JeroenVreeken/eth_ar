@@ -43,17 +43,25 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 	if (to_codecmode == from_codecmode)
 		return 0;
 
-	if (from_codecmode != CODEC2_MODE_ALAW &&
-	    from_codecmode != CODEC2_MODE_ULAW) {
-		if (from_codecmode != trans_dec_mode) {
-			if (trans_dec)
-				codec2_destroy(trans_dec);
-			trans_dec_mode = from_codecmode;
-			trans_dec = codec2_create(trans_dec_mode);
+	switch(from_codecmode) {
+		case CODEC2_MODE_ALAW:
+		case CODEC2_MODE_ULAW:
+			samples = packet->len;
+			break;
+		case CODEC2_MODE_LE16:
+		case CODEC2_MODE_BE16:
+			samples = packet->len / 2;
+			break;
+		default: {
+			if (from_codecmode != trans_dec_mode) {
+				if (trans_dec)
+					codec2_destroy(trans_dec);
+				trans_dec_mode = from_codecmode;
+				trans_dec = codec2_create(trans_dec_mode);
+			}
+			samples = codec2_samples_per_frame(trans_dec);
+			break;
 		}
-		samples = codec2_samples_per_frame(trans_dec);
-	} else {
-		samples = packet->len;
 	}
 
 	if (trans_speech_pos + samples > trans_speech_size) {
@@ -72,6 +80,32 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 		case CODEC2_MODE_ULAW:
 			ulaw_decode(speech, packet->data, samples);
 			break;
+		case CODEC2_MODE_LE16: {
+			/* Fill packet with native short samples */
+			union {
+				uint8_t b[2];
+				uint16_t s;
+			} b2s;
+			int i;
+			for (i = 0; i < samples; i++) {
+				b2s.b[0] = packet->data[i * 2 + 0];
+				b2s.b[1] = packet->data[i * 2 + 1];
+				speech[i] = le16toh(b2s.s);
+			}
+		}
+		case CODEC2_MODE_BE16: {
+			/* Fill packet with native short samples */
+			union {
+				uint8_t b[2];
+				uint16_t s;
+			} b2s;
+			int i;
+			for (i = 0; i < samples; i++) {
+				b2s.b[0] = packet->data[i * 2 + 0];
+				b2s.b[1] = packet->data[i * 2 + 1];
+				speech[i] = be16toh(b2s.s);
+			}
+		}
 		default:
 			codec2_decode(trans_dec, speech, packet->data);
 			break;
@@ -98,36 +132,13 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 		
 			break;
 		}
-		case CODEC2_MODE_LE16: {
+		case CODEC2_MODE_NATIVE16: {
 			/* Fill packet with native short samples */
-			size_t len = trans_speech_pos;
-			size_t i;
-			if (len > tx_packet_max()/sizeof(short))
-				len = tx_packet_max()/sizeof(short);
-			packet->len = len;
-			for (i = 0; i < len; i++) {
-				uint16_t org = trans_speech[i];
-				uint16_t le = le16toh(org);
-				memcpy(&packet->data[i * sizeof(short)], &le, sizeof(short));
-			}
+			if (trans_speech_pos > tx_packet_max())
+				trans_speech_pos = tx_packet_max();
+			memcpy(packet->data, trans_speech, trans_speech_pos * sizeof(short));
+			packet->len = trans_speech_pos;
 			trans_speech_pos = 0;
-			
-			break;
-		}
-		case CODEC2_MODE_BE16: {
-			/* Fill packet with native short samples */
-			size_t len = trans_speech_pos;
-			size_t i;
-			if (len > tx_packet_max()/sizeof(short))
-				len = tx_packet_max()/sizeof(short);
-			packet->len = len;
-			for (i = 0; i < len; i++) {
-				uint16_t org = trans_speech[i];
-				uint16_t le = be16toh(org);
-				memcpy(&packet->data[i * sizeof(short)], &le, sizeof(short));
-			}
-			trans_speech_pos = 0;
-			
 			break;
 		}
 		default: 
