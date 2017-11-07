@@ -115,7 +115,7 @@ int sound_resample_perform_gain_limit(struct sound_resample *sr, int16_t *out, i
 	}
 	float max = 1.0 / (gain * limitgain);
 	if (topval > max) {
-		limitgain = 0.90 / (topval * gain);
+		limitgain = 1.0 / (topval * gain);
 		newlimit = true;
 	}
 	

@@ -201,9 +201,9 @@ void freedv_eth_txa_state_machine(void)
 		case TX_STATE_ON:
 			if (!queue_voice_filled() && !bcn) {
 				tx_state_cnt = 0;
-				if (io_hl_aux2_get()) {
+				if (tx_hadvoice && io_hl_aux2_get()) {
 					tx_state = TX_STATE_BEEP1;
-				} else if (io_dmlassoc_get()) {
+				} else if (tx_hadvoice && io_dmlassoc_get()) {
 					tx_state = TX_STATE_BEEPD;
 				} else {
 					tx_state = TX_STATE_TAIL;

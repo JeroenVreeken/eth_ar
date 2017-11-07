@@ -28,6 +28,7 @@
 #include <sys/mman.h>
 
 #include <codec2/codec2.h>
+#include <speex/speex_preprocess.h>
 
 #include "interface.h"
 #include <eth_ar/eth_ar.h>
@@ -53,6 +54,8 @@ static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static struct sound_resample *sr_out = NULL;
 static struct sound_resample *sr_in = NULL;
 static struct iir *iir;
+
+SpeexPreprocessState *st;
 
 struct tx_packet {
 	int16_t *samples;
@@ -123,6 +126,9 @@ static void cb_sound_in(int16_t *hw_samples, int16_t *samples_r, int hw_nr, int 
 
 	int nr;
 	int16_t *samples;
+
+	if (st)
+		speex_preprocess_run(st, hw_samples);
 
 	if (sr_in) {
 		nr = sound_resample_nr_out(sr_in, hw_nr);
@@ -348,6 +354,8 @@ int main(int argc, char **argv)
 	bool tap = true;
 	int a_rate = 8000;
 	int rate = a_rate;
+	int nr_sound;
+	bool denoise = true;
 
 	while ((opt = getopt(argc, argv, "abc:eIi:M:n:r:Ss:v")) != -1) {
 		switch(opt) {
@@ -471,8 +479,26 @@ int main(int argc, char **argv)
 	} else {
 		printf("Sound rate: %d\n", rate);
 	}
-	sound_set_nr(nr_samples * rate / a_rate);
+	nr_sound = nr_samples * rate / a_rate;
+	sound_set_nr(nr_sound);
 
+	if (denoise) {
+		int val;
+		float fval;
+		st = speex_preprocess_state_init(nr_sound, rate);
+		val= denoise;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DENOISE, &val);
+		val = -30;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &val);
+
+		val=1;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC, &val);
+		fval=32768;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_LEVEL, &fval);
+		val=60;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_MAX_GAIN, &val);
+	}
+	
 	if (a_rate != rate) {
 		sr_out = sound_resample_create(rate, a_rate);
 		sr_in = sound_resample_create(a_rate, rate);

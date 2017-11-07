@@ -32,6 +32,21 @@ AS_IF([test "x$samplerate_found_headers" != "xyes"],
         [AC_MSG_ERROR([Unable to find the samplerate headers])])
 
 
+
+dnl Search for libspeexdsp
+AC_SEARCH_LIBS([speex_preprocess_state_init], [speexdsp], [], [
+  AC_MSG_ERROR([unable to find libspeexdsp])
+])
+
+AC_CHECK_HEADERS([speex/speex_preprocess.h],
+        [speexdsp_found_headers=yes; break;])
+
+AS_IF([test "x$speexdsp_found_headers" != "xyes"],
+        [AC_MSG_ERROR([Unable to find the speexdsp headers])])
+
+
+
+
 dnl Search for hamlib
 AC_SEARCH_LIBS([rig_init], [hamlib], [], [
   AC_MSG_ERROR([unable to find the rig_init() function in hamlib])
