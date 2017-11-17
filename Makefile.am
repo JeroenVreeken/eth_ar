@@ -6,7 +6,7 @@ lib_LTLIBRARIES=libeth_ar.la
 
 libeth_ar_la_SOURCES= eth_ar.c fprs.c fprs2aprs.c
 libeth_ar_la_CFLAGS=-fPIC 
-libeth_ar_la_LDFLAGS= -shared -fPIC -version-info 0:0:0 -lm
+libeth_ar_la_LDFLAGS= -shared -fPIC -version-info 1:0:1 -lm
 
 nobase_include_HEADERS = eth_ar/eth_ar.h eth_ar/fprs.h
 

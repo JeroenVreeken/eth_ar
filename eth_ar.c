@@ -133,3 +133,10 @@ int eth_ar_mac2call(char *callsign, int *ssid, bool *multicast, uint8_t mac[6])
 
 	return 0;
 }
+
+int eth_ar_mac_ssid_mask(uint8_t mac[6])
+{
+	mac[0] &= 0xc3;
+
+	return 0;
+}
