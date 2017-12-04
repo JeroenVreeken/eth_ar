@@ -107,9 +107,11 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 		
 				alaw_encode(alaw, mod_a, nr_a);
 				interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr_a);
+				break;
 			}
 			case CODEC2_MODE_NATIVE16: {
 				interface_rx(bcast, mac, ETH_P_NATIVE16, (uint8_t *)mod_a, nr_a * sizeof(int16_t));
+				break;
 			}
 		}
 	} else {
