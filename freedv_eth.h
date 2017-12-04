@@ -58,6 +58,7 @@ struct tx_packet {
 	uint8_t data[TX_PACKET_LEN_MAX];
 	size_t len;
 	size_t off;
+	bool local_rx;
 	
 	struct tx_packet *next;
 	struct tx_packet *prev;
@@ -85,6 +86,8 @@ struct tx_packet *dequeue_control(void);
 struct tx_packet *peek_control(void);
 void enqueue_control(struct tx_packet *packet);
 bool queue_control_filled(void);
+
+void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len);
 
 bool freedv_eth_cdc(void);
 int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t from_type);

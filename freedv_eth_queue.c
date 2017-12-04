@@ -33,6 +33,10 @@ struct tx_packet *tx_packet_alloc(void)
 			return malloc(sizeof(struct tx_packet));
 		}
 	} while (!atomic_compare_exchange_weak(&tx_packet_pool, &packet, packet->next));
+
+	packet->len = 0;
+	packet->off = 0;
+	packet->local_rx = false;
 		
 	return packet;
 }

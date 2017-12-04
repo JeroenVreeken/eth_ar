@@ -40,6 +40,7 @@ enum tx_state {
 static bool fullduplex;
 static enum tx_state tx_state;
 static bool tx_hadvoice;
+static bool tx_waslocal;
 static int tx_tail;
 static int tx_state_cnt;
 static struct sound_resample *sr_l, *sr_r = NULL;
@@ -178,6 +179,12 @@ void freedv_eth_txa_state_machine(void)
 	tx_state_cnt++;
 	bool bcn;
 	bool tail = false;
+	struct tx_packet *q_peek = peek_voice();
+	bool q_filled = q_peek;
+
+	if (q_filled) {
+		tx_waslocal |= q_peek->local_rx;
+	}
 
 	if (beacon) {
 		bcn = beacon_state_check(beacon);
@@ -188,18 +195,17 @@ void freedv_eth_txa_state_machine(void)
 	
 	switch (tx_state) {
 		case TX_STATE_OFF:
-			if (queue_voice_filled() || bcn) {
+			if (q_filled || bcn) {
 				new_ptt = IO_HL_PTT_OTHER;
 				tx_state = TX_STATE_ON;
 				tx_state_cnt = 0;
 				if (ctcss)
 					ctcss_reset(ctcss);
 			} else {
-				tx_silence();
 				break;
 			}
 		case TX_STATE_ON:
-			if (!queue_voice_filled() && !bcn) {
+			if (!q_filled && !bcn) {
 				tx_state_cnt = 0;
 				if (tx_hadvoice && io_hl_aux2_get()) {
 					tx_state = TX_STATE_BEEP1;
@@ -209,7 +215,6 @@ void freedv_eth_txa_state_machine(void)
 					tx_state = TX_STATE_TAIL;
 				}
 			} else {
-				tx_voice();
 				break;
 			}
 		case TX_STATE_BEEP1:
@@ -218,11 +223,9 @@ void freedv_eth_txa_state_machine(void)
 			tail = true;
 			if (tx_tail_other)
 				new_ptt = IO_HL_PTT_OTHER;
-			if (queue_voice_filled() || bcn) {
+			if (q_filled || bcn) {
 					tx_state = TX_STATE_ON;
 					tx_state_cnt = 0;
-					
-					tx_voice();
 					break;
 			}
 			if (tx_state == TX_STATE_BEEP1) {
@@ -234,7 +237,6 @@ void freedv_eth_txa_state_machine(void)
 						tx_state = TX_STATE_TAIL;
 					}
 				} else {
-					tx_beep();
 					break;
 				}
 			}
@@ -243,7 +245,6 @@ void freedv_eth_txa_state_machine(void)
 					tx_state_cnt = 0;
 					tx_state = TX_STATE_TAIL;
 				} else {
-					tx_beep();
 					break;
 				}
 			}
@@ -252,7 +253,6 @@ void freedv_eth_txa_state_machine(void)
 					tx_state_cnt = 0;
 					tx_state = TX_STATE_TAIL;
 				} else {
-					tx_beep();
 					break;
 				}
 			}
@@ -264,19 +264,29 @@ void freedv_eth_txa_state_machine(void)
 				tx_state = TX_STATE_OFF;
 				tx_state_cnt = 0;
 				tx_hadvoice = false;
+				tx_waslocal = false;
 				new_ptt = IO_HL_PTT_OFF;
-				
-				tx_silence();
 			} else {
-				if (queue_voice_filled() || bcn) {
+				if (q_filled || bcn) {
 					tx_state = TX_STATE_ON;
 					tx_state_cnt = 0;
-					
-					tx_voice();
-				} else {
-					tx_silence();
 				}
 			}
+			break;
+	}
+
+	switch (tx_state) {
+		case TX_STATE_TAIL:
+		case TX_STATE_OFF:
+			tx_silence();
+			break;
+		case TX_STATE_ON:
+			tx_voice();
+			break;
+		case TX_STATE_BEEP1:
+		case TX_STATE_BEEP2:
+		case TX_STATE_BEEPD:
+			tx_beep();
 			break;
 	}
 

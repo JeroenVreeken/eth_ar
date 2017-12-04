@@ -46,6 +46,7 @@
 
 static bool verbose;
 static bool fullduplex;
+static bool repeater;
 static bool vc_control;
 
 static struct freedv *freedv;
@@ -80,6 +81,28 @@ enum rx_mode {
 };
 
 static enum rx_mode rx_mode;
+
+void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
+{
+	struct tx_packet *packet;
+
+	if (tx_mode == TX_MODE_NONE)
+		return;
+	
+	if (repeater) {
+		if (len > tx_packet_max())
+			return;
+		packet = tx_packet_alloc();
+		packet->len = len;
+		memcpy(packet->data, data, len);
+		memcpy(packet->from, from, 6);
+		
+		freedv_eth_transcode(packet, tx_codecmode, eth_type);
+
+		packet->local_rx = true;
+		enqueue_voice(packet);
+	}
+}
 
 static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr_r)
 {
@@ -256,6 +279,7 @@ int main(int argc, char **argv)
 	tx_delay_msec = atoi(freedv_eth_config_value("tx_delay", NULL, "100"));
 	tx_tail_msec = atoi(freedv_eth_config_value("tx_tail", NULL, "100"));
 	fullduplex = atoi(freedv_eth_config_value("fullduplex", NULL, "0"));
+	repeater = atoi(freedv_eth_config_value("repeater", NULL, "0"));
 	verbose = atoi(freedv_eth_config_value("verbose", NULL, "0"));
 	char *freedv_mode_str = freedv_eth_config_value("freedv_mode", NULL, "700");
 	rig_model = atoi(freedv_eth_config_value("rig_model", NULL, "1"));

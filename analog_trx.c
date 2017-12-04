@@ -133,7 +133,8 @@ static void cb_sound_in(int16_t *hw_samples, int16_t *samples_r, int hw_nr, int 
 	if (sr_in) {
 		nr = sound_resample_nr_out(sr_in, hw_nr);
 		samples = alloca(sizeof(int16_t) * nr);
-		sound_resample_perform(sr_in, samples, hw_samples, nr, hw_nr);
+//		sound_resample_perform(sr_in, samples, hw_samples, nr, hw_nr);
+		sound_resample_perform_gain_limit(sr_in, samples, hw_samples, nr, hw_nr, 2.0);
 	} else {
 		nr = hw_nr;
 		samples = hw_samples;
@@ -495,8 +496,14 @@ int main(int argc, char **argv)
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC, &val);
 		fval=32768;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_LEVEL, &fval);
-		val=60;
+		
+		val = 40;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_INCREMENT, &val);
+		
+ 		val=60;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_MAX_GAIN, &val);
+	} else {
+		printf("No denoise\n");
 	}
 	
 	if (a_rate != rate) {

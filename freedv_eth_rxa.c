@@ -99,7 +99,8 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 			memset(mod_a, 0, nr_a * sizeof(int16_t)); 
 	}
 
-	if (cdc)
+	if (cdc) {
+		freedv_eth_voice_rx(bcast, mac, ETH_P_NATIVE16, (uint8_t *)mod_a, nr_a * sizeof(int16_t));
 		switch (voice_mode) {
 			case CODEC2_MODE_ALAW: {
 				uint8_t alaw[nr_a];
@@ -111,7 +112,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 				interface_rx(bcast, mac, ETH_P_NATIVE16, (uint8_t *)mod_a, nr_a * sizeof(int16_t));
 			}
 		}
-	else {
+	} else {
 		dtmf_state = DTMF_IDLE;
 	}
 }
