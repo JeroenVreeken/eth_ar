@@ -454,6 +454,10 @@ int main(int argc, char **argv)
 		dcd_type = RIG_DCD_CM108;
 	else if (!strcmp(rig_dcd_type, "NONE"))
 		dcd_type = RIG_DCD_NONE;
+	else if (!strcmp(rig_dcd_type, "GPIO"))
+		dcd_type = RIG_DCD_GPIO;
+	else if (!strcmp(rig_dcd_type, "GPION"))
+		dcd_type = RIG_DCD_GPION;
 	else
 		dcd_type = atoi(rig_dcd_type);
 

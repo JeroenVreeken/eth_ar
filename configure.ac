@@ -61,6 +61,12 @@ AS_IF([test "x$hamlib_found_headers" == "xyes"],
 	[[#include <hamlib/rig.h>]])]
 )
 
+AS_IF([test "x$hamlib_found_headers" == "xyes"],
+        [AC_CHECK_DECLS([RIG_DCD_GPIO], [], [
+	AC_MSG_ERROR([This version of hamlib does not support DCD by GPIO])],
+	[[#include <hamlib/rig.h>]])]
+)
+
 
 
 AC_OUTPUT([Makefile])
