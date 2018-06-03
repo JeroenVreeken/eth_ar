@@ -26,6 +26,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 
 /*
@@ -95,6 +96,8 @@ enum fprs_type {
 	FPRS_MESSAGE = 32,	/* Message text */
 	FPRS_MESSAGEID = 33,	/* Message ID */
 	FPRS_MESSAGEACK = 34,	/* Message acknowledge */
+
+	FPRS_TYPE_MAX = 8191
 };
 
 char *fprs_type2str(enum fprs_type);

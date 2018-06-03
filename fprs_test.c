@@ -514,7 +514,7 @@ static int test_fprs2aprs(void)
 		for (lat = -90; lat <= 90; lat += 35.803) {
 			i++;
 			fixed = i & 0x1;
-			uint8_t *callsign_arg = i & 0x04 ? NULL : mac;
+			uint8_t *callsign_arg = i & 0x02 ? NULL : mac;
 			
 			frame = fprs_frame_create();
 			if (!frame) {
@@ -522,7 +522,7 @@ static int test_fprs2aprs(void)
 				return -1;
 			}
 
-			if (i & 0x02) {
+			if (i & 0x06) {
 				uint8_t callsign[6];
 				eth_ar_callssid2mac(callsign, "TESTTEST-15", i & 0x01);
 				if (fprs_frame_add_callsign(frame, callsign)) {
@@ -553,8 +553,10 @@ static int test_fprs2aprs(void)
 			char aprs[81] = { 0 };
 			size_t aprs_size = 80;
 			
-			if (fprs2aprs(aprs, &aprs_size, frame, callsign_arg, "FPRSGATE"))
+			if (fprs2aprs(aprs, &aprs_size, frame, callsign_arg, "FPRSGATE")) {
+				fprintf(stderr, "fprs2aprs() failed\n");
 				return -1;
+			}
 		}
 	}
 	

@@ -77,6 +77,12 @@ struct tx_packet *peek_voice(void);
 void enqueue_voice(struct tx_packet *packet);
 bool queue_voice_filled(void);
 
+struct tx_packet *dequeue_baseband(void);
+struct tx_packet *peek_baseband(void);
+void enqueue_baseband(struct tx_packet *packet);
+bool queue_baseband_filled(void);
+void ensure_baseband(size_t nr);
+
 struct tx_packet *dequeue_data(void);
 struct tx_packet *peek_data(void);
 void enqueue_data(struct tx_packet *packet);
@@ -87,7 +93,7 @@ struct tx_packet *peek_control(void);
 void enqueue_control(struct tx_packet *packet);
 bool queue_control_filled(void);
 
-void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len);
+void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, bool local_rx);
 
 bool freedv_eth_cdc(void);
 int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t from_type);
@@ -111,7 +117,6 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
     double ctcss_f, double ctcss_amp,
     int beacon_interval, char *beacon_msg,
     bool emphasis,
-    bool init_output_bb,
     bool init_output_tone);
 void freedv_eth_txa_state_machine(void);
 bool freedv_eth_txa_ptt(void);
@@ -121,5 +126,8 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
     bool emphasis, double ctcss_freq, int dtmf_mute,
     float rx_gain);
 void freedv_eth_rxa(int16_t *samples, int nr);
+
+int freedv_eth_bb_in_init(int hw_rate, uint8_t mac_init[6], int nr_hw);
+bool freedv_eth_baseband_in_cdc(void);
 
 #endif /* _INCLUDE_FREEDV_ETH_H_ */

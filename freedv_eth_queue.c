@@ -19,6 +19,7 @@
 #include "freedv_eth.h"
 #include <stdlib.h>
 #include <stdatomic.h>
+#include <string.h>
 
 static _Atomic(struct tx_packet *) tx_packet_pool = NULL;
 
@@ -81,6 +82,84 @@ void enqueue_voice(struct tx_packet *packet)
 bool queue_voice_filled(void)
 {
 	return queue_voice;
+}
+
+static struct tx_packet *queue_baseband = NULL;
+static struct tx_packet **queue_baseband_tail = &queue_baseband;
+
+struct tx_packet *dequeue_baseband(void)
+{
+	struct tx_packet *packet;
+	
+	packet = queue_baseband;
+	queue_baseband = packet->next;
+	if (&packet->next == queue_baseband_tail) {
+		queue_baseband_tail = &queue_baseband;
+	}
+	return packet;
+}
+
+struct tx_packet *peek_baseband(void)
+{
+	return queue_baseband;
+}
+
+void enqueue_baseband(struct tx_packet *packet)
+{
+	packet->next = NULL;
+	*queue_baseband_tail = packet;
+	queue_baseband_tail = &packet->next;
+}
+
+bool queue_baseband_filled(void)
+{
+	return queue_baseband;
+}
+
+void ensure_baseband(size_t nr)
+{
+	struct tx_packet *packet = queue_baseband;
+	
+	if (packet->len == nr)
+		return;
+	
+	if (packet->len > nr) {
+		struct tx_packet *p2 = tx_packet_alloc();
+		size_t new_nr = packet->len - nr;
+		
+		p2->local_rx = packet->local_rx;
+		memcpy(p2->data, packet->data + nr, new_nr);
+		p2->len = new_nr;
+		
+		packet->len = nr;
+		p2->next = packet->next;
+		packet->next = p2->next;
+	} else {
+		while (packet->next) {
+			struct tx_packet *p2 = packet->next;
+			size_t nr_extra = nr - packet->len;
+
+			if (nr_extra > p2->len)
+				nr_extra = p2->len;
+			memcpy(packet->data + packet->len, p2->data, nr_extra);
+			packet->len += nr_extra;
+			
+			size_t nr_off = p2->len - nr_extra;
+			if (!nr_off) {
+				packet->next = p2->next;
+				tx_packet_free(p2);
+			} else {
+				memmove(p2->data, p2->data + nr_extra, nr_off);
+				p2->len = nr_off;
+			}
+			
+			if (packet->len == nr)
+				return;
+		}
+		size_t nr_zero = nr - packet->len;
+		memset(packet->data + packet->len, 0, nr_zero);
+		packet->len = nr;
+	}
 }
 
 

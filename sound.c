@@ -168,8 +168,8 @@ int sound_out_lr(int16_t *samples_l, int16_t *samples_r, int nr)
 	int i;
 	
 	for (i = 0; i < nr; i++) {
-		samples[i * 2 + 0] = samples_l[i];
-		samples[i * 2 + 1] = samples_r[i];
+		samples[i * 2 + 0] = samples_l ? samples_l[i] : 0;
+		samples[i * 2 + 1] = samples_r ? samples_r[i] : 0;
 	}
 
 	return sound_out_alsa(samples, nr);

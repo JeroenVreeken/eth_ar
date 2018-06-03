@@ -43,6 +43,7 @@
 #include "freedv_eth.h"
 #include "freedv_eth_config.h"
 #include "io.h"
+#include "alaw.h"
 
 static bool verbose;
 static bool fullduplex;
@@ -54,6 +55,10 @@ static int freedv_rx_channel;
 static int tx_codecmode;
 
 static int analog_rx_channel;
+static bool use_short;
+static bool baseband_out;
+static bool baseband_in;
+static bool baseband_in_tx;
 
 static int tx_delay_msec;
 static int tx_tail_msec;
@@ -69,6 +74,7 @@ enum tx_mode {
 	TX_MODE_NONE,
 	TX_MODE_FREEDV,
 	TX_MODE_ANALOG,
+	TX_MODE_MIXED,
 };
 
 static enum tx_mode tx_mode;
@@ -82,14 +88,14 @@ enum rx_mode {
 
 static enum rx_mode rx_mode;
 
-void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
+void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, bool local_rx)
 {
 	struct tx_packet *packet;
 
 	if (tx_mode == TX_MODE_NONE)
 		return;
 	
-	if (repeater) {
+	if (repeater || (baseband_in_tx && !local_rx)) {
 		if (len > tx_packet_max())
 			return;
 		packet = tx_packet_alloc();
@@ -99,8 +105,32 @@ void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint
 		
 		freedv_eth_transcode(packet, tx_codecmode, eth_type);
 
-		packet->local_rx = true;
+		packet->local_rx = local_rx;
 		enqueue_voice(packet);
+	}
+	if (local_rx && baseband_out) {
+		if (len > tx_packet_max())
+			return;
+		packet = tx_packet_alloc();
+		packet->len = len;
+		memcpy(packet->data, data, len);
+		memcpy(packet->from, from, 6);
+		
+		freedv_eth_transcode(packet, CODEC2_MODE_NATIVE16, eth_type);
+
+		packet->local_rx = local_rx;
+		enqueue_baseband(packet);
+	}
+
+	if (eth_type == ETH_P_NATIVE16 && !use_short) {
+		size_t nr = len/2;
+		uint8_t alaw[nr];
+		int16_t *s16data = (void*)data;
+	
+		alaw_encode(alaw, s16data, nr);
+		interface_rx(to, from, ETH_P_ALAW, alaw, nr);
+	} else {
+		interface_rx(to, from, eth_type, data, len);
 	}
 }
 
@@ -148,6 +178,17 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		freedv_eth_transcode(packet, tx_codecmode, eth_type);
 
 		enqueue_voice(packet);
+
+		if (baseband_out) {
+			packet = tx_packet_alloc();
+			packet->len = len;
+			memcpy(packet->data, data, len);
+			memcpy(packet->from, from, 6);
+		
+			freedv_eth_transcode(packet, CODEC2_MODE_NATIVE16, eth_type);
+
+			enqueue_baseband(packet);
+		}
 	} else {
 		if (eth_type == ETH_P_FPRS && !memcmp(mac, from, 6)) {
 			struct fprs_frame *frame = fprs_frame_create();
@@ -165,7 +206,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 			}
 			fprs_frame_destroy(frame);
 		}
-		if (tx_mode == TX_MODE_FREEDV) {
+		if (tx_mode == TX_MODE_FREEDV || tx_mode == TX_MODE_MIXED) {
 //			printf("Data: %d %x\n", eth_type, eth_type);
 			/* TODO: send control as DTMF in analog mode */
 			if (eth_type == ETH_P_AR_CONTROL && vc_control) {
@@ -301,9 +342,12 @@ int main(int argc, char **argv)
 	bool tx_emphasis = atoi(freedv_eth_config_value("analog_tx_emphasis", NULL, "0"));
 	bool rx_emphasis = atoi(freedv_eth_config_value("analog_rx_emphasis", NULL, "0"));
 	int dcd_threshold = atoi(freedv_eth_config_value("analog_rx_dcd_threshold", NULL, "1"));
-	bool tx_bb = atoi(freedv_eth_config_value("analog_tx_baseband", NULL, "0"));
 	bool tx_tone = atoi(freedv_eth_config_value("analog_tx_tone", NULL, "0"));
 	int dtmf_mute = atoi(freedv_eth_config_value("analog_dtmf_mute", NULL, "1"));
+	use_short = atoi(freedv_eth_config_value("analog_rx_short", NULL, "0"));
+	baseband_out = atoi(freedv_eth_config_value("baseband_out", NULL, "0"));
+	baseband_in = atoi(freedv_eth_config_value("baseband_in", NULL, "0"));
+	baseband_in_tx = atoi(freedv_eth_config_value("baseband_in_tx", NULL, "0"));
 	
 	if (!strcmp(freedv_mode_str, "1600")) {
 		freedv_mode = FREEDV_MODE_1600;
@@ -337,6 +381,8 @@ int main(int argc, char **argv)
 		tx_mode = TX_MODE_FREEDV;
 	} else if (!strcmp(tx_mode_str, "analog")) {
 		tx_mode = TX_MODE_ANALOG;
+	} else if (!strcmp(rx_mode_str, "mixed")) {
+		tx_mode = RX_MODE_MIXED;
 	} else {
 		printf("Invalid tx_mode\n");
 		return -1;
@@ -449,21 +495,24 @@ int main(int argc, char **argv)
 	freedv_eth_rx_init(freedv, mac, sound_rate);
 	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis, rx_ctcss_f, dtmf_mute, analog_rx_gain);
 
+	if (baseband_in)
+		freedv_eth_bb_in_init(sound_rate, mac, nr_samples);
 
-	if (tx_mode == TX_MODE_FREEDV) {
+
+	if (tx_mode == TX_MODE_FREEDV || tx_mode == TX_MODE_MIXED) {
 		freedv_eth_tx_init(freedv, mac, nmea, fullduplex,
 		    sound_rate,
 		    tx_tail_msec, tx_delay_msec,
 		    tx_header_msec, tx_header_max_msec,
 		    tx_fprs_msec);
-	} else  if (tx_mode == TX_MODE_ANALOG) {
+	} else  if (tx_mode == TX_MODE_ANALOG || tx_mode == TX_MODE_MIXED) {
 		freedv_eth_txa_init(fullduplex, 
 		    sound_rate, 
 		    tx_tail_msec,
 		    tx_ctcss_f, tx_ctcss_amp,
 		    beacon_interval, beacon_msg,
 		    tx_emphasis,
-		    tx_bb, tx_tone);
+		    tx_tone);
 	}
 	
 	if (nmeadev) {
@@ -501,7 +550,18 @@ int main(int argc, char **argv)
 	do {
 		poll(fds, nfds, -1);
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
-			if (tx_mode == TX_MODE_FREEDV)
+			if (tx_mode == TX_MODE_MIXED) {
+				bool q_v = queue_voice_filled();
+				bool q_d = queue_data_filled() || queue_control_filled();
+				bool tx_v = freedv_eth_txa_ptt();
+				bool tx_d = freedv_eth_tx_ptt();
+
+				if (tx_d || (!tx_v && !q_v && q_d)) {
+					freedv_eth_txa_state_machine();
+				} else {
+					freedv_eth_txa_state_machine();
+				}
+			} else if (tx_mode == TX_MODE_FREEDV)
 				freedv_eth_tx_state_machine();
 			else if (tx_mode == TX_MODE_ANALOG)
 				freedv_eth_txa_state_machine();

@@ -55,19 +55,38 @@ static struct freedv *freedv = NULL;
 
 static int nom_modem_samples;
 static int16_t *mod_out;
-static struct sound_resample *sr = NULL;
+static struct sound_resample *sr0 = NULL;
+static struct sound_resample *sr1 = NULL;
 
 static int tx_sound_out(int16_t *samples, int nr)
 {
-	if (!sr) {
-		sound_out(samples, nr, true, true);
-	} else {
-		int nr_out = sound_resample_nr_out(sr, nr);
-		int16_t hw_mod_out[nr_out];
-					
-		sound_resample_perform(sr, hw_mod_out, samples, nr_out, nr);
-		sound_out(hw_mod_out, nr_out, true, true);
+	int16_t *samples1 = NULL;
+
+	struct tx_packet *packet = peek_baseband();
+	if (packet) {
+		ensure_baseband(nr*sizeof(int16_t));
+		packet = dequeue_baseband();
+		samples1 = (int16_t*)packet->data;
 	}
+	
+	if (!sr0) {
+		sound_out_lr(samples, samples1, nr);
+	} else {
+		int nr_out = sound_resample_nr_out(sr0, nr);
+		int16_t hw_mod_out0[nr_out];
+		int16_t hw_mod_out1[nr_out];
+		
+		sound_resample_perform(sr0, hw_mod_out0, samples, nr_out, nr);
+		if (samples1) {
+			sound_resample_perform(sr1, hw_mod_out1, samples1, nr_out, nr);
+		}
+		sound_out_lr(hw_mod_out0, samples1 ? hw_mod_out1 : NULL, nr_out);
+	}
+
+	if (packet) {
+		tx_packet_free(packet);
+	}
+
 	return 0;
 }
 
@@ -335,11 +354,14 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
 
 	int freedv_rate = freedv_get_modem_sample_rate(freedv);
 	printf("TX freedv rate: %d\n", freedv_rate);
-	sound_resample_destroy(sr);
+	sound_resample_destroy(sr0);
+	sound_resample_destroy(sr1);
 	if (freedv_rate != hw_rate) {
-		sr = sound_resample_create(hw_rate, freedv_rate);
+		sr0 = sound_resample_create(hw_rate, freedv_rate);
+		sr1 = sound_resample_create(hw_rate, freedv_rate);
 	} else {
-		sr = NULL;
+		sr0 = NULL;
+		sr1 = NULL;
 	}
 	int period_msec = 1000 / (freedv_rate / freedv_get_n_nom_modem_samples(freedv));
 	printf("TX period: %d msec\n", period_msec);

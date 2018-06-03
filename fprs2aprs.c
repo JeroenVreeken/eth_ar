@@ -247,15 +247,15 @@ int fprs2aprs(char *aprs, size_t *aprs_len, struct fprs_frame *frame, uint8_t *c
 		else
 			type = '!';
 		
-		int lond = fabs(lon);
+		int lond = (int)fabs(lon) % 360;
 		double lonmin = fabs(lon - (int)lon) * 60;
 		char lons = lon < 0 ? 'W' : 'E';
-		sprintf(lonstr, "%03d%05.02f%c", lond, lonmin, lons);
+		snprintf(lonstr, sizeof(lonstr), "%03d%05.02f%c", lond, lonmin, lons);
 
-		int latd = fabs(lat);
+		int latd = (int)fabs(lat) % 90;
 		double latmin = fabs(lat - (int)lat) * 60;
 		char lats = lat < 0 ? 'S' : 'N';
-		sprintf(latstr, "%02d%05.02f%c", latd, latmin, lats);
+		snprintf(latstr, sizeof(latstr), "%02d%05.02f%c", latd, latmin, lats);
 	} else {
 		type = '>';
 	}

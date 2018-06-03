@@ -105,11 +105,7 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 					freedv_eth_voice_rx(
 					    bcast, rx_add, eth_type_rx,
 					    packed_codec_bits + i * bytes_per_eth_frame,
-					    bytes_per_eth_frame);
-					interface_rx(
-					    bcast, rx_add, eth_type_rx,
-					    packed_codec_bits + i * bytes_per_eth_frame,
-					    bytes_per_eth_frame);
+					    bytes_per_eth_frame, true);
 				}
 				printf(".");
 				fflush(NULL);
@@ -124,11 +120,7 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 						freedv_eth_voice_rx(
 						    bcast, rx_add, eth_type_rx,
 						    silence_packet,
-						    bytes_per_eth_frame);
-						interface_rx(
-						    bcast, rx_add, eth_type_rx,
-						    silence_packet,
-						    bytes_per_eth_frame);
+						    bytes_per_eth_frame, true);
 					}
 				}
 			}

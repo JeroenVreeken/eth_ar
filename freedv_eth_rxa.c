@@ -38,7 +38,6 @@ static bool ctcss_sql;
 static int dtmf_mute = 1;
 static struct sound_resample *sr = NULL;
 static float rx_gain = 1.0;
-static int voice_mode = CODEC2_MODE_ALAW;
 static char dtmf_control_start = '*';
 static char dtmf_control_stop = '#';
 
@@ -83,12 +82,12 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 
 	sound_resample_perform_gain_limit(sr, mod_a, samples, nr_a, nr, rx_gain);
 
-	cdc = io_hl_dcd_get();
-
 	if (emphasis_d)
 		emphasis_de(emphasis_d, mod_a, nr_a);
 	if (ctcss_sql) {
-		cdc |= ctcss_detect_rx(mod_a, nr_a);
+		cdc = ctcss_detect_rx(mod_a, nr_a);
+	} else {
+		cdc = io_hl_dcd_get();
 	}
 
 	dtmf_rx(mod_a, nr_a, cb_control, &detected);
@@ -100,20 +99,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	}
 
 	if (cdc) {
-		freedv_eth_voice_rx(bcast, mac, ETH_P_NATIVE16, (uint8_t *)mod_a, nr_a * sizeof(int16_t));
-		switch (voice_mode) {
-			case CODEC2_MODE_ALAW: {
-				uint8_t alaw[nr_a];
-		
-				alaw_encode(alaw, mod_a, nr_a);
-				interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr_a);
-				break;
-			}
-			case CODEC2_MODE_NATIVE16: {
-				interface_rx(bcast, mac, ETH_P_NATIVE16, (uint8_t *)mod_a, nr_a * sizeof(int16_t));
-				break;
-			}
-		}
+		freedv_eth_voice_rx(bcast, mac, ETH_P_NATIVE16, (uint8_t *)mod_a, nr_a * sizeof(int16_t), true);
 	} else {
 		dtmf_state = DTMF_IDLE;
 	}
@@ -124,11 +110,6 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
     float rx_gain_init)
 {
 	int a_rate = FREEDV_ALAW_RATE;
-	bool use_short = atoi(freedv_eth_config_value("analog_rx_short", NULL, "0"));
-	
-	if (use_short) {
-		voice_mode = CODEC2_MODE_NATIVE16;
-	}
 	
 	rx_gain = rx_gain_init;
 	memcpy(mac, mac_init, 6);
