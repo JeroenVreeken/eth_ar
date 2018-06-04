@@ -316,6 +316,31 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 		return -2;
 	}
 
+	char *rig_ctcss_sql = freedv_eth_config_value("rig_ctcss_sql", NULL, NULL);
+	if (rig_ctcss_sql) {
+		printf("rig ctcss squelch: %s\n", rig_ctcss_sql);
+		tone_t tone = atoi(rig_ctcss_sql);
+		rig_set_ctcss_sql(rig, RIG_VFO_CURR, tone);
+	}
+	char *rig_ctcss_tone = freedv_eth_config_value("rig_ctcss_tone", NULL, NULL);
+	if (rig_ctcss_tone) {
+		printf("rig ctcss tone: %s\n", rig_ctcss_tone);
+		tone_t tone = atoi(rig_ctcss_tone);
+		rig_set_ctcss_tone(rig, RIG_VFO_CURR, tone);
+	}
+	char *rig_freq_rx = freedv_eth_config_value("rig_freq_rx", NULL, NULL);
+	if (rig_freq_rx) {
+		printf("rig frequency for rx: %s\n", rig_freq_rx);
+		freq_t freq = atof(rig_freq_rx);
+		rig_set_freq(rig, RIG_VFO_RX, freq);
+	}
+	char *rig_freq_tx = freedv_eth_config_value("rig_freq_tx", NULL, NULL);
+	if (rig_freq_tx) {
+		printf("rig frequency for tx: %s\n", rig_freq_tx);
+		freq_t freq = atof(rig_freq_tx);
+		rig_set_freq(rig, RIG_VFO_TX, freq);
+	}
+
 	/* Init to sane status */
 	rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
 	rig_get_dcd(rig, RIG_VFO_CURR, (dcd_t*)&rig_thread_dcd);
