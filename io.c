@@ -256,7 +256,7 @@ void *io_hl_rig_thread(void *arg)
 	}
 }
 
-int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file, dcd_type_t dcd, char *rig_file)
+int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file, dcd_type_t dcd, char *dcd_file, char *rig_file)
 {
 	int retcode;
 	ptt_type = ptt;
@@ -264,8 +264,7 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 
 	dcd_threshold = dcd_th;
 	
-	int verbose = 1;
-	rig_set_debug(verbose);
+	rig_set_debug(RIG_DEBUG_WARN);
 
 	rig = rig_init(rig_model);
 	if (!rig) {
@@ -279,8 +278,8 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 
 	if (ptt_file)
 		strncpy(rig->state.pttport.pathname, ptt_file, FILPATHLEN - 1);
-	if (ptt_file)
-		strncpy(rig->state.dcdport.pathname, ptt_file, FILPATHLEN - 1);
+	if (dcd_file)
+		strncpy(rig->state.dcdport.pathname, dcd_file, FILPATHLEN - 1);
 	if (rig_file)
 		strncpy(rig->state.rigport.pathname, rig_file, FILPATHLEN - 1);
 
@@ -308,7 +307,6 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 			}
 		}
 	}
-
 
 	retcode = rig_open(rig);
 	if (retcode != RIG_OK) {

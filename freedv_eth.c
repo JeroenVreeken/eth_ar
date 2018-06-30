@@ -326,6 +326,7 @@ int main(int argc, char **argv)
 	rig_model = atoi(freedv_eth_config_value("rig_model", NULL, "1"));
 	char *rig_file = freedv_eth_config_value("rig_file", NULL, NULL);
 	char *ptt_file = freedv_eth_config_value("rig_ptt_file", NULL, NULL);
+	char *dcd_file = freedv_eth_config_value("rig_dcd_file", NULL, NULL);
 	vc_control = atoi(freedv_eth_config_value("control_vc", NULL, "0"));
 	char *rig_ptt_type = freedv_eth_config_value("rig_ptt_type", NULL, "NONE");
 	char *rig_dcd_type = freedv_eth_config_value("rig_dcd_type", NULL, "NONE");
@@ -461,7 +462,7 @@ int main(int argc, char **argv)
 	else
 		dcd_type = atoi(rig_dcd_type);
 
-	io_hl_init(rig_model, dcd_threshold, ptt_type, ptt_file, dcd_type, rig_file);
+	io_hl_init(rig_model, dcd_threshold, ptt_type, ptt_file, dcd_type, dcd_file, rig_file);
 	
 	type = freedv_eth_mode2type(freedv_mode);
 	

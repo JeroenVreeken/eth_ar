@@ -32,7 +32,7 @@ int io_poll_fill(struct pollfd *fds, int count);
 bool io_state_rx_get(void);
 
 int io_handle(struct pollfd *fds, int count, void (*cb_control)(char *));
-int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file, dcd_type_t dcd, char *rig_file);
+int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file, dcd_type_t dcd, char *dcd_file, char *rig_file);
 
 bool io_hl_dcd_get(void);
 
