@@ -92,34 +92,33 @@ void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint
 {
 	struct tx_packet *packet;
 
-	if (tx_mode == TX_MODE_NONE)
-		return;
-	
-	if (repeater || (baseband_in_tx && !local_rx)) {
-		if (len > tx_packet_max())
-			return;
-		packet = tx_packet_alloc();
-		packet->len = len;
-		memcpy(packet->data, data, len);
-		memcpy(packet->from, from, 6);
+	if (tx_mode != TX_MODE_NONE) {
+		if (repeater || (baseband_in_tx && !local_rx)) {
+			if (len > tx_packet_max())
+				return;
+			packet = tx_packet_alloc();
+			packet->len = len;
+			memcpy(packet->data, data, len);
+			memcpy(packet->from, from, 6);
 		
-		freedv_eth_transcode(packet, tx_codecmode, eth_type);
+			freedv_eth_transcode(packet, tx_codecmode, eth_type);
 
-		packet->local_rx = local_rx;
-		enqueue_voice(packet);
-	}
-	if (local_rx && baseband_out) {
-		if (len > tx_packet_max())
-			return;
-		packet = tx_packet_alloc();
-		packet->len = len;
-		memcpy(packet->data, data, len);
-		memcpy(packet->from, from, 6);
+			packet->local_rx = local_rx;
+			enqueue_voice(packet);
+		}
+		if (local_rx && baseband_out) {
+			if (len > tx_packet_max())
+				return;
+			packet = tx_packet_alloc();
+			packet->len = len;
+			memcpy(packet->data, data, len);
+			memcpy(packet->from, from, 6);
 		
-		freedv_eth_transcode(packet, CODEC2_MODE_NATIVE16, eth_type);
+			freedv_eth_transcode(packet, CODEC2_MODE_NATIVE16, eth_type);
 
-		packet->local_rx = local_rx;
-		enqueue_baseband(packet);
+			packet->local_rx = local_rx;
+			enqueue_baseband(packet);
+		}
 	}
 
 	if (eth_type == ETH_P_NATIVE16 && !use_short) {
