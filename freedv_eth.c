@@ -157,6 +157,10 @@ static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr
 }
 
 
+static void freedv_eth_tx_none(int nr)
+{
+	sound_out_lr(NULL, NULL, nr);
+}
 
 
 static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
@@ -569,6 +573,8 @@ int main(int argc, char **argv)
 				freedv_eth_tx_state_machine();
 			else if (tx_mode == TX_MODE_ANALOG)
 				freedv_eth_txa_state_machine();
+			else
+				freedv_eth_tx_none(nr_samples);
 		}
 		if (fds[poll_int].revents & POLLIN) {
 			interface_tx(cb_int_tx);
