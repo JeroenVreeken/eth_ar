@@ -274,7 +274,7 @@ int main(int argc, char **argv)
 		}
 		poll(fds, nfds, 1000);
 		if (fds[poll_int].revents & (POLLIN | POLLERR)) {
-			if (interface_tx(cb_int_tx)) {
+			if (interface_tx_raw(cb_int_tx)) {
 				printf("Interface lost\n");
 				close(fd_int);
 				fd_int = -1;

@@ -114,7 +114,7 @@ static void cb_control(char *ctrl)
 	
 	printf("Control: %s\n", ctrl);
 	
-	interface_rx(bcast, mac, ETH_P_AR_CONTROL, msg, strlen(ctrl));
+	interface_rx(bcast, mac, ETH_P_AR_CONTROL, msg, strlen(ctrl), 0, 1);
 }
 
 
@@ -167,7 +167,7 @@ static void cb_sound_in(int16_t *hw_samples, int16_t *samples_r, int hw_nr, int 
 					pass |= energy_squelch_state(energy, nr_samples);
 				}
 				if (pass)
-					interface_rx(bcast, mac, rx_type, packed_codec_bits, bytes_per_codec_frame);
+					interface_rx(bcast, mac, rx_type, packed_codec_bits, bytes_per_codec_frame, 0, 1);
 
 				nr_rx = 0;
 			}
@@ -180,7 +180,7 @@ static void cb_sound_in(int16_t *hw_samples, int16_t *samples_r, int hw_nr, int 
 		
 			alaw_encode(alaw, samples, nr);
 		
-			interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr);
+			interface_rx(bcast, mac, ETH_P_ALAW, alaw, nr, 0, 1);
 		}
 	}
 }
@@ -215,7 +215,7 @@ static struct CODEC2 *tx_codec = NULL;
 static int tx_bytes_per_codec_frame = 8;
 
 
-static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
+static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level)
 {
 	int newmode = 0;
 	bool is_c2 = true;
@@ -397,10 +397,12 @@ int main(int argc, char **argv)
 					mode = CODEC2_MODE_700B;
 				} else if (!strcmp(optarg, "700C")) {
 					mode = CODEC2_MODE_700C;
-#ifdef CODEC2_MODE_1300C
-				} else if (!strcmp(optarg, "1300C")) {
-					mode = CODEC2_MODE_1300C;
-#endif
+				} else if (!strcmp(optarg, "450")) {
+					mode = CODEC2_MODE_450;
+				} else if (!strcmp(optarg, "450PWB")) {
+					mode = CODEC2_MODE_450PWB;
+				} else if (!strcmp(optarg, "WB")) {
+					mode = CODEC2_MODE_WB;
 				}
 				break;
 			case 'n':

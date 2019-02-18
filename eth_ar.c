@@ -141,3 +141,26 @@ int eth_ar_mac_ssid_mask(uint8_t masked_mac[6], const uint8_t mac[6])
 
 	return 0;
 }
+
+
+
+uint8_t eth_ar_dbm_encode(double dbm)
+{
+	double enc = (dbm * 2.0) - 128.0;
+	
+	if (enc < 0)
+		return 0;
+	if (enc > 255)
+		return 255;
+	return (uint8_t)(enc + 0.5);
+}
+
+double eth_ar_dbm_decode(uint8_t enc)
+{
+	if (enc) {
+		return -128.0 + (enc / 2.0);
+	} else {
+		return 0.0;
+	}
+}
+

@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 		goto err_socket;
 	}
 	
-	strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+	strncpy(ifr.ifr_name, dev, IFNAMSIZ-1);
 	
 	if (!set_call) {
 		char callsign[ETH_AR_CALL_SIZE];

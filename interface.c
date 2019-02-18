@@ -33,7 +33,23 @@
 
 static int fd;
 
-int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
+int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level)
+{
+	uint8_t packet[len + 16];
+	
+	memcpy(packet, to, 6);
+	memcpy(packet + 6, from, 6);
+	packet[12] = eth_type >> 8;
+	packet[13] = eth_type & 0xff;
+	packet[14] = transmission;
+	packet[15] = level;
+	
+	memcpy(packet + 16, data, len);
+	
+//	printf("Packet to interface %zd\n", sizeof(packet));
+	return write(fd, packet, sizeof(packet)) <= 0;
+}
+int interface_rx_raw(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
 {
 	uint8_t packet[len + 14];
 	
@@ -48,24 +64,24 @@ int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *dat
 	return write(fd, packet, sizeof(packet)) <= 0;
 }
 
-static int interface_tx_tap(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
+static int interface_tx_tap(size_t doff, int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
 {
 	uint8_t data[2048];
 	size_t len;
 	
 	len = read(fd, data, 2048);
-	if (len > 14) {
+	if (len > doff) {
 //		int i;
 		uint16_t eth_type = (data[12] << 8) | data[13];
 		
-		return cb(data, data + 6, eth_type, data + 14, len - 14);
+		return cb(data, data + 6, eth_type, data + doff, len - doff, data[14], data[15]);
 	}
 	
 	return 0;
 }
 
 
-static int interface_tx_sock(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
+static int interface_tx_sock(size_t doff, int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
 {
 	uint8_t data[2048];
 	ssize_t len;
@@ -76,13 +92,13 @@ static int interface_tx_sock(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t 
 	len = recvfrom(fd, data, 2048, 0, (struct sockaddr*)&addr, &addr_len);
 
 //	len = read(fd, data, 2048);
-	if (len > 14) {
+	if (len > 16) {
 //		int i;
 		
 	        if (addr.sll_pkttype != PACKET_OUTGOING) {
 			uint16_t eth_type = (data[12] << 8) | data[13];
 		
-			return cb(data, data + 6, eth_type, data + 14, len - 14);
+			return cb(data, data + 6, eth_type, data + doff, len - doff, data[14], data[15]);
 		}
 	}
 	
@@ -91,10 +107,14 @@ static int interface_tx_sock(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t 
 	return 0;
 }
 
-static int (*interface_tx_func)(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len));
-int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
+static int (*interface_tx_func)(size_t doff, int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level));
+int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
 {
-	return interface_tx_func(cb);
+	return interface_tx_func(16, cb);
+}
+int interface_tx_raw(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
+{
+	return interface_tx_func(14, (void*)cb);
 }
 
 
@@ -163,7 +183,7 @@ static int tap_alloc(char *dev, uint8_t mac[6])
 		/* if a device name was specified, put it in the structure; otherwise,
 		 * the kernel will try to allocate the "next" device of the
 		 * specified type */
-		strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+		strncpy(ifr.ifr_name, dev, IFNAMSIZ-1);
 	}
 
 	/* try to create the device */

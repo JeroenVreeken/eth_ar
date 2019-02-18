@@ -127,9 +127,9 @@ void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint
 		int16_t *s16data = (void*)data;
 	
 		alaw_encode(alaw, s16data, nr);
-		interface_rx(to, from, ETH_P_ALAW, alaw, nr);
+		interface_rx(to, from, ETH_P_ALAW, alaw, nr, 0, 1);
 	} else {
-		interface_rx(to, from, eth_type, data, len);
+		interface_rx(to, from, eth_type, data, len, 0, 1);
 	}
 }
 
@@ -163,7 +163,7 @@ static void freedv_eth_tx_none(int nr)
 }
 
 
-static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
+static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level)
 {
 	struct tx_packet *packet;
 	
@@ -364,6 +364,8 @@ int main(int argc, char **argv)
 		freedv_hasdata = false;
 	} else if (!strcmp(freedv_mode_str, "700C")) {
 		freedv_mode = FREEDV_MODE_700C;
+	} else if (!strcmp(freedv_mode_str, "700D")) {
+		freedv_mode = FREEDV_MODE_700D;
 		freedv_hasdata = false;
 	} else if (!strcmp(freedv_mode_str, "2400A")) {
 		freedv_mode = FREEDV_MODE_2400A;

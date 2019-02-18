@@ -35,6 +35,8 @@ extern "C" {
 #define ETH_P_CODEC2_700B	0x7307
 #define ETH_P_CODEC2_700C	0x7308
 #define ETH_P_CODEC2_1300C	0x7309
+#define ETH_P_CODEC2_450PWB 	0x730a
+#define ETH_P_CODEC2_WB		0x730b
 
 #define ETH_P_AR_CONTROL	0x7342
 
@@ -51,6 +53,9 @@ int eth_ar_call2mac(uint8_t mac[6], char *callsign, int ssid, bool multicast);
 int eth_ar_callssid2mac(uint8_t mac[6], char *callsign, bool multicast);
 int eth_ar_mac2call(char *callsign, int *ssid, bool *multicast, uint8_t mac[6]);
 int eth_ar_mac_ssid_mask(uint8_t masked_mac[6], const uint8_t mac[6]);
+
+uint8_t eth_ar_dbm_encode(double dbm);
+double eth_ar_dbm_decode(uint8_t enc);
 
 #ifdef __cplusplus
 }

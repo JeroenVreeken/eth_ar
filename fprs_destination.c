@@ -134,7 +134,7 @@ int main(int argc, char **argv)
 		if (!data)
 			goto err_fatal;
 		fprs_frame_data_get(frame, data, &size);
-		interface_rx(bcast, myaddr, ETH_P_FPRS, data, size);
+		interface_rx_raw(bcast, myaddr, ETH_P_FPRS, data, size);
 		free(data);
 		
 		return 0;
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
 		select(fd_int + 1, &fdr, NULL, NULL, &timeout);
 
 		if (FD_ISSET(fd_int, &fdr)) {
-			interface_tx(cb);
+			interface_tx_raw(cb);
 		}
 	} while (!done && time(NULL) < stop_listen);
 

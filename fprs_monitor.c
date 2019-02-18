@@ -89,7 +89,7 @@ int main(int argc, char **argv)
 		select(fd_int + 1, &fdr, NULL, NULL, NULL);
 
 		if (FD_ISSET(fd_int, &fdr)) {
-			interface_tx(cb);
+			interface_tx_raw(cb);
 		}
 	} while (1);
 

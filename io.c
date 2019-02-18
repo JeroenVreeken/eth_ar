@@ -285,9 +285,9 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 
 	char *conf_set = NULL;
 	while ((conf_set = freedv_eth_config_value("rig_conf_set", conf_set, NULL))) {
-		char conf[80];
+		char conf[81];
 		strncpy(conf, conf_set, 80);
-		conf_set[79] = 0;
+		conf_set[80] = 0;
 		
 		char *conf_tok;
 		char *conf_val;

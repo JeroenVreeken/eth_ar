@@ -158,7 +158,7 @@ void freedv_eth_rx_cb_datarx(void *arg, unsigned char *packet, size_t size)
 		/* Filter out our own packets if they come back */
 		if (memcmp(packet+6, mac, 6)) {
 			uint16_t type = (packet[12] << 8) | packet[13];
-			interface_rx(packet, packet+6, type, packet + 14, size - 14);
+			interface_rx_raw(packet, packet+6, type, packet + 14, size - 14);
 			printf("^\n");
 		}
 	}
@@ -177,7 +177,7 @@ void freedv_eth_rx_vc_callback(void *arg, char c)
 		printf("VC RX: 0x%x %c\n", c, c);
 	msg[0] = c;
 	msg[1] = 0;
-	interface_rx(bcast, rx_add, ETH_P_AR_CONTROL, msg, 1);
+	interface_rx(bcast, rx_add, ETH_P_AR_CONTROL, msg, 1, 0, 1);
 }
 
 static void create_silence_packet(struct CODEC2 *c2)

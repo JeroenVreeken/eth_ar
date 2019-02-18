@@ -70,7 +70,7 @@ static void cb_control(char *ctrl)
 	}
 	printf("DTMF: %s\n", ctrl);
 	
-	interface_rx(bcast, mac, ETH_P_AR_CONTROL, msg, strlen(ctrl));
+	interface_rx(bcast, mac, ETH_P_AR_CONTROL, msg, strlen(ctrl), 0, 1);
 }
 
 
