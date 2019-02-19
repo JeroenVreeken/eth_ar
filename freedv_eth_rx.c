@@ -45,7 +45,7 @@ static double level_dbm = -80.0;
 static uint8_t rx_add[6], mac[6];
 
 #define RX_SYNC_ZERO 15.0
-#define RX_SYNC_THRESHOLD 40.0
+#define RX_SYNC_THRESHOLD 90.0
 
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
