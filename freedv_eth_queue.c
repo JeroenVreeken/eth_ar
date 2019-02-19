@@ -23,6 +23,9 @@
 
 static _Atomic(struct tx_packet *) tx_packet_pool = NULL;
 
+static uint8_t voice_transmission = 0;
+static double voice_level = -INFINITY;
+
 struct tx_packet *tx_packet_alloc(void)
 {
 	struct tx_packet *packet;
@@ -72,16 +75,33 @@ struct tx_packet *peek_voice(void)
 	return queue_voice;
 }
 
-void enqueue_voice(struct tx_packet *packet)
+int enqueue_voice(struct tx_packet *packet, uint8_t transmission, double level_dbm)
 {
+	if (queue_voice && transmission != voice_transmission) {
+		if (level_dbm < voice_level) {
+			tx_packet_free(packet);
+			return 0;
+		}
+	}
+	voice_transmission = transmission;
+	voice_level = level_dbm;
+
 	packet->next = NULL;
 	*queue_voice_tail = packet;
 	queue_voice_tail = &packet->next;
+
+	return 1;
 }
 
 bool queue_voice_filled(void)
 {
 	return queue_voice;
+}
+
+void queue_voice_end(uint8_t transmission)
+{
+	if (transmission == voice_transmission)
+		voice_level = -INFINITY;
 }
 
 static struct tx_packet *queue_baseband = NULL;

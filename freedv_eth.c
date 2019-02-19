@@ -88,7 +88,8 @@ enum rx_mode {
 
 static enum rx_mode rx_mode;
 
-void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, bool local_rx)
+void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, bool local_rx,
+    uint8_t transmission, double level_dbm)
 {
 	struct tx_packet *packet;
 
@@ -104,7 +105,7 @@ void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint
 			freedv_eth_transcode(packet, tx_codecmode, eth_type);
 
 			packet->local_rx = local_rx;
-			enqueue_voice(packet);
+			enqueue_voice(packet, 0, -10);
 		}
 		if (local_rx && baseband_out) {
 			if (len > tx_packet_max())
@@ -180,9 +181,9 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		
 		freedv_eth_transcode(packet, tx_codecmode, eth_type);
 
-		enqueue_voice(packet);
+		int q = enqueue_voice(packet, transmission, eth_ar_dbm_decode(level));
 
-		if (baseband_out) {
+		if (q && baseband_out) {
 			packet = tx_packet_alloc();
 			packet->len = len;
 			memcpy(packet->data, data, len);
@@ -375,6 +376,12 @@ int main(int argc, char **argv)
 		freedv_hasdata = true;
 	} else if (!strcmp(freedv_mode_str, "800XA")) {
 		freedv_mode = FREEDV_MODE_800XA;
+		freedv_hasdata = true;
+	} else if (!strcmp(freedv_mode_str, "700C")) {
+		freedv_mode = FREEDV_MODE_700C;
+		freedv_hasdata = true;
+	} else if (!strcmp(freedv_mode_str, "700D")) {
+		freedv_mode = FREEDV_MODE_700D;
 		freedv_hasdata = true;
 	} else {
 		printf("Invalid FreeDV mode\n");

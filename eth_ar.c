@@ -22,6 +22,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <stdlib.h>
+#include <math.h>
 
 /*
 	8 character callsign, 4 bit ssid
@@ -146,21 +147,21 @@ int eth_ar_mac_ssid_mask(uint8_t masked_mac[6], const uint8_t mac[6])
 
 uint8_t eth_ar_dbm_encode(double dbm)
 {
-	double enc = (dbm * 2.0) - 128.0;
+	double enc = (dbm * 2.0) + 255.5;
 	
 	if (enc < 0)
 		return 0;
 	if (enc > 255)
 		return 255;
-	return (uint8_t)(enc + 0.5);
+	return (uint8_t)(enc);
 }
 
 double eth_ar_dbm_decode(uint8_t enc)
 {
 	if (enc) {
-		return -128.0 + (enc / 2.0);
+		return -127.5 + (enc / 2.0);
 	} else {
-		return 0.0;
+		return -INFINITY;
 	}
 }
 

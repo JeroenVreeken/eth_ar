@@ -74,8 +74,9 @@ void tx_packet_free(struct tx_packet *packet);
 
 struct tx_packet *dequeue_voice(void);
 struct tx_packet *peek_voice(void);
-void enqueue_voice(struct tx_packet *packet);
+int enqueue_voice(struct tx_packet *packet, uint8_t transmission, double level_dbm);
 bool queue_voice_filled(void);
+void queue_voice_end(uint8_t transmission);
 
 struct tx_packet *dequeue_baseband(void);
 struct tx_packet *peek_baseband(void);
@@ -93,7 +94,7 @@ struct tx_packet *peek_control(void);
 void enqueue_control(struct tx_packet *packet);
 bool queue_control_filled(void);
 
-void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, bool local_rx);
+void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, bool local_rx, uint8_t transmission, double level);
 
 bool freedv_eth_cdc(void);
 int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t from_type);

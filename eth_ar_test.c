@@ -35,11 +35,63 @@ static int test_eth_ar_call2mac(void)
 	return 0;
 }
 
+struct dbm_value {
+	uint8_t enc;
+	double val;
+} dbm_values[] = {
+	{ 0,   -INFINITY },
+	{ 255, 0.0   },
+	{ 254, -0.5   },
+	{ 1,   -127  },
+	{ 2,   -126.5   },
+	{ 10,  -122.5   },
+	{ 33,  -111 },
+	{ 77,  -89  },
+};
+
+static int test_eth_ar_dbm_encode(void)
+{
+	int i;
+	
+	for (i = 0; i < sizeof(dbm_values)/sizeof(dbm_values[0]); i++) {
+		double val = dbm_values[i].val;
+		uint8_t enc = dbm_values[i].enc;
+		uint8_t enct = eth_ar_dbm_encode(val);
+		
+		if (enct != enc) {
+			fprintf(stderr, "eth_ar_dbm_encode(%f) -> 0x%02x != 0x%02x\n",
+			    val, enct, enc);
+//			return -1;
+		}
+	}
+	return 0;
+}
+
+static int test_eth_ar_dbm_decode(void)
+{
+	int i;
+	
+	for (i = 0; i < sizeof(dbm_values)/sizeof(dbm_values[0]); i++) {
+		double val = dbm_values[i].val;
+		uint8_t enc = dbm_values[i].enc;
+		double valt = eth_ar_dbm_decode(enc);
+		
+		if (valt != val) {
+			fprintf(stderr, "eth_ar_dbm_decode(0x%02x) -> %f != %f\n",
+			    enc, valt, val);
+//			return -1;
+		}
+	}
+	return 0;
+}
+
 struct fprs_test {
 	char *name;
 	int (*func)(void);
 } tests[] = {
 	{ "eth_ar_call2mac", test_eth_ar_call2mac },
+	{ "eth_ar_dbm_encode", test_eth_ar_dbm_encode },
+	{ "eth_ar_dbm_decode", test_eth_ar_dbm_decode },
 };
 
 int main(int argc, char **argv)

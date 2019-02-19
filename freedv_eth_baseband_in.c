@@ -37,6 +37,8 @@ static struct sound_resample *sr = NULL;
 static float rx_gain = 1.0;
 SpeexPreprocessState *st;
 
+static uint8_t transmission = 0;
+static double level_dbm = -10;
 
 bool freedv_eth_baseband_in_cdc(void)
 {
@@ -54,11 +56,17 @@ void freedv_eth_baseband_in(int16_t *samples, int nr)
 
 	sound_resample_perform_gain_limit(sr, mod_a, samples, nr_a, nr, rx_gain);
 
-	cdc = io_hl_aux2_get();
+	bool new_cdc = io_hl_aux2_get();
+	if (!new_cdc && cdc) {
+		queue_voice_end(transmission);
+		transmission++;
+	}
+	cdc = new_cdc;
 
 	if (cdc) {
 		freedv_eth_voice_rx(bcast, mac, ETH_P_NATIVE16, 
-		    (uint8_t *)mod_a, nr_a * sizeof(int16_t), false);
+		    (uint8_t *)mod_a, nr_a * sizeof(int16_t), false,
+		    transmission, level_dbm);
 	}
 }
 

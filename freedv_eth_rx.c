@@ -39,6 +39,9 @@ static void *silence_packet = NULL;
 static struct sound_resample *sr = NULL;
 struct freedv *freedv;
 
+static uint8_t transmission = 128;
+static double level_dbm = -80.0;
+
 static uint8_t rx_add[6], mac[6];
 
 #define RX_SYNC_ZERO 15.0
@@ -105,7 +108,8 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 					freedv_eth_voice_rx(
 					    bcast, rx_add, eth_type_rx,
 					    packed_codec_bits + i * bytes_per_eth_frame,
-					    bytes_per_eth_frame, true);
+					    bytes_per_eth_frame, true,
+					    transmission, level_dbm);
 				}
 				printf(".");
 				fflush(NULL);
@@ -120,7 +124,8 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 						freedv_eth_voice_rx(
 						    bcast, rx_add, eth_type_rx,
 						    silence_packet,
-						    bytes_per_eth_frame, true);
+						    bytes_per_eth_frame, true,
+						    transmission, level_dbm);
 					}
 				}
 			}
@@ -132,6 +137,8 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 				printf("Reset RX add\n");
 				memcpy(rx_add, mac, 6);
 				cdc_voice = false;
+				queue_voice_end(transmission);
+				transmission++;
 			}
 
 

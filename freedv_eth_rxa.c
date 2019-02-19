@@ -41,6 +41,9 @@ static float rx_gain = 1.0;
 static char dtmf_control_start = '*';
 static char dtmf_control_stop = '#';
 
+static uint8_t transmission = 0;
+static double level_dbm = -60;
+
 enum dtmf_state {
 	DTMF_IDLE,
 	DTMF_CONTROL,
@@ -79,16 +82,22 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	int nr_a = sound_resample_nr_out(sr, nr);
 	int16_t mod_a[nr_a];
 	bool detected;
+	bool new_cdc;
 
 	sound_resample_perform_gain_limit(sr, mod_a, samples, nr_a, nr, rx_gain);
 
 	if (emphasis_d)
 		emphasis_de(emphasis_d, mod_a, nr_a);
 	if (ctcss_sql) {
-		cdc = ctcss_detect_rx(mod_a, nr_a);
+		new_cdc = ctcss_detect_rx(mod_a, nr_a);
 	} else {
-		cdc = io_hl_dcd_get();
+		new_cdc = io_hl_dcd_get();
 	}
+	if (cdc && !new_cdc) {
+		queue_voice_end(transmission);
+		transmission++;
+	}
+	cdc = new_cdc;
 
 	dtmf_rx(mod_a, nr_a, cb_control, &detected);
 	if (detected) {
@@ -99,7 +108,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	}
 
 	if (cdc) {
-		freedv_eth_voice_rx(bcast, mac, ETH_P_NATIVE16, (uint8_t *)mod_a, nr_a * sizeof(int16_t), true);
+		freedv_eth_voice_rx(bcast, mac, ETH_P_NATIVE16, (uint8_t *)mod_a, nr_a * sizeof(int16_t), true, transmission, level_dbm);
 	} else {
 		dtmf_state = DTMF_IDLE;
 	}
