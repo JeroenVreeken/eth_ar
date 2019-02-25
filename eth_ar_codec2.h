@@ -60,10 +60,6 @@ static inline int eth_ar_eth_p_codecmode(uint16_t type)
 			return CODEC2_MODE_700B;
 		case ETH_P_CODEC2_700C:
 			return CODEC2_MODE_700C;
-#ifdef CODEC2_MODE_1300C
-		case ETH_P_CODEC2_1300C:
-			return CODEC2_MODE_1300C;
-#endif
 		case ETH_P_ALAW:
 			return CODEC2_MODE_ALAW;
 		case ETH_P_ULAW:
@@ -91,9 +87,6 @@ static inline bool eth_ar_eth_p_iscodec2(uint16_t type)
 		case ETH_P_CODEC2_700:
 		case ETH_P_CODEC2_700B:
 		case ETH_P_CODEC2_700C:
-#ifdef CODEC2_MODE_1300C
-		case ETH_P_CODEC2_1300C:
-#endif
 			return true;
 		default:
 			break;
