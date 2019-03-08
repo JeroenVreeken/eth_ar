@@ -11,9 +11,9 @@ libeth_ar_la_LDFLAGS= -fPIC -version-info 1:0:1 -lm
 nobase_include_HEADERS = eth_ar/eth_ar.h eth_ar/fprs.h
 
 if ENABLE_HAMLIB
-bin_PROGRAMS = analog_trx freedv_eth fprs2aprs_gate eth_ar_if fprs_request fprs_destination fprs_monitor
+bin_PROGRAMS = analog_trx freedv_eth fprs2aprs_gate eth_ar_if fprs_request fprs_destination fprs_monitor eth_ar_callssid2mac
 endif
-noinst_PROGRAMS = fprs_test emphasis_test eth_ar_test
+noinst_PROGRAMS = fprs_test emphasis_test eth_ar_test test_eth
 
 analog_trx_SOURCES = sound.c alaw.c ulaw.c dsp.c io.c interface.c analog_trx.c freedv_eth_config.c
 analog_trx_LDADD = libeth_ar.la
@@ -22,6 +22,10 @@ analog_trx_LDFLAGS = -lcodec2 -lsamplerate -lasound -lhamlib -lpthread -lm
 freedv_eth_SOURCES = sound.c alaw.c ulaw.c dsp.c io.c interface.c nmea.c freedv_eth.c freedv_eth_rx.c freedv_eth_config.c freedv_eth_transcode.c freedv_eth_queue.c freedv_eth_tx.c freedv_eth_txa.c ctcss.c beacon.c emphasis.c freedv_eth_rxa.c freedv_eth_baseband_in.c
 freedv_eth_LDADD = libeth_ar.la
 freedv_eth_LDFLAGS = -lcodec2 -lsamplerate -lasound -lhamlib -lpthread -lm
+
+test_eth_SOURCES = interface.c beacon.c test_eth.c
+test_eth_LDADD = libeth_ar.la
+test_eth_LDFLAGS = -lm
 
 eth_ar_test_SOURCES = eth_ar_test.c
 eth_ar_test_LDADD = libeth_ar.la
@@ -46,3 +50,6 @@ eth_ar_if_LDADD = libeth_ar.la
 
 emphasis_test_SOURCES = emphasis_test.c emphasis.c
 emphasis_test_LDFLAGS = -lm
+
+eth_ar_callssid2mac_SOURCES = eth_ar_callssid2mac.c
+eth_ar_callssid2mac_LDADD = libeth_ar.la

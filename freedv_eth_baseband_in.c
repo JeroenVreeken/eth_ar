@@ -97,7 +97,7 @@ int freedv_eth_bb_in_init(int hw_rate, uint8_t mac_init[6], int nr_hw)
 
 		val=1;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC, &val);
-		fval=32768;
+		fval=32768 / rx_gain;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_LEVEL, &fval);
 		
 		val = 40;

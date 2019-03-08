@@ -34,10 +34,10 @@
 #include <codec2/freedv_api.h>
 
 #include "interface.h"
-#include <eth_ar/eth_ar.h>
+#include "eth_ar/eth_ar.h"
 #include "eth_ar_codec2.h"
 #include "sound.h"
-#include <eth_ar/fprs.h>
+#include "eth_ar/fprs.h"
 #include "nmea.h"
 #include "freedv_eth_rx.h"
 #include "freedv_eth.h"
@@ -510,7 +510,7 @@ int main(int argc, char **argv)
 	sound_set_nr(nr_samples);
 
 	freedv_eth_rx_init(freedv, mac, sound_rate);
-	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis, rx_ctcss_f, dtmf_mute, analog_rx_gain);
+	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis, rx_ctcss_f, dtmf_mute, analog_rx_gain, nr_samples);
 
 	if (baseband_in)
 		freedv_eth_bb_in_init(sound_rate, mac, nr_samples);

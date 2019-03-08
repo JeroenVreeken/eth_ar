@@ -28,6 +28,7 @@
 #include "eth_ar_codec2.h"
 
 #include <string.h>
+#include <speex/speex_preprocess.h>
 
 static struct emphasis *emphasis_d = NULL;
 static uint8_t mac[6];
@@ -51,6 +52,8 @@ enum dtmf_state {
 };
 
 static enum dtmf_state dtmf_state = DTMF_IDLE;
+
+SpeexPreprocessState *st = NULL;
 
 bool freedv_eth_rxa_cdc(void)
 {
@@ -84,6 +87,9 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	bool detected;
 	bool new_cdc;
 
+	if (st)
+		speex_preprocess_run(st, samples);
+
 	sound_resample_perform_gain_limit(sr, mod_a, samples, nr_a, nr, rx_gain);
 
 	if (emphasis_d)
@@ -116,7 +122,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 
 int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], 
     bool emphasis, double ctcss_freq, int dtmf_mute_init,
-    float rx_gain_init)
+    float rx_gain_init, int hw_nr)
 {
 	int a_rate = FREEDV_ALAW_RATE;
 	
@@ -146,5 +152,31 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
 	} else {
 		ctcss_sql = false;
 	}
+
+	bool denoise = atoi(freedv_eth_config_value("analog_rx_denoise", NULL, "1"));
+	if (denoise) {
+		printf("Analog denoise and AGC active\n");
+		int val;
+		float fval;
+		st = speex_preprocess_state_init(hw_nr, hw_rate);
+		val= denoise;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DENOISE, &val);
+		val = -30;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &val);
+
+		val=1;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC, &val);
+		fval=32768 / rx_gain;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_LEVEL, &fval);
+		
+		val = 40;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_INCREMENT, &val);
+		
+ 		val=60;
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_MAX_GAIN, &val);
+	} else {
+		printf("Analog denoise and AGC\n");
+	}
+
 	return 0;
 }
