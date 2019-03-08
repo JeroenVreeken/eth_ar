@@ -159,7 +159,7 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
 		int val;
 		float fval;
 		st = speex_preprocess_state_init(hw_nr, hw_rate);
-		val= denoise;
+/*		val= denoise;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DENOISE, &val);
 		val = -30;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &val);
@@ -174,7 +174,7 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
 		
  		val=60;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_MAX_GAIN, &val);
-	} else {
+*/	} else {
 		printf("Analog denoise and AGC\n");
 	}
 
