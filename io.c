@@ -330,13 +330,25 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 	if (rig_freq_rx) {
 		printf("rig frequency for rx: %s\n", rig_freq_rx);
 		freq_t freq = atof(rig_freq_rx);
-		rig_set_freq(rig, RIG_VFO_RX, freq);
+		int r = rig_set_freq(rig, RIG_VFO_RX, freq);
+		if (r != RIG_OK) {
+			printf("error from rig: %d\n", r);
+		}
 	}
 	char *rig_freq_tx = freedv_eth_config_value("rig_freq_tx", NULL, NULL);
 	if (rig_freq_tx) {
 		printf("rig frequency for tx: %s\n", rig_freq_tx);
 		freq_t freq = atof(rig_freq_tx);
-		rig_set_freq(rig, RIG_VFO_TX, freq);
+		
+		int r = rig_set_split_vfo(rig, RIG_VFO_CURR, RIG_SPLIT_ON, RIG_VFO_TX);
+		if (r != RIG_OK) {
+			printf("error from rig: %d\n", r);
+		}
+		
+		r = rig_set_freq(rig, RIG_VFO_TX, freq);
+		if (r != RIG_OK) {
+			printf("error from rig: %d\n", r);
+		}
 	}
 
 	/* Init to sane status */
