@@ -26,16 +26,19 @@ extern "C" {
 #include <codec2/codec2.h>
 
 /* Not really codec2 modes */
-#define CODEC2_MODE_ALAW	'A'
-#define CODEC2_MODE_ULAW	'U'
-#define CODEC2_MODE_LE16	's'
-#define CODEC2_MODE_BE16	'S'
+#define CODEC_MODE_ALAW	'A'
+#define CODEC_MODE_ULAW	'U'
+#define CODEC_MODE_LE16	's'
+#define CODEC_MODE_BE16	'S'
+#ifndef CODEC_MODE_LPCNET_1733
+#define CODEC_MODE_LPCNET_1733 100
+#endif
 
 #if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-#define CODEC2_MODE_NATIVE16	CODEC2_MODE_LE16
+#define CODEC_MODE_NATIVE16	CODEC_MODE_LE16
 #define ETH_P_NATIVE16		ETH_P_LE16
 #else
-#define CODEC2_MODE_NATIVE16	CODEC2_MODE_BE16
+#define CODEC_MODE_NATIVE16	CODEC_MODE_BE16
 #define ETH_P_NATIVE16		ETH_P_BE16
 #endif
 
@@ -60,14 +63,16 @@ static inline int eth_ar_eth_p_codecmode(uint16_t type)
 			return CODEC2_MODE_700B;
 		case ETH_P_CODEC2_700C:
 			return CODEC2_MODE_700C;
+		case ETH_P_LPCNET_1733:
+			return CODEC_MODE_LPCNET_1733;
 		case ETH_P_ALAW:
-			return CODEC2_MODE_ALAW;
+			return CODEC_MODE_ALAW;
 		case ETH_P_ULAW:
-			return CODEC2_MODE_ULAW;
+			return CODEC_MODE_ULAW;
 		case ETH_P_LE16:
-			return CODEC2_MODE_LE16;
+			return CODEC_MODE_LE16;
 		case ETH_P_BE16:
-			return CODEC2_MODE_BE16;
+			return CODEC_MODE_BE16;
 		default:
 			break;
 	}

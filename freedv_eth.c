@@ -115,7 +115,7 @@ void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint
 			memcpy(packet->data, data, len);
 			memcpy(packet->from, from, 6);
 		
-			freedv_eth_transcode(packet, CODEC2_MODE_NATIVE16, eth_type);
+			freedv_eth_transcode(packet, CODEC_MODE_NATIVE16, eth_type);
 
 			packet->local_rx = local_rx;
 			enqueue_baseband(packet);
@@ -189,7 +189,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 			memcpy(packet->data, data, len);
 			memcpy(packet->from, from, 6);
 		
-			freedv_eth_transcode(packet, CODEC2_MODE_NATIVE16, eth_type);
+			freedv_eth_transcode(packet, CODEC_MODE_NATIVE16, eth_type);
 
 			enqueue_baseband(packet);
 		}
@@ -493,7 +493,7 @@ int main(int argc, char **argv)
 		tx_codecmode = eth_ar_eth_p_codecmode(type);
 	} else {
 		/* Decode to speech shorts, but don't recode... */
-		tx_codecmode = CODEC2_MODE_NATIVE16;
+		tx_codecmode = CODEC_MODE_NATIVE16;
 	}
 	fd_int = interface_init(netname, mac, true, 0);
 	sound_rate = sound_init(sounddev, cb_sound_in, sound_rate, 2, 2);

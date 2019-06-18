@@ -44,12 +44,12 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 		return 0;
 
 	switch(from_codecmode) {
-		case CODEC2_MODE_ALAW:
-		case CODEC2_MODE_ULAW:
+		case CODEC_MODE_ALAW:
+		case CODEC_MODE_ULAW:
 			samples = packet->len;
 			break;
-		case CODEC2_MODE_LE16:
-		case CODEC2_MODE_BE16:
+		case CODEC_MODE_LE16:
+		case CODEC_MODE_BE16:
 			samples = packet->len / 2;
 			break;
 		default: {
@@ -74,13 +74,13 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 	short *speech = trans_speech + trans_speech_pos;
 	
 	switch (from_codecmode) {
-		case CODEC2_MODE_ALAW:
+		case CODEC_MODE_ALAW:
 			alaw_decode(speech, packet->data, samples);
 			break;
-		case CODEC2_MODE_ULAW:
+		case CODEC_MODE_ULAW:
 			ulaw_decode(speech, packet->data, samples);
 			break;
-		case CODEC2_MODE_LE16: {
+		case CODEC_MODE_LE16: {
 			/* Fill packet with native short samples */
 			union {
 				uint8_t b[2];
@@ -93,7 +93,7 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 				speech[i] = le16toh(b2s.s);
 			}
 		}
-		case CODEC2_MODE_BE16: {
+		case CODEC_MODE_BE16: {
 			/* Fill packet with native short samples */
 			union {
 				uint8_t b[2];
@@ -114,7 +114,7 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 
 
 	switch(to_codecmode) {
-		case CODEC2_MODE_ALAW: {
+		case CODEC_MODE_ALAW: {
 			if (trans_speech_pos > tx_packet_max())
 				trans_speech_pos = tx_packet_max();
 			alaw_encode(packet->data, trans_speech, trans_speech_pos);
@@ -123,7 +123,7 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 		
 			break;
 		}
-		case CODEC2_MODE_ULAW: {
+		case CODEC_MODE_ULAW: {
 			if (trans_speech_pos > tx_packet_max())
 				trans_speech_pos = tx_packet_max();
 			ulaw_encode(packet->data, trans_speech, trans_speech_pos);
@@ -132,7 +132,7 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 		
 			break;
 		}
-		case CODEC2_MODE_NATIVE16: {
+		case CODEC_MODE_NATIVE16: {
 			/* Fill packet with native short samples */
 			if (trans_speech_pos > tx_packet_max())
 				trans_speech_pos = tx_packet_max();

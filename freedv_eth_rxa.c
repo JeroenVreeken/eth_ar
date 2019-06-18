@@ -156,7 +156,7 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
 	bool denoise = atoi(freedv_eth_config_value("analog_rx_denoise", NULL, "1"));
 	if (denoise) {
 		printf("Analog denoise and AGC active\n");
-		int val;
+		spx_int32_t val;
 		float fval;
 		st = speex_preprocess_state_init(hw_nr, hw_rate);
 		val= denoise;
@@ -173,8 +173,46 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
 		val = 40;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_INCREMENT, &val);
 		
- 		val=60;
+ 		val=60; // default 30
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_MAX_GAIN, &val);
+
+
+		/* preprocess info */
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_DENOISE, &val);
+		printf("DENOISE enabled: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC, &val);
+		printf("AGC enabled: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_VAD, &val);
+		printf("VAD enabled: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_DEREVERB, &val);
+		printf("DEREVERB enabled: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_NOISE_SUPPRESS, &val);
+		printf("NOISE_SUPPRESS: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_ECHO_SUPPRESS, &val);
+		printf("ECHO_SUPPRESS: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_ECHO_SUPPRESS_ACTIVE, &val);
+		printf("ECHO_SUPPRESS_ACTIVE: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC_LEVEL, &fval);
+		printf("AGC_LEVEL: %f\n", fval);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC_INCREMENT, &val);
+		printf("AGC_INCREMENT: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC_DECREMENT, &val);
+		printf("AGC_DECREMENT:: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC_MAX_GAIN, &val);
+		printf("AGC_MAX_GAIN: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC_LEVEL, &fval);
+		printf("AGC_LEVEL:: %f\n", fval);
 	} else {
 		printf("No analog denoise and AGC\n");
 	}
