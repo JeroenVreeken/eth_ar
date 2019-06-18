@@ -85,9 +85,15 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	int nr_a = sound_resample_nr_out(sr, nr);
 	int16_t mod_a[nr_a];
 	bool detected;
-	bool new_cdc;
+	bool new_cdc = false;
+	bool skip_prep = false;
+	
+	if (!ctcss_sql) {
+		new_cdc = io_hl_dcd_get();
+		skip_prep = !new_cdc;
+	}
 
-	if (st)
+	if (st && !skip_prep)
 		speex_preprocess_run(st, samples);
 
 	sound_resample_perform_gain_limit(sr, mod_a, samples, nr_a, nr, rx_gain);
@@ -96,8 +102,6 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 		emphasis_de(emphasis_d, mod_a, nr_a);
 	if (ctcss_sql) {
 		new_cdc = ctcss_detect_rx(mod_a, nr_a);
-	} else {
-		new_cdc = io_hl_dcd_get();
 	}
 	if (cdc && !new_cdc) {
 		queue_voice_end(transmission);
@@ -156,12 +160,12 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
 	bool denoise = atoi(freedv_eth_config_value("analog_rx_denoise", NULL, "1"));
 	if (denoise) {
 		printf("Analog denoise and AGC active\n");
-		int val;
+		spx_int32_t val;
 		float fval;
 		st = speex_preprocess_state_init(hw_nr, hw_rate);
 		val= denoise;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DENOISE, &val);
-		val = -30; //default -15
+		val = -25; //default -15
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &val);
 
 		val=1;
@@ -170,11 +174,54 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
 		fval=32768.0 / rx_gain * 2.0;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_LEVEL, &fval);
 		
-		val = 40;
+		val = 40; // default 12
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_INCREMENT, &val);
+		val = -40; // default -40
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_DECREMENT, &val);
 		
- 		val=60;
+ 		val=60; // default 30
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_MAX_GAIN, &val);
+
+		val= -15; // default -15
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_ECHO_SUPPRESS_ACTIVE, &val);
+
+
+		/* preprocess info */
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_DENOISE, &val);
+		printf("DENOISE enabled: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC, &val);
+		printf("AGC enabled: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_VAD, &val);
+		printf("VAD enabled: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_DEREVERB, &val);
+		printf("DEREVERB enabled: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_NOISE_SUPPRESS, &val);
+		printf("NOISE_SUPPRESS: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_ECHO_SUPPRESS, &val);
+		printf("ECHO_SUPPRESS: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_ECHO_SUPPRESS_ACTIVE, &val);
+		printf("ECHO_SUPPRESS_ACTIVE: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC_LEVEL, &fval);
+		printf("AGC_LEVEL: %f\n", fval);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC_INCREMENT, &val);
+		printf("AGC_INCREMENT: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC_DECREMENT, &val);
+		printf("AGC_DECREMENT:: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC_MAX_GAIN, &val);
+		printf("AGC_MAX_GAIN: %d\n", val);
+
+		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_AGC_LEVEL, &fval);
+		printf("AGC_LEVEL:: %f\n", fval);
 	} else {
 		printf("No analog denoise and AGC\n");
 	}
