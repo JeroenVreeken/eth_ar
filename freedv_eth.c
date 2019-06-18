@@ -495,8 +495,14 @@ int main(int argc, char **argv)
 		/* Decode to speech shorts, but don't recode... */
 		tx_codecmode = CODEC2_MODE_NATIVE16;
 	}
+	int force_channels_in = 0;
+	if (rx_mode == RX_MODE_MIXED)
+		force_channels_in = 2;
+
 	fd_int = interface_init(netname, mac, true, 0);
-	sound_rate = sound_init(sounddev, cb_sound_in, sound_rate, 2, 2);
+	sound_rate = sound_init(sounddev, cb_sound_in, sound_rate, force_channels_in, 2);
+	if (sound_rate < 0)
+		return -1;
 
 	if (tx_mode == TX_MODE_FREEDV) {
 		int freedv_rate = freedv_get_modem_sample_rate(freedv);
