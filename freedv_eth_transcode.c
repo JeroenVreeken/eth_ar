@@ -18,8 +18,8 @@
 
 #include "freedv_eth.h"
 #include "eth_ar_codec2.h"
-#include "alaw.h"
-#include "ulaw.h"
+#include "eth_ar/alaw.h"
+#include "eth_ar/ulaw.h"
 #include "stdio.h"
 
 #include <stdlib.h>

@@ -22,7 +22,7 @@
 #include "dtmf.h"
 #include "emphasis.h"
 #include "interface.h"
-#include "alaw.h"
+#include "eth_ar/alaw.h"
 #include "sound.h"
 #include "ctcss.h"
 #include "eth_ar_codec2.h"

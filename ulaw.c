@@ -20,7 +20,7 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  * 
  */
-#include "ulaw.h"
+#include "eth_ar/ulaw.h"
 
 #define	BIAS		(0x84)		/* Bias for linear code. */
 #define	SIGN_BIT	(0x80)		/* Sign bit for a u-law byte. */

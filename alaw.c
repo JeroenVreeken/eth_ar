@@ -18,7 +18,7 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
-#include "alaw.h"
+#include "eth_ar/alaw.h"
 #include <stdint.h>
 
 static int16_t alaw_to_s16 (uint8_t a_val)

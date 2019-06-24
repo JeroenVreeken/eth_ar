@@ -1,5 +1,5 @@
 /*
-	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2016
+	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2017
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -16,12 +16,12 @@
 
  */
 
-#ifndef _INCLUDE_ALAW_H_
-#define _INCLUDE_ALAW_H_
+#ifndef _INCLUDE_ETHAR_ULAW_H_
+#define _INCLUDE_ETHAR_ULAW_H_
 
 #include <stdint.h>
 
-void alaw_decode(int16_t *samples, uint8_t *alaw, int nr);
-void alaw_encode(uint8_t *alaw, int16_t *samples, int nr);
+void ulaw_decode(int16_t *samples, uint8_t *ulaw, int nr);
+void ulaw_encode(uint8_t *ulaw, int16_t *samples, int nr);
 
-#endif /* _INCLUDE_ALAW_H_ */
+#endif /* _INCLUDE_ETHAR_ULAW_H_ */
