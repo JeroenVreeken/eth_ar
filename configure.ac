@@ -21,28 +21,21 @@ AS_IF([test "x$codec2_found_headers" != "xyes"],
 
 
 dnl Search for libsamplerate
-AC_SEARCH_LIBS([src_process], [samplerate], [], [
-  AC_MSG_ERROR([unable to find the src_process() function in libsamplerate])
-], [-lm])
+AC_SEARCH_LIBS([src_process], [samplerate], [samplerate_found_lib=yes], [], [-lm])
 
 AC_CHECK_HEADERS([samplerate.h],
         [samplerate_found_headers=yes; break;])
 
-AS_IF([test "x$samplerate_found_headers" != "xyes"],
-        [AC_MSG_ERROR([Unable to find the samplerate headers])])
+AM_CONDITIONAL(ENABLE_SAMPLERATE, test "x$samplerate_found_headers" = "xyes")
 
 
 
 dnl Search for libspeexdsp
-AC_SEARCH_LIBS([speex_preprocess_state_init], [speexdsp], [], [
-  AC_MSG_ERROR([unable to find libspeexdsp])
-], [-lm])
+AC_SEARCH_LIBS([speex_preprocess_state_init], [speexdsp], [speexdsp_found_lib=yes], [], [-lm])
 
 AC_CHECK_HEADERS([speex/speex_preprocess.h],
         [speexdsp_found_headers=yes; break;])
 
-AS_IF([test "x$speexdsp_found_headers" != "xyes"],
-        [AC_MSG_ERROR([Unable to find the speexdsp headers])])
 
 
 
@@ -68,6 +61,18 @@ AS_IF([test "x$hamlib_found_headers" == "xyes"],
 )
 
 
+AC_CHECK_DECLS([IFF_UP], [linux_if_found_headers=yes], [],
+	[[#include <linux/if.h>]])
+
+AM_CONDITIONAL(ENABLE_INTERFACE, test "x$linux_if_found_headers" = "xyes")
+
 
 AC_OUTPUT([Makefile])
+
+
+echo "Optional libs:"
+echo "    hamlib          : " $hamlib_found_headers
+echo "    libsamplerate   : " $samplerate_found_headers
+echo "    libspeexdsp     : " $speexdsp_found_headers
+echo "    linux/if header : " $linux_if_found_headers
 

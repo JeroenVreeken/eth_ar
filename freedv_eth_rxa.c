@@ -185,7 +185,6 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6],
 		val= -15; // default -15
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_ECHO_SUPPRESS_ACTIVE, &val);
 
-
 		/* preprocess info */
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_GET_DENOISE, &val);
 		printf("DENOISE enabled: %d\n", val);

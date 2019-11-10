@@ -262,7 +262,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	} else {
 		int16_t mod_out[len];
 		
-		if (newmode == CODEC2_MODE_ULAW)
+		if (newmode == CODEC_MODE_ULAW)
 			ulaw_decode(mod_out, data, len);
 		else
 			alaw_decode(mod_out, data, len);
@@ -401,8 +401,6 @@ int main(int argc, char **argv)
 					mode = CODEC2_MODE_450;
 				} else if (!strcmp(optarg, "450PWB")) {
 					mode = CODEC2_MODE_450PWB;
-				} else if (!strcmp(optarg, "WB")) {
-					mode = CODEC2_MODE_WB;
 				}
 				break;
 			case 'n':
