@@ -43,7 +43,7 @@
 #include "freedv_eth.h"
 #include "freedv_eth_config.h"
 #include "io.h"
-#include "alaw.h"
+#include "eth_ar/alaw.h"
 
 static bool verbose;
 static bool fullduplex;

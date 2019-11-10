@@ -33,8 +33,8 @@
 #include "interface.h"
 #include <eth_ar/eth_ar.h>
 #include "sound.h"
-#include "alaw.h"
-#include "ulaw.h"
+#include "eth_ar/alaw.h"
+#include "eth_ar/ulaw.h"
 #include "io.h"
 #include "ctcss.h"
 #include "eth_ar_codec2.h"
