@@ -340,7 +340,7 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
 
 	beep_1k = beacon_beep_create(a_rate, 1000.0, 0.45, 0.25, 0.25);
 	beep_1k2 = beacon_beep_create(a_rate, 1200.0, 0.15, 0.15, 0.25);
-	beep_2k = beacon_beep_create(a_rate, 2000.0, 0.35, 0.25, 0.25);
+	beep_2k = beacon_beep_create(a_rate, 2000.0, 0.10, 0.20, 0.25);
 
 	fullduplex = init_fullduplex;
 	output_tone = init_output_tone;
