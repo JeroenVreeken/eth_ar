@@ -357,12 +357,16 @@ int main(int argc, char **argv)
 	if (!strcmp(freedv_mode_str, "1600")) {
 		freedv_mode = FREEDV_MODE_1600;
 		freedv_hasdata = false;
+#if defined(FREEDV_MODE_700)
 	} else if (!strcmp(freedv_mode_str, "700")) {
 		freedv_mode = FREEDV_MODE_700;
 		freedv_hasdata = false;
+#endif
+#if defined(FREEDV_MODE_700B)
 	} else if (!strcmp(freedv_mode_str, "700B")) {
 		freedv_mode = FREEDV_MODE_700B;
 		freedv_hasdata = false;
+#endif
 	} else if (!strcmp(freedv_mode_str, "700C")) {
 		freedv_mode = FREEDV_MODE_700C;
 	} else if (!strcmp(freedv_mode_str, "700D")) {
@@ -377,12 +381,9 @@ int main(int argc, char **argv)
 	} else if (!strcmp(freedv_mode_str, "800XA")) {
 		freedv_mode = FREEDV_MODE_800XA;
 		freedv_hasdata = true;
-	} else if (!strcmp(freedv_mode_str, "700C")) {
-		freedv_mode = FREEDV_MODE_700C;
-		freedv_hasdata = true;
-	} else if (!strcmp(freedv_mode_str, "700D")) {
-		freedv_mode = FREEDV_MODE_700D;
-		freedv_hasdata = true;
+	} else if (!strcmp(freedv_mode_str, "2020")) {
+		freedv_mode = FREEDV_MODE_2020;
+		freedv_hasdata = false;
 	} else {
 		printf("Invalid FreeDV mode\n");
 		return -1;

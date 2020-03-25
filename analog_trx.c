@@ -391,10 +391,14 @@ int main(int argc, char **argv)
 					mode = CODEC2_MODE_1300;
 				} else if (!strcmp(optarg, "1200")) {
 					mode = CODEC2_MODE_1200;
+#if defined(CODEC2_MODE_700)
 				} else if (!strcmp(optarg, "700")) {
 					mode = CODEC2_MODE_700;
+#endif
+#if defined(CODEC2_MODE_700B)
 				} else if (!strcmp(optarg, "700B")) {
 					mode = CODEC2_MODE_700B;
+#endif
 				} else if (!strcmp(optarg, "700C")) {
 					mode = CODEC2_MODE_700C;
 				} else if (!strcmp(optarg, "450")) {
@@ -451,12 +455,16 @@ int main(int argc, char **argv)
 			case CODEC2_MODE_1200:
 				rx_type = ETH_P_CODEC2_1200;
 				break;
+#if defined(CODEC2_MODE_700)
 			case CODEC2_MODE_700:
 				rx_type = ETH_P_CODEC2_700;
 				break;
+#endif
+#if defined(CODEC2_MODE_700B)
 			case CODEC2_MODE_700B:
 				rx_type = ETH_P_CODEC2_700B;
 				break;
+#endif
 			case CODEC2_MODE_700C:
 				rx_type = ETH_P_CODEC2_700C;
 				break;

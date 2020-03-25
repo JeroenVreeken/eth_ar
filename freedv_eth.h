@@ -32,18 +32,29 @@ static inline uint16_t freedv_eth_mode2type(int mode)
 	uint16_t type = ETH_P_CODEC2_700;
 
 	switch(mode) {
+#if defined(CODEC2_MODE_700)
 		case FREEDV_MODE_700:
 			type = ETH_P_CODEC2_700;
 			break;
+#endif
+#if defined(CODEC2_MODE_700B)
 		case FREEDV_MODE_700B:
 			type = ETH_P_CODEC2_700B;
 			break;
+#endif
 		case FREEDV_MODE_1600:
 			type = ETH_P_CODEC2_1300;
 			break;
 		case FREEDV_MODE_2400A:
 		case FREEDV_MODE_2400B:
 			type = ETH_P_CODEC2_1300;
+			break;
+		case FREEDV_MODE_2020:
+			type = ETH_P_LPCNET_1733;
+			break;
+		case FREEDV_MODE_700C:
+		case FREEDV_MODE_700D:
+			type = ETH_P_CODEC2_700C;
 			break;
 		default:
 			break;

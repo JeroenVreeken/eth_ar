@@ -57,12 +57,18 @@ static inline int eth_ar_eth_p_codecmode(uint16_t type)
 			return CODEC2_MODE_1300;
 		case ETH_P_CODEC2_1200:
 			return CODEC2_MODE_1200;
+#if defined(CODEC2_MODE_700)
 		case ETH_P_CODEC2_700:
 			return CODEC2_MODE_700;
+#endif
+#if defined(CODEC2_MODE_700B)
 		case ETH_P_CODEC2_700B:
 			return CODEC2_MODE_700B;
+#endif
 		case ETH_P_CODEC2_700C:
 			return CODEC2_MODE_700C;
+		case ETH_P_CODEC2_450:
+			return CODEC2_MODE_450;
 		case ETH_P_LPCNET_1733:
 			return CODEC_MODE_LPCNET_1733;
 		case ETH_P_ALAW:
