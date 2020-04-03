@@ -93,9 +93,19 @@ int enqueue_voice(struct tx_packet *packet, uint8_t transmission, double level_d
 	return 1;
 }
 
-bool queue_voice_filled(void)
+bool queue_voice_filled(size_t min_len)
 {
-	return queue_voice;
+	size_t len = 0;
+	struct tx_packet *entry;
+	
+	for (entry = queue_voice; entry; entry = entry->next) {
+		len += entry->len;
+		if (len >= min_len) {
+			return true;
+		}
+	}
+	
+	return false;
 }
 
 void queue_voice_end(uint8_t transmission)

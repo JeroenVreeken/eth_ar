@@ -98,6 +98,7 @@ static inline bool eth_ar_eth_p_iscodec2(uint16_t type)
 		case ETH_P_CODEC2_700:
 		case ETH_P_CODEC2_700B:
 		case ETH_P_CODEC2_700C:
+		case ETH_P_LPCNET_1733:
 			return true;
 		default:
 			break;

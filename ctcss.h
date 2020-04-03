@@ -33,7 +33,7 @@ int ctcss_add(struct ctcss *ctcss, int16_t *sound, int nr);
 
 /* detection code in dsp.c */
 
-int ctcss_detect_init(double freq);
+int ctcss_detect_init(double freq, int rate);
 bool ctcss_detect_rx(short *smp, int nr);
 
 struct iir;

@@ -55,7 +55,6 @@ static int freedv_rx_channel;
 static int tx_codecmode;
 
 static int analog_rx_channel;
-static bool use_short;
 static bool baseband_out;
 static bool baseband_in;
 static bool baseband_in_tx;
@@ -67,6 +66,9 @@ static int tx_header_max_msec = 5000;
 static int tx_fprs_msec = 30000;
 static bool freedv_hasdata;
 static uint8_t mac[6];
+
+static struct freedv_eth_transcode *tc = NULL;
+static struct freedv_eth_transcode *tc_iface = NULL;
 
 static struct nmea_state *nmea;
 
@@ -102,7 +104,7 @@ void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint
 			memcpy(packet->data, data, len);
 			memcpy(packet->from, from, 6);
 		
-			freedv_eth_transcode(packet, tx_codecmode, eth_type);
+			freedv_eth_transcode(tc, packet, tx_codecmode, eth_type);
 
 			packet->local_rx = local_rx;
 			enqueue_voice(packet, 0, -10);
@@ -115,20 +117,23 @@ void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint
 			memcpy(packet->data, data, len);
 			memcpy(packet->from, from, 6);
 		
-			freedv_eth_transcode(packet, CODEC_MODE_NATIVE16, eth_type);
+			freedv_eth_transcode(tc, packet, CODEC_MODE_NATIVE16, eth_type);
 
 			packet->local_rx = local_rx;
 			enqueue_baseband(packet);
 		}
 	}
 
-	if (eth_type == ETH_P_NATIVE16 && !use_short) {
-		size_t nr = len/2;
-		uint8_t alaw[nr];
-		int16_t *s16data = (void*)data;
-	
-		alaw_encode(alaw, s16data, nr);
-		interface_rx(to, from, ETH_P_ALAW, alaw, nr, 0, 1);
+	if (eth_type == ETH_P_NATIVE16) {
+		packet = tx_packet_alloc();
+		packet->len = len;
+		memcpy(packet->data, data, len);
+		memcpy(packet->from, from, 6);
+		
+		freedv_eth_transcode(tc_iface, packet, CODEC_MODE_ALAW, eth_type);
+
+		interface_rx(to, from, ETH_P_ALAW, packet->data, packet->len, 0, 1);
+		tx_packet_free(packet);
 	} else {
 		interface_rx(to, from, eth_type, data, len, 0, 1);
 	}
@@ -179,7 +184,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 		memcpy(packet->data, data, len);
 		memcpy(packet->from, from, 6);
 		
-		freedv_eth_transcode(packet, tx_codecmode, eth_type);
+		freedv_eth_transcode(tc, packet, tx_codecmode, eth_type);
 
 		int q = enqueue_voice(packet, transmission, eth_ar_dbm_decode(level));
 
@@ -189,7 +194,7 @@ static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 			memcpy(packet->data, data, len);
 			memcpy(packet->from, from, 6);
 		
-			freedv_eth_transcode(packet, CODEC_MODE_NATIVE16, eth_type);
+			freedv_eth_transcode(tc, packet, CODEC_MODE_NATIVE16, eth_type);
 
 			enqueue_baseband(packet);
 		}
@@ -326,7 +331,7 @@ int main(int argc, char **argv)
 	fullduplex = atoi(freedv_eth_config_value("fullduplex", NULL, "0"));
 	repeater = atoi(freedv_eth_config_value("repeater", NULL, "0"));
 	verbose = atoi(freedv_eth_config_value("verbose", NULL, "0"));
-	char *freedv_mode_str = freedv_eth_config_value("freedv_mode", NULL, "700");
+	char *freedv_mode_str = freedv_eth_config_value("freedv_mode", NULL, "1600");
 	rig_model = atoi(freedv_eth_config_value("rig_model", NULL, "1"));
 	char *rig_file = freedv_eth_config_value("rig_file", NULL, NULL);
 	char *ptt_file = freedv_eth_config_value("rig_ptt_file", NULL, NULL);
@@ -349,7 +354,6 @@ int main(int argc, char **argv)
 	int dcd_threshold = atoi(freedv_eth_config_value("analog_rx_dcd_threshold", NULL, "1"));
 	bool tx_tone = atoi(freedv_eth_config_value("analog_tx_tone", NULL, "0"));
 	int dtmf_mute = atoi(freedv_eth_config_value("analog_dtmf_mute", NULL, "1"));
-	use_short = atoi(freedv_eth_config_value("analog_rx_short", NULL, "0"));
 	baseband_out = atoi(freedv_eth_config_value("baseband_out", NULL, "0"));
 	baseband_in = atoi(freedv_eth_config_value("baseband_in", NULL, "0"));
 	baseband_in_tx = atoi(freedv_eth_config_value("baseband_in_tx", NULL, "0"));
@@ -381,9 +385,16 @@ int main(int argc, char **argv)
 	} else if (!strcmp(freedv_mode_str, "800XA")) {
 		freedv_mode = FREEDV_MODE_800XA;
 		freedv_hasdata = true;
+#if defined(FREEDV_MODE_2020)
 	} else if (!strcmp(freedv_mode_str, "2020")) {
 		freedv_mode = FREEDV_MODE_2020;
 		freedv_hasdata = false;
+#endif
+#if defined(FREEDV_MODE_6000)
+	} else if (!strcmp(freedv_mode_str, "6000")) {
+		freedv_mode = FREEDV_MODE_6000;
+		freedv_hasdata = true;
+#endif
 	} else {
 		printf("Invalid FreeDV mode\n");
 		return -1;
@@ -505,6 +516,9 @@ int main(int argc, char **argv)
 	if (sound_rate < 0)
 		return -1;
 
+	tc = freedv_eth_transcode_init(sound_rate);
+	tc_iface = freedv_eth_transcode_init(sound_rate);
+	
 	if (tx_mode == TX_MODE_FREEDV) {
 		int freedv_rate = freedv_get_modem_sample_rate(freedv);
 		printf("freedv sample rate: %d\n", freedv_rate);
@@ -575,13 +589,13 @@ int main(int argc, char **argv)
 		poll(fds, nfds, -1);
 		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
 			if (tx_mode == TX_MODE_MIXED) {
-				bool q_v = queue_voice_filled();
+				bool q_v = queue_voice_filled(1);
 				bool q_d = queue_data_filled() || queue_control_filled();
 				bool tx_v = freedv_eth_txa_ptt();
 				bool tx_d = freedv_eth_tx_ptt();
 
 				if (tx_d || (!tx_v && !q_v && q_d)) {
-					freedv_eth_txa_state_machine();
+					freedv_eth_tx_state_machine();
 				} else {
 					freedv_eth_txa_state_machine();
 				}

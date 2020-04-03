@@ -32,8 +32,8 @@ static bool cdc;
 
 static int16_t *samples_rx = NULL;
 
-static int bytes_per_codec_frame;
-static int bytes_per_eth_frame;
+static int bytes_per_freedv_frame;
+static int bytes_per_codec2_frame;
 static uint16_t eth_type_rx;
 static void *silence_packet = NULL;
 static struct sound_resample *sr = NULL;
@@ -81,7 +81,7 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 		nr_rx += copy;
 		
 		if (nr_rx == nin) {
-			unsigned char packed_codec_bits[bytes_per_codec_frame];
+			unsigned char packed_codec_bits[bytes_per_freedv_frame];
 			
 			bool old_cdc = cdc;
 			
@@ -104,11 +104,11 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 			cdc |= (ret && rx_sync > RX_SYNC_THRESHOLD);
 			if (ret && cdc) {
 				int i;
-				for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
+				for (i = 0; i < bytes_per_freedv_frame/bytes_per_codec2_frame; i++) {
 					freedv_eth_voice_rx(
 					    bcast, rx_add, eth_type_rx,
-					    packed_codec_bits + i * bytes_per_eth_frame,
-					    bytes_per_eth_frame, true,
+					    packed_codec_bits + i * bytes_per_codec2_frame,
+					    bytes_per_codec2_frame, true,
 					    transmission, level_dbm);
 				}
 				printf(".");
@@ -120,11 +120,11 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 				printf("*");
 				fflush(NULL);
 				if (cdc_voice) {
-					for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
+					for (i = 0; i < bytes_per_freedv_frame/bytes_per_codec2_frame; i++) {
 						freedv_eth_voice_rx(
 						    bcast, rx_add, eth_type_rx,
 						    silence_packet,
-						    bytes_per_eth_frame, true,
+						    bytes_per_codec2_frame, true,
 						    transmission, level_dbm);
 					}
 				}
@@ -193,16 +193,16 @@ static void create_silence_packet(struct CODEC2 *c2)
 	int16_t samples[nr];
 
 	free(silence_packet);
-	silence_packet = calloc(1, bytes_per_eth_frame);
+	silence_packet = calloc(1, bytes_per_codec2_frame);
 
 	memset(samples, 0, nr * sizeof(int16_t));
 	
 	int i;
 	unsigned char *sp = silence_packet;
 
-	for (i = 0; i < bytes_per_codec_frame/bytes_per_eth_frame; i++) {
+	for (i = 0; i < bytes_per_freedv_frame/bytes_per_codec2_frame; i++) {
 		codec2_encode(c2, sp, samples);
-		sp += bytes_per_codec_frame;
+		sp += bytes_per_freedv_frame;
 	}
 }
 
@@ -222,11 +222,14 @@ int freedv_eth_rx_init(struct freedv *init_freedv, uint8_t init_mac[6], int hw_r
 		sr = NULL;
 	}
 
-        bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
-	bytes_per_eth_frame += 7;
-	bytes_per_eth_frame /= 8;
+        bytes_per_codec2_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
+	bytes_per_codec2_frame += 7;
+	bytes_per_codec2_frame /= 8;
+	printf("RX bytes per codec2 frame: %d\n", bytes_per_codec2_frame);
 	int rat = freedv_get_n_codec_bits(freedv) / codec2_bits_per_frame(freedv_get_codec2(freedv));
-	bytes_per_codec_frame = bytes_per_eth_frame * rat;
+	printf("RX codec2 frames per freedv frame: %d\n", rat);
+	bytes_per_freedv_frame = bytes_per_codec2_frame * rat;
+	printf("RX bytes per freedv frame: %d\n", bytes_per_freedv_frame);
 
 	nr_samples = freedv_get_n_max_modem_samples(freedv);
 	create_silence_packet(freedv_get_codec2(freedv));

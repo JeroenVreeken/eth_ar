@@ -20,25 +20,73 @@
 #include "eth_ar_codec2.h"
 #include "eth_ar/alaw.h"
 #include "eth_ar/ulaw.h"
-#include "stdio.h"
+#include <stdio.h>
+#include "sound.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-static struct CODEC2 *trans_enc;
-static struct CODEC2 *trans_dec;
-static short *trans_speech;
-static int trans_speech_size;
-static int trans_speech_pos;
-static int trans_dec_mode = -1;
-static int trans_enc_mode = -1;
-static int trans_enc_samples_frame;
-static int trans_enc_bytes_frame;
+struct freedv_eth_transcode {
+	struct CODEC2 *trans_enc;
+	struct CODEC2 *trans_dec;
+	short *trans_speech;
+	int trans_speech_size;
+	int trans_speech_pos;
+	int trans_dec_mode;
+	int trans_enc_mode;
+	int trans_enc_samples_frame;
+	int trans_enc_bytes_frame;
+	int trans_rate_native;
+	struct sound_resample *sr;
+	int sr_rate_in;
+	int sr_rate_out;
+};
 
-int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t from_type)
+struct freedv_eth_transcode *freedv_eth_transcode_init(int native_rate)
+{
+	printf("Transcode native audio rate: %d\n", native_rate);
+
+	struct freedv_eth_transcode *tc = calloc(1, sizeof(struct freedv_eth_transcode));
+	
+	tc->trans_dec_mode = -1;
+	tc->trans_enc_mode = -1;
+
+	tc->trans_rate_native = native_rate;
+	
+	return tc;
+}
+
+static inline int eth_ar_codec_rate(struct freedv_eth_transcode *tc, int mode)
+{
+	switch(mode) {
+		case CODEC_MODE_LE16:
+		case CODEC_MODE_BE16:
+			return tc->trans_rate_native;	
+		case CODEC_MODE_LPCNET_1733:
+			return 16000;
+		case CODEC_MODE_ALAW:
+		case CODEC_MODE_ULAW:
+		case CODEC2_MODE_3200:
+		case CODEC2_MODE_2400:
+		case CODEC2_MODE_1600:
+		case CODEC2_MODE_1400:
+		case CODEC2_MODE_1300:
+		case CODEC2_MODE_1200:
+		case CODEC2_MODE_700C:
+		case CODEC2_MODE_450:
+		case CODEC2_MODE_450PWB:
+		default:
+			return 8000;
+	}
+}
+
+
+int freedv_eth_transcode(struct freedv_eth_transcode *tc, struct tx_packet *packet, int to_codecmode, uint16_t from_type)
 {
 	int from_codecmode = eth_ar_eth_p_codecmode(from_type);
-	int samples;
+	int samples_in;
+	int from_rate = eth_ar_codec_rate(tc, from_codecmode);
+	int to_rate = eth_ar_codec_rate(tc, to_codecmode);
 
 	if (to_codecmode == from_codecmode)
 		return 0;
@@ -46,39 +94,32 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 	switch(from_codecmode) {
 		case CODEC_MODE_ALAW:
 		case CODEC_MODE_ULAW:
-			samples = packet->len;
+			samples_in = packet->len;
 			break;
 		case CODEC_MODE_LE16:
 		case CODEC_MODE_BE16:
-			samples = packet->len / 2;
+			samples_in = packet->len / 2;
 			break;
 		default: {
-			if (from_codecmode != trans_dec_mode) {
-				if (trans_dec)
-					codec2_destroy(trans_dec);
-				trans_dec_mode = from_codecmode;
-				trans_dec = codec2_create(trans_dec_mode);
+			if (from_codecmode != tc->trans_dec_mode) {
+				if (tc->trans_dec)
+					codec2_destroy(tc->trans_dec);
+				tc->trans_dec_mode = from_codecmode;
+				tc->trans_dec = codec2_create(tc->trans_dec_mode);
 			}
-			samples = codec2_samples_per_frame(trans_dec);
+			samples_in = codec2_samples_per_frame(tc->trans_dec);
 			break;
 		}
 	}
 
-	if (trans_speech_pos + samples > trans_speech_size) {
-		short *tmp = realloc(trans_speech, sizeof(short)*(trans_speech_pos + samples));
-		if (!tmp)
-			return -1;
-		trans_speech = tmp;
-		trans_speech_size = trans_speech_pos + samples;
-	}
-	short *speech = trans_speech + trans_speech_pos;
+	short *speech_in = malloc(sizeof(short)*(samples_in));
 	
 	switch (from_codecmode) {
 		case CODEC_MODE_ALAW:
-			alaw_decode(speech, packet->data, samples);
+			alaw_decode(speech_in, packet->data, samples_in);
 			break;
 		case CODEC_MODE_ULAW:
-			ulaw_decode(speech, packet->data, samples);
+			ulaw_decode(speech_in, packet->data, samples_in);
 			break;
 		case CODEC_MODE_LE16: {
 			/* Fill packet with native short samples */
@@ -87,10 +128,10 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 				uint16_t s;
 			} b2s;
 			int i;
-			for (i = 0; i < samples; i++) {
+			for (i = 0; i < samples_in; i++) {
 				b2s.b[0] = packet->data[i * 2 + 0];
 				b2s.b[1] = packet->data[i * 2 + 1];
-				speech[i] = le16toh(b2s.s);
+				speech_in[i] = le16toh(b2s.s);
 			}
 		}
 		case CODEC_MODE_BE16: {
@@ -100,70 +141,109 @@ int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t fr
 				uint16_t s;
 			} b2s;
 			int i;
-			for (i = 0; i < samples; i++) {
+			for (i = 0; i < samples_in; i++) {
 				b2s.b[0] = packet->data[i * 2 + 0];
 				b2s.b[1] = packet->data[i * 2 + 1];
-				speech[i] = be16toh(b2s.s);
+				speech_in[i] = be16toh(b2s.s);
 			}
 		}
 		default:
-			codec2_decode(trans_dec, speech, packet->data);
+			codec2_decode(tc->trans_dec, speech_in, packet->data);
 			break;
 	}
-	trans_speech_pos += samples;
+
+	int samples_out = 0;
+	if (to_rate == from_rate) {
+		samples_out = samples_in;
+		if (tc->sr) {
+			sound_resample_destroy(tc->sr);
+			tc->sr = NULL;
+		}
+	} else {
+		if (tc->sr_rate_in != from_rate || tc->sr_rate_out != to_rate) {
+			if (tc->sr) {
+				sound_resample_destroy(tc->sr);
+				tc->sr = NULL;
+			}
+		}
+		if (!tc->sr) {
+			printf("Transcode with resample: %d -> %d\n", from_rate, to_rate);
+			tc->sr_rate_in = from_rate;
+			tc->sr_rate_out = to_rate;
+			tc->sr = sound_resample_create(tc->sr_rate_out, tc->sr_rate_in);
+		}
+		if (tc->sr) {
+			samples_out = sound_resample_nr_out(tc->sr, samples_in);
+		}
+	}
+
+	if (tc->trans_speech_pos + samples_out > tc->trans_speech_size) {
+		short *tmp = realloc(tc->trans_speech, sizeof(short)*(tc->trans_speech_pos + samples_out));
+		if (!tmp)
+			return -1;
+		tc->trans_speech = tmp;
+		tc->trans_speech_size = tc->trans_speech_pos + samples_out;
+	}
+	short *speech_out = tc->trans_speech + tc->trans_speech_pos;
+	if (!tc->sr) {
+		memcpy(speech_out, speech_in, samples_out);
+	} else {
+		sound_resample_perform(tc->sr, speech_out, speech_in, samples_out, samples_in);
+	}
+	tc->trans_speech_pos += samples_out;
 
 
 	switch(to_codecmode) {
 		case CODEC_MODE_ALAW: {
-			if (trans_speech_pos > tx_packet_max())
-				trans_speech_pos = tx_packet_max();
-			alaw_encode(packet->data, trans_speech, trans_speech_pos);
-			packet->len = trans_speech_pos;
-			trans_speech_pos = 0;
+			if (tc->trans_speech_pos > tx_packet_max())
+				tc->trans_speech_pos = tx_packet_max();
+			alaw_encode(packet->data, tc->trans_speech, tc->trans_speech_pos);
+			packet->len = tc->trans_speech_pos;
+			tc->trans_speech_pos = 0;
 		
 			break;
 		}
 		case CODEC_MODE_ULAW: {
-			if (trans_speech_pos > tx_packet_max())
-				trans_speech_pos = tx_packet_max();
-			ulaw_encode(packet->data, trans_speech, trans_speech_pos);
-			packet->len = trans_speech_pos;
-			trans_speech_pos = 0;
+			if (tc->trans_speech_pos > tx_packet_max())
+				tc->trans_speech_pos = tx_packet_max();
+			ulaw_encode(packet->data, tc->trans_speech, tc->trans_speech_pos);
+			packet->len = tc->trans_speech_pos;
+			tc->trans_speech_pos = 0;
 		
 			break;
 		}
 		case CODEC_MODE_NATIVE16: {
 			/* Fill packet with native short samples */
-			if (trans_speech_pos > tx_packet_max())
-				trans_speech_pos = tx_packet_max();
-			memcpy(packet->data, trans_speech, trans_speech_pos * sizeof(short));
-			packet->len = trans_speech_pos * sizeof(short);
-			trans_speech_pos = 0;
+			if (tc->trans_speech_pos > tx_packet_max())
+				tc->trans_speech_pos = tx_packet_max();
+			memcpy(packet->data, tc->trans_speech, tc->trans_speech_pos * sizeof(short));
+			packet->len = tc->trans_speech_pos * sizeof(short);
+			tc->trans_speech_pos = 0;
 			break;
 		}
 		default: 
-			if (to_codecmode != trans_enc_mode) {
-				if (trans_enc)
-					codec2_destroy(trans_enc);
-				trans_enc_mode = to_codecmode;
-				trans_enc = codec2_create(trans_enc_mode);
-				trans_enc_samples_frame = codec2_samples_per_frame(trans_enc);
-				trans_enc_bytes_frame = codec2_bits_per_frame(trans_enc);
-				trans_enc_bytes_frame += 7;
-				trans_enc_bytes_frame /= 8;
+			if (to_codecmode != tc->trans_enc_mode) {
+				if (tc->trans_enc)
+					codec2_destroy(tc->trans_enc);
+				tc->trans_enc_mode = to_codecmode;
+				tc->trans_enc = codec2_create(tc->trans_enc_mode);
+				tc->trans_enc_samples_frame = codec2_samples_per_frame(tc->trans_enc);
+				tc->trans_enc_bytes_frame = codec2_bits_per_frame(tc->trans_enc);
+				tc->trans_enc_bytes_frame += 7;
+				tc->trans_enc_bytes_frame /= 8;
 			}
 			packet->len = 0;
 		
 			int off = 0;
-			while (trans_speech_pos - off >= trans_enc_samples_frame) {
-				codec2_encode(trans_enc, packet->data + packet->len, trans_speech + off);
-				off += trans_enc_samples_frame;
-				packet->len += trans_enc_bytes_frame;
+			while (tc->trans_speech_pos - off >= tc->trans_enc_samples_frame) {
+				codec2_encode(tc->trans_enc, packet->data + packet->len, tc->trans_speech + off);
+				off += tc->trans_enc_samples_frame;
+				packet->len += tc->trans_enc_bytes_frame;
 			}
-			if (off && off != trans_speech_pos) {
-				memmove(trans_speech, trans_speech + off, sizeof(short)*(trans_speech_pos - off));
+			if (off && off != tc->trans_speech_pos) {
+				memmove(tc->trans_speech, tc->trans_speech + off, sizeof(short)*(tc->trans_speech_pos - off));
 			}
-			trans_speech_pos -= off;
+			tc->trans_speech_pos -= off;
 			break;
 	}
 

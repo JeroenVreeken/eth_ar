@@ -104,12 +104,6 @@ static double DTMF_RELATIVE_PEAK_ROW =	6.3;     /* 8dB */
 static double DTMF_RELATIVE_PEAK_COL =	6.3;     /* 8dB */
 
 
-static int SAMPLE_RATE = 8000;
-
-
-
-
-
 
 
 typedef struct {
@@ -193,10 +187,10 @@ static inline double goertzel_result(goertzel_state_t *s)
 	return (double)r.value * (double)(1 << r.power);
 }
 
-static inline void goertzel_init(goertzel_state_t *s, double freq, int samples)
+static inline void goertzel_init(goertzel_state_t *s, double freq, int samples, int rate)
 {
 	s->v2 = s->v3 = s->chunky = 0.0;
-	s->fac = (int)(32768.0 * 2.0 * cos(2.0 * M_PI * freq / SAMPLE_RATE));
+	s->fac = (int)(32768.0 * 2.0 * cos(2.0 * M_PI * freq / rate));
 	s->samples = samples;
 }
 
@@ -205,29 +199,29 @@ static inline void goertzel_reset(goertzel_state_t *s)
 	s->v2 = s->v3 = s->chunky = 0.0;
 }
 
-static void ast_dtmf_detect_init (dtmf_detect_state_t *s)
+static void ast_dtmf_detect_init (dtmf_detect_state_t *s, int rate)
 {
 	int i;
 
 	s->lasthit = 0;
 	s->current_hit = 0;
 	for (i = 0;  i < 4;  i++) {
-		goertzel_init (&s->row_out[i], dtmf_row[i], DTMF_OPTIMIZED_VALUE);
-		goertzel_init (&s->col_out[i], dtmf_col[i], DTMF_OPTIMIZED_VALUE);
+		goertzel_init (&s->row_out[i], dtmf_row[i], DTMF_OPTIMIZED_VALUE, rate);
+		goertzel_init (&s->col_out[i], dtmf_col[i], DTMF_OPTIMIZED_VALUE, rate);
 		s->energy = 0.0;
 	}
 	s->current_sample = 0;
 }
 
 
-static void ast_digit_detect_init(digit_detect_state_t *s)
+static void ast_digit_detect_init(digit_detect_state_t *s, int rate)
 {
 /*	s->current_digits = 0;
 	s->detected_digits = 0;
 	s->lost_digits = 0;
 	s->digits[0] = '\0';
 */
-	ast_dtmf_detect_init(&s->dtmf);
+	ast_dtmf_detect_init(&s->dtmf, rate);
 }
 /*
 static void store_digit(digit_detect_state_t *s, char digit)
@@ -387,10 +381,10 @@ int dtmf_rx(short *smp, int nr, void (*cb)(char *), bool *detected)
 	return 0;
 }
 
-int dtmf_init(void)
+int dtmf_init(int rate)
 {
     
-    ast_digit_detect_init(&dtmf);
+    ast_digit_detect_init(&dtmf, rate);
 
 	return 0;
 }
@@ -433,11 +427,11 @@ bool ctcss_detect_rx(short *smp, int nr)
 	return (ctcss_result & ctcss_threshold_mask) == ctcss_threshold_mask;
 }
 
-int ctcss_detect_init(double freq)
+int ctcss_detect_init(double freq, int rate)
 {
-	ctcss_samples = (SAMPLE_RATE * 8)/freq;
+	ctcss_samples = (rate * 8)/freq;
 	printf("RX CTCSS: %fHz, %d samples in bin (%dms)\n", freq, ctcss_samples, ctcss_samples/8);
-	goertzel_init(&ctcss_gs, freq, ctcss_samples);
+	goertzel_init(&ctcss_gs, freq, ctcss_samples, rate);
 	goertzel_reset(&ctcss_gs);
 	ctcss_samples_cur = 0;
 	ctcss_result = 0;

@@ -43,7 +43,6 @@ static bool tx_hadvoice;
 static bool tx_waslocal;
 static int tx_tail;
 static int tx_state_cnt;
-static struct sound_resample *sr_l, *sr_r = NULL;
 static struct ctcss *ctcss = NULL;
 static struct beacon *beacon = NULL;
 static struct emphasis *emphasis_p = NULL;
@@ -65,26 +64,7 @@ static int tx_sound_out(int16_t *samples0, int16_t *samples1, int nr)
 		samples1 = (int16_t*)packet->data;
 	}
 
-	if (!sr_l) {
-		sound_out_lr(samples0, samples1, nr);
-	} else {
-		int nr_out = sound_resample_nr_out(sr_l, nr);
-		int16_t hw_mod_out_l[nr_out];
-		int16_t hw_mod_out_r[nr_out];
-		int16_t *out_l, *out_r;
-		
-		if (samples0) {
-			sound_resample_perform(sr_l, hw_mod_out_l, samples0, nr_out, nr);
-			out_l = hw_mod_out_l;
-		} else
-			out_l = NULL;
-		if (samples1) {
-			sound_resample_perform(sr_r, hw_mod_out_r, samples1, nr_out, nr);
-			out_r = hw_mod_out_r;
-		} else
-			out_r = NULL;
-		sound_out_lr(out_l, out_r, nr_out);
-	}
+	sound_out_lr(samples0, samples1, nr);
 	
 	if (packet) {
 		tx_packet_free(packet);
@@ -336,11 +316,9 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
     bool emphasis,
     bool init_output_tone)
 {
-	int a_rate = FREEDV_ALAW_RATE;
-
-	beep_1k = beacon_beep_create(a_rate, 1000.0, 0.45, 0.25, 0.25);
-	beep_1k2 = beacon_beep_create(a_rate, 1200.0, 0.15, 0.15, 0.25);
-	beep_2k = beacon_beep_create(a_rate, 2000.0, 0.10, 0.20, 0.25);
+	beep_1k = beacon_beep_create(hw_rate, 1000.0, 0.45, 0.25, 0.25);
+	beep_1k2 = beacon_beep_create(hw_rate, 1200.0, 0.15, 0.15, 0.25);
+	beep_2k = beacon_beep_create(hw_rate, 2000.0, 0.10, 0.20, 0.25);
 
 	fullduplex = init_fullduplex;
 	output_tone = init_output_tone;
@@ -351,32 +329,23 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
 	tx_state_cnt = 0;
 	tx_hadvoice = false;
 
-	int period_msec = 1000 / (FREEDV_ALAW_RATE / nr_samples);
+	int period_msec = 1000 / (FREEDV_ALAW_RATE / FREEDV_ALAW_NR_SAMPLES);
 	printf("TX period: %d msec\n", period_msec);
 
 	tx_tail = tx_tail_msec / period_msec;
 	printf("TX tail: %d periods\n", tx_tail);
+	nr_samples = FREEDV_ALAW_NR_SAMPLES * hw_rate / FREEDV_ALAW_RATE;
 
-	sound_resample_destroy(sr_l);
-	sound_resample_destroy(sr_r);
-	if (a_rate != hw_rate) {
-		sr_l = sound_resample_create(hw_rate, a_rate);
-		sr_r = sound_resample_create(hw_rate, a_rate);
-	} else {
-		sr_l = NULL;
-		sr_r = NULL;
-	}
-	
 	ctcss_destroy(ctcss);
 	ctcss = NULL;
 	if (ctcss_f != 0.0) {
-		ctcss = ctcss_init(a_rate, ctcss_f, ctcss_amp);
+		ctcss = ctcss_init(hw_rate, ctcss_f, ctcss_amp);
 	}
 
 	beacon_destroy(beacon);
 	beacon = NULL;
 	if (beacon_interval) {
-		beacon = beacon_init(a_rate, nr_samples, beacon_interval, beacon_msg);
+		beacon = beacon_init(hw_rate, nr_samples, beacon_interval, beacon_msg);
 	}
 
 	emphasis_destroy(emphasis_p);

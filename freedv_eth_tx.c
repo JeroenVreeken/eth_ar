@@ -39,8 +39,8 @@ static int tx_state_fprs_cnt;
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static uint8_t mac[6];
 static uint8_t tx_add[6];
-static int bytes_per_codec_frame;
-static int bytes_per_eth_frame;
+static int bytes_per_freedv_frame;
+static int bytes_per_codec2_frame;
 static bool vc_busy = false;
 static bool fullduplex;
 static int tx_delay;
@@ -120,7 +120,7 @@ static void data_tx(void)
 	tx_sound_out(mod_out, nom_modem_samples);
 	
 	if (tx_state == TX_STATE_ON) {
-		if (queue_voice_filled())
+		if (queue_voice_filled(bytes_per_freedv_frame))
 			printf("x");
 		else
 			printf("+");
@@ -135,36 +135,53 @@ static void tx_voice(void)
 	check_tx_add();
 	struct tx_packet *packet = dequeue_voice();
 	uint8_t *data = packet->data;
-	size_t len = packet->len;
+	size_t len = 0;
+
+	unsigned char frame_data[bytes_per_freedv_frame];
+	size_t frame_len = 0;
 	
-	while (len) {
-		if (len < bytes_per_codec_frame) {
-			len = 0;
+	while (len < bytes_per_freedv_frame) {
+		size_t copy = bytes_per_freedv_frame - frame_len;
+		struct tx_packet *packet = peek_voice();
+		
+		if (packet->len < copy)
+			copy = packet->len;
+		
+		memcpy(frame_data + frame_len, packet->data, copy);
+		frame_len += copy;
+		
+		if (packet->len > copy) {
+			memmove(packet->data, packet->data + copy, packet->len - copy);
 		} else {
-			double energy = codec2_get_energy(freedv_get_codec2(freedv), data);
-			bool fprs_late = nmea && tx_state_fprs_cnt >= tx_fprs && nmea->position_valid;
-			bool header_late = tx_state_data_header_cnt >= tx_header;
-			bool have_data = fprs_late || queue_data_filled() || header_late;
-			
-//			printf("e: %f %d %d\n", energy, vc_busy, tx_state_data_header_cnt);
-
-			if (tx_state_data_header_cnt >= tx_header_max ||
-			    (have_data && energy < 15.0) ||
-			    (!vc_busy && energy < 1.0)) {
-				data_tx();
-			} else {
-				freedv_codectx(freedv, mod_out, data);
-			
-				tx_sound_out(mod_out, nom_modem_samples);
-
-				printf("-");
-				fflush(NULL);
-			}
-			len -= bytes_per_codec_frame;
+			dequeue_voice();
+			tx_packet_free(packet);	
 		}
 	}
-		
-	tx_packet_free(packet);
+	
+	bool fprs_late = nmea && tx_state_fprs_cnt >= tx_fprs && nmea->position_valid;
+	bool header_late = tx_state_data_header_cnt >= tx_header;
+	bool have_data = fprs_late || queue_data_filled() || header_late;
+
+	bool send_data_frame = tx_state_data_header_cnt >= tx_header_max;
+	struct CODEC2 *codec2 = freedv_get_codec2(freedv);
+	if (codec2) {
+		double energy = codec2_get_energy(codec2, data);
+		send_data_frame |= have_data && energy < 15.0;
+		send_data_frame |= !vc_busy && energy < 1.0;
+	}
+			
+//	printf("e: %f %d %d\n", energy, vc_busy, tx_state_data_header_cnt);
+
+	if (send_data_frame) {
+		data_tx();
+	} else {
+		freedv_codectx(freedv, mod_out, data);
+			
+		tx_sound_out(mod_out, nom_modem_samples);
+
+		printf("-");
+		fflush(NULL);
+	}
 }
 
 
@@ -202,7 +219,7 @@ void freedv_eth_tx_state_machine(void)
 	tx_state_cnt++;
 	switch (tx_state) {
 		case TX_STATE_OFF:
-			if ((queue_voice_filled() || queue_data_filled()) && (!freedv_eth_cdc() || fullduplex)) {
+			if ((queue_voice_filled(bytes_per_freedv_frame) || queue_data_filled()) && (!freedv_eth_cdc() || fullduplex)) {
 //				printf("OFF -> DELAY\n");
 				tx_state = TX_STATE_DELAY;
 				tx_state_cnt = 0;
@@ -223,14 +240,14 @@ void freedv_eth_tx_state_machine(void)
 				tx_state_data_header_cnt = 0;
 				tx_state_fprs_cnt = tx_fprs - tx_header - 1;
 			}
-			if (queue_voice_filled()) {
+			if (queue_voice_filled(bytes_per_freedv_frame)) {
 				tx_voice();
 			} else {
 				data_tx();
 			}
 			break;
 		case TX_STATE_ON:
-			if (!queue_voice_filled() &&
+			if (!queue_voice_filled(bytes_per_freedv_frame) &&
 			    !queue_data_filled() && freedv_data_ntxframes(freedv) <= 1 &&
 			    !vc_busy) {
 //				printf("ON -> TAIL\n");
@@ -239,7 +256,7 @@ void freedv_eth_tx_state_machine(void)
 			}
 			tx_state_data_header_cnt++;
 			tx_state_fprs_cnt++;
-			if (queue_voice_filled()) {
+			if (queue_voice_filled(bytes_per_freedv_frame)) {
 				tx_voice();
 			} else {
 				data_tx();
@@ -253,14 +270,14 @@ void freedv_eth_tx_state_machine(void)
 				set_ptt = true;
 				ptt = IO_HL_PTT_OFF;
 			} else {
-				if (queue_voice_filled() || queue_data_filled()) {
+				if (queue_voice_filled(bytes_per_freedv_frame) || queue_data_filled()) {
 //					printf("TAIL -> ON\n");
 					tx_state = TX_STATE_ON;
 					tx_state_cnt = 0;
 					
 					check_tx_add();
 				}
-				if (queue_voice_filled()) {
+				if (queue_voice_filled(bytes_per_freedv_frame)) {
 					tx_voice();
 				} else {
 					data_tx();
@@ -344,13 +361,14 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
 	tx_state = TX_STATE_OFF;
 	io_hl_ptt_set(IO_HL_PTT_OFF);
 
-        bytes_per_eth_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
-	bytes_per_eth_frame += 7;
-	bytes_per_eth_frame /= 8;
-	printf("TX bytes per ethernet frame: %d\n", bytes_per_eth_frame);
+        bytes_per_codec2_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
+	bytes_per_codec2_frame += 7;
+	bytes_per_codec2_frame /= 8;
+	printf("TX bytes per codec2 frame: %d\n", bytes_per_codec2_frame);
 	int rat = freedv_get_n_codec_bits(freedv) / codec2_bits_per_frame(freedv_get_codec2(freedv));
-	printf("TX ethernet frames per freedv frame: %d\n", rat);
-	bytes_per_codec_frame = bytes_per_eth_frame * rat;
+	printf("TX codec2 frames per freedv frame: %d\n", rat);
+	bytes_per_freedv_frame = bytes_per_codec2_frame * rat;
+	printf("TX bytes per freedv frame: %d\n", bytes_per_freedv_frame);
 
 	int freedv_rate = freedv_get_modem_sample_rate(freedv);
 	printf("TX freedv rate: %d\n", freedv_rate);

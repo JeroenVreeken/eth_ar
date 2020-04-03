@@ -5,6 +5,6 @@
 
 int dtmf_rx(short *smp, int nr, void (*cb)(char *), bool *detected);
 
-int dtmf_init(void);
+int dtmf_init(int rate);
 
 #endif /* _INCLUDE_DTMF_H_ */

@@ -49,13 +49,20 @@ static inline uint16_t freedv_eth_mode2type(int mode)
 		case FREEDV_MODE_2400B:
 			type = ETH_P_CODEC2_1300;
 			break;
+#if defined(FREEDV_MODE_2020)
 		case FREEDV_MODE_2020:
 			type = ETH_P_LPCNET_1733;
 			break;
+#endif
 		case FREEDV_MODE_700C:
 		case FREEDV_MODE_700D:
 			type = ETH_P_CODEC2_700C;
 			break;
+#if defined(FREEDV_MODE_6000)
+		case FREEDV_MODE_6000:
+			type = ETH_P_CODEC2_3200;
+			break;
+#endif
 		default:
 			break;
 	}
@@ -86,7 +93,7 @@ void tx_packet_free(struct tx_packet *packet);
 struct tx_packet *dequeue_voice(void);
 struct tx_packet *peek_voice(void);
 int enqueue_voice(struct tx_packet *packet, uint8_t transmission, double level_dbm);
-bool queue_voice_filled(void);
+bool queue_voice_filled(size_t min_len);
 void queue_voice_end(uint8_t transmission);
 
 struct tx_packet *dequeue_baseband(void);
@@ -108,7 +115,11 @@ bool queue_control_filled(void);
 void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, bool local_rx, uint8_t transmission, double level);
 
 bool freedv_eth_cdc(void);
-int freedv_eth_transcode(struct tx_packet *packet, int to_codecmode, uint16_t from_type);
+
+struct freedv_eth_transcode;
+
+struct freedv_eth_transcode * freedv_eth_transcode_init(int native_rate);
+int freedv_eth_transcode(struct freedv_eth_transcode *tc, struct tx_packet *packet, int to_codecmode, uint16_t from_type);
 
 int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6], 
     struct nmea_state *init_nmea, bool init_fullduplex,
