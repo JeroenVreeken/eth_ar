@@ -133,6 +133,7 @@ int freedv_eth_transcode(struct freedv_eth_transcode *tc, struct tx_packet *pack
 				b2s.b[1] = packet->data[i * 2 + 1];
 				speech_in[i] = le16toh(b2s.s);
 			}
+			break;
 		}
 		case CODEC_MODE_BE16: {
 			/* Fill packet with native short samples */
@@ -146,6 +147,7 @@ int freedv_eth_transcode(struct freedv_eth_transcode *tc, struct tx_packet *pack
 				b2s.b[1] = packet->data[i * 2 + 1];
 				speech_in[i] = be16toh(b2s.s);
 			}
+			break;
 		}
 		default:
 			codec2_decode(tc->trans_dec, speech_in, packet->data);
