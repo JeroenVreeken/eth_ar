@@ -195,6 +195,8 @@ int freedv_eth_transcode(struct freedv_eth_transcode *tc, struct tx_packet *pack
 	tc->trans_speech_pos += samples_out;
 
 
+	free(speech_in);
+
 	switch(to_codecmode) {
 		case CODEC_MODE_ALAW: {
 			if (tc->trans_speech_pos > tx_packet_max())
