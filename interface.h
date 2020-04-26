@@ -22,10 +22,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-int interface_rx_raw(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len);
-int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level);
-int interface_tx_raw(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len));
-int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level));
-int interface_init(char *name, uint8_t mac[6], bool tap, uint16_t filter_type);
+#include "eth_ar/eth_ar.h"
+
+int interface_rx_raw(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len);
+int interface_rx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level);
+int interface_tx_raw(int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len));
+int interface_tx(int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level));
+int interface_init(char *name, uint8_t mac[ETH_AR_MAC_SIZE], bool tap, uint16_t filter_type);
 
 #endif /* _INCLUDE_INTERFACE_H_ */

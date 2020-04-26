@@ -31,8 +31,8 @@
 #include <speex/speex_preprocess.h>
 
 static struct emphasis *emphasis_d = NULL;
-static uint8_t mac[6];
-static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+static uint8_t mac[ETH_AR_MAC_SIZE];
+static uint8_t bcast[ETH_AR_MAC_SIZE] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static bool dtmf_initialized = false;
 static bool cdc;
 static bool ctcss_sql;
@@ -122,7 +122,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	}
 }
 
-int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], 
+int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[ETH_AR_MAC_SIZE], 
     bool emphasis, double ctcss_freq, int dtmf_mute_init,
     float rx_gain_init, int hw_nr)
 {

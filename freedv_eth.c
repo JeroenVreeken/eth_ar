@@ -65,7 +65,7 @@ static int tx_header_msec = 500;
 static int tx_header_max_msec = 5000;
 static int tx_fprs_msec = 30000;
 static bool freedv_hasdata;
-static uint8_t mac[6];
+static uint8_t mac[ETH_AR_MAC_SIZE];
 
 static struct freedv_eth_transcode *tc = NULL;
 static struct freedv_eth_transcode *tc_iface = NULL;
@@ -90,7 +90,7 @@ enum rx_mode {
 
 static enum rx_mode rx_mode;
 
-void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, bool local_rx,
+void freedv_eth_voice_rx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, bool local_rx,
     uint8_t transmission, double level_dbm)
 {
 	struct tx_packet *packet;
@@ -170,7 +170,7 @@ static void freedv_eth_tx_none(int nr)
 }
 
 
-static int cb_int_tx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level)
+static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level)
 {
 	struct tx_packet *packet;
 	

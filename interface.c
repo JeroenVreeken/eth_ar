@@ -33,7 +33,7 @@
 
 static int fd;
 
-int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level)
+int interface_rx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level)
 {
 	uint8_t packet[len + 16];
 	
@@ -49,7 +49,7 @@ int interface_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *dat
 //	printf("Packet to interface %zd\n", sizeof(packet));
 	return write(fd, packet, sizeof(packet)) <= 0;
 }
-int interface_rx_raw(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len)
+int interface_rx_raw(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len)
 {
 	uint8_t packet[len + 14];
 	
@@ -64,7 +64,7 @@ int interface_rx_raw(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t 
 	return write(fd, packet, sizeof(packet)) <= 0;
 }
 
-static int interface_tx_tap(size_t doff, int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
+static int interface_tx_tap(size_t doff, int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
 {
 	uint8_t data[2048];
 	size_t len;
@@ -81,7 +81,7 @@ static int interface_tx_tap(size_t doff, int (*cb)(uint8_t to[6], uint8_t from[6
 }
 
 
-static int interface_tx_sock(size_t doff, int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
+static int interface_tx_sock(size_t doff, int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
 {
 	uint8_t data[2048];
 	ssize_t len;
@@ -107,12 +107,12 @@ static int interface_tx_sock(size_t doff, int (*cb)(uint8_t to[6], uint8_t from[
 	return 0;
 }
 
-static int (*interface_tx_func)(size_t doff, int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level));
-int interface_tx(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
+static int (*interface_tx_func)(size_t doff, int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level));
+int interface_tx(int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
 {
 	return interface_tx_func(16, cb);
 }
-int interface_tx_raw(int (*cb)(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, size_t len))
+int interface_tx_raw(int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len))
 {
 	return interface_tx_func(14, (void*)cb);
 }
@@ -166,7 +166,7 @@ err_socket:
 }
 
 /* Create a TAP device */
-static int tap_alloc(char *dev, uint8_t mac[6])
+static int tap_alloc(char *dev, uint8_t mac[ETH_AR_MAC_SIZE])
 {
 	struct ifreq ifr = { };
 	int fd;
@@ -231,7 +231,7 @@ static int tap_alloc(char *dev, uint8_t mac[6])
 	return fd;
 }
 
-int interface_init(char *name, uint8_t mac[6], bool tap, uint16_t filter_type)
+int interface_init(char *name, uint8_t mac[ETH_AR_MAC_SIZE], bool tap, uint16_t filter_type)
 {
 	if (name == NULL)
 		name = "freedv";
