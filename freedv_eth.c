@@ -94,6 +94,7 @@ void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint
     uint8_t transmission, double level_dbm)
 {
 	struct tx_packet *packet;
+	uint8_t level = eth_ar_dbm_encode(level_dbm);
 
 	if (tx_mode != TX_MODE_NONE) {
 		if (repeater || (baseband_in_tx && !local_rx)) {
@@ -132,10 +133,10 @@ void freedv_eth_voice_rx(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint
 		
 		freedv_eth_transcode(tc_iface, packet, CODEC_MODE_ALAW, eth_type);
 
-		interface_rx(to, from, ETH_P_ALAW, packet->data, packet->len, 0, 1);
+		interface_rx(to, from, ETH_P_ALAW, packet->data, packet->len, transmission, level);
 		tx_packet_free(packet);
 	} else {
-		interface_rx(to, from, eth_type, data, len, 0, 1);
+		interface_rx(to, from, eth_type, data, len, transmission, level);
 	}
 }
 
