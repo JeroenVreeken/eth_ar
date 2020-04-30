@@ -188,7 +188,7 @@ static int sound_out_alsa(int16_t *play_samples, int nr)
 //	printf("alsa: %d\n", r);
 	if (r < 0) {
 		failed++;
-		printf("recover output %d %d %d\n", written, failed, written/failed);
+		printf("recover output %d %d\n", written, failed);
 		snd_pcm_recover(pcm_handle_tx, r, 1);
 		snd_pcm_writei (pcm_handle_tx, play_samples, nr);
 	}

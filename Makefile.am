@@ -12,6 +12,7 @@ nobase_include_HEADERS = eth_ar/eth_ar.h eth_ar/fprs.h eth_ar/alaw.h eth_ar/ulaw
 
 bin_PROGRAMS = eth_ar_callssid2mac
 noinst_PROGRAMS = eth_ar_if fprs_test emphasis_test eth_ar_test test_eth
+TESTS = fprs_test eth_ar_test
 
 if ENABLE_HAMLIB
 if ENABLE_SAMPLERATE
