@@ -158,7 +158,7 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[ETH_AR_MAC_SIZE],
 		st = speex_preprocess_state_init(hw_nr, hw_rate);
 		val= denoise;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_DENOISE, &val);
-		val = -25; //default -15
+		val = -15; //default -15
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &val);
 
 		val=1;
