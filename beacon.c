@@ -120,7 +120,7 @@ struct beacon {
 	
 	int rate;
 	int state_interval;
-	int interval;
+	long long int interval;
 	char *msg;
 
 	int cnt;
@@ -159,7 +159,7 @@ struct beacon *beacon_init(int rate, int state_interval, int beacon_interval, ch
 
 	beacon->rate = rate;
 	beacon->state_interval = state_interval;
-	beacon->interval = beacon_interval * rate;
+	beacon->interval = (long long)beacon_interval * rate;
 	beacon->msg = strdup(message);
 	/* Trigger the first after 1 second */
 	beacon->cnt = beacon->interval - rate;
