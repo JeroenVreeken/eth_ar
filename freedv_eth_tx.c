@@ -405,11 +405,11 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
 	int period_msec = 1000 / (freedv_rate / freedv_get_n_nom_modem_samples(freedv));
 	printf("TX period: %d msec\n", period_msec);
 
-	tx_tail = tx_tail_msec / period_msec;
-	tx_delay = tx_delay_msec / period_msec;
-	tx_header = tx_header_msec / period_msec;
+	tx_tail = (tx_tail_msec + period_msec - 1) / period_msec;
+	tx_delay = (tx_delay_msec + period_msec -1)/ period_msec;
+	tx_header = (tx_header_msec + period_msec -1) / period_msec;
 	tx_header_max = tx_header_max_msec / period_msec;
-	tx_fprs = tx_fprs_msec / period_msec;
+	tx_fprs = (tx_fprs_msec + period_msec -1) / period_msec;
 	
 	printf("TX delay: %d periods\n", tx_delay);
 	printf("TX tail: %d periods\n", tx_tail);
