@@ -481,3 +481,21 @@ int sound_set_nr(int nr_set)
 
 	return 0;	
 }
+
+int sound_gain(int16_t *samples, int nr, double gain)
+{
+	int i;
+	
+	for (i = 0; i < nr; i++) {
+		double sample = samples[i];
+		sample *= gain;
+		if (sample > 32767)
+			sample = 32767;
+		if (sample < -32768)
+			sample = -32768;
+		samples[i] = sample;
+	}
+	
+	return 0;
+}
+

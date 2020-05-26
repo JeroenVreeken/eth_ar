@@ -1,5 +1,5 @@
 /*
-	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2016
+	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2016, 2020
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -24,6 +24,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <codec2/codec2.h>
+
+
 
 static bool cdc_voice = false;
 static int nr_rx;
@@ -85,7 +87,7 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 			
 			bool old_cdc = cdc;
 			
-			int ret = freedv_codecrx(freedv, packed_codec_bits, samples_rx);
+			int ret = freedv_rawdatarx(freedv, packed_codec_bits, samples_rx);
 
 			/* Don't 'detect' a voice signal to soon. 
 			 */
@@ -222,11 +224,11 @@ int freedv_eth_rx_init(struct freedv *init_freedv, uint8_t init_mac[6], int hw_r
 		sr = NULL;
 	}
 
-        bytes_per_codec2_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
+        bytes_per_codec2_frame = freedv_get_bits_per_codec_frame(freedv);
 	bytes_per_codec2_frame += 7;
 	bytes_per_codec2_frame /= 8;
 	printf("RX bytes per codec2 frame: %d\n", bytes_per_codec2_frame);
-	int rat = freedv_get_n_codec_bits(freedv) / codec2_bits_per_frame(freedv_get_codec2(freedv));
+	int rat = freedv_get_bits_per_modem_frame(freedv) / freedv_get_bits_per_codec_frame(freedv);
 	printf("RX codec2 frames per freedv frame: %d\n", rat);
 	bytes_per_freedv_frame = bytes_per_codec2_frame * rat;
 	printf("RX bytes per freedv frame: %d\n", bytes_per_freedv_frame);

@@ -49,4 +49,6 @@ int sound_resample_nr_in(struct sound_resample *sr, int nr_out);
 
 int sound_gain_limit(int16_t *samples, int nr, float gain, float *limit);
 
+int sound_gain(int16_t *samples, int nr, double gain);
+
 #endif /* _INCLUDE_SOUND_H_ */

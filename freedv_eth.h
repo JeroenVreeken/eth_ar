@@ -126,7 +126,9 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
     int hw_rate,
     int tx_tail_msec, int tx_delay_msec,
     int tx_header_msec, int tx_header_max_msec,
-    int tx_fprs_msec);
+    int tx_fprs_msec,
+    int tx_channel,
+    double tx_amp);
 char freedv_eth_tx_vc_callback(void *arg);
 void freedv_eth_tx_state_machine(void);
 bool freedv_eth_tx_ptt(void);

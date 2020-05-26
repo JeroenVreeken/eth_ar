@@ -1,5 +1,5 @@
 /*
-	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2016, 2017
+	Copyright Jeroen Vreeken (jeroen@vreeken.net), 2016, 2017, 2020
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <eth_ar/fprs.h>
 
+
 enum tx_state {
 	TX_STATE_OFF,
 	TX_STATE_DELAY,
@@ -48,6 +49,8 @@ static int tx_tail;
 static int tx_header;
 static int tx_header_max;
 static int tx_fprs;
+static int tx_channel = 0;
+static double tx_amp;
 
 static struct nmea_state *nmea;
 
@@ -80,7 +83,16 @@ static int tx_sound_out(int16_t *samples, int nr)
 		if (samples1) {
 			sound_resample_perform(sr1, hw_mod_out1, samples1, nr_out, nr);
 		}
-		sound_out_lr(hw_mod_out0, samples1 ? hw_mod_out1 : NULL, nr_out);
+		int16_t *hw0;
+		int16_t *hw1;
+		if (tx_channel == 0) {
+			hw0 = hw_mod_out0;
+			hw1 = samples1 ? hw_mod_out1 : NULL;
+		} else {
+			hw1 = hw_mod_out0;
+			hw0 = samples1 ? hw_mod_out1 : NULL;
+		}
+		sound_out_lr(hw0, hw1, nr_out);
 	}
 
 	if (packet) {
@@ -116,6 +128,8 @@ static void check_tx_add(void)
 static void data_tx(void)
 {
 	freedv_datatx(freedv, mod_out);
+	
+	sound_gain(mod_out, nom_modem_samples, tx_amp);
 	
 	tx_sound_out(mod_out, nom_modem_samples);
 	
@@ -175,8 +189,9 @@ static void tx_voice(void)
 	if (send_data_frame) {
 		data_tx();
 	} else {
-		freedv_codectx(freedv, mod_out, data);
+		freedv_rawdatatx(freedv, mod_out, data);
 			
+		sound_gain(mod_out, nom_modem_samples, tx_amp);
 		tx_sound_out(mod_out, nom_modem_samples);
 
 		printf("-");
@@ -350,22 +365,28 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
     int hw_rate,
     int tx_tail_msec, int tx_delay_msec,
     int tx_header_msec, int tx_header_max_msec,
-    int tx_fprs_msec)
+    int tx_fprs_msec,
+    int tx_channel_init,
+    double tx_amp_init)
 {
 	freedv = init_freedv;
 	nmea = init_nmea;
 	fullduplex = init_fullduplex;
 	memcpy(mac, init_mac, 6);
 	memcpy(tx_add, mac, 6);
+	tx_amp = tx_amp_init;
 	
 	tx_state = TX_STATE_OFF;
 	io_hl_ptt_set(IO_HL_PTT_OFF);
 
-        bytes_per_codec2_frame = codec2_bits_per_frame(freedv_get_codec2(freedv));
+	tx_channel = tx_channel_init;
+	printf("TX channel %d\n", tx_channel);
+
+        bytes_per_codec2_frame = freedv_get_bits_per_codec_frame(freedv);
 	bytes_per_codec2_frame += 7;
 	bytes_per_codec2_frame /= 8;
 	printf("TX bytes per codec2 frame: %d\n", bytes_per_codec2_frame);
-	int rat = freedv_get_n_codec_bits(freedv) / codec2_bits_per_frame(freedv_get_codec2(freedv));
+	int rat = freedv_get_bits_per_modem_frame(freedv) / freedv_get_bits_per_codec_frame(freedv);
 	printf("TX codec2 frames per freedv frame: %d\n", rat);
 	bytes_per_freedv_frame = bytes_per_codec2_frame * rat;
 	printf("TX bytes per freedv frame: %d\n", bytes_per_freedv_frame);

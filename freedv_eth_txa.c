@@ -50,6 +50,7 @@ static int nr_samples = FREEDV_ALAW_NR_SAMPLES;
 static bool output_tone = false;
 static enum io_hl_ptt ptt = IO_HL_PTT_OFF;
 static bool tx_tail_other = false;
+static double amp = 1.0;
 
 struct beacon_sample *beep_1k;
 struct beacon_sample *beep_1k2;
@@ -63,6 +64,8 @@ static int tx_sound_out(int16_t *samples0, int16_t *samples1, int nr)
 		packet = dequeue_baseband();
 		samples1 = (int16_t*)packet->data;
 	}
+
+	sound_gain(samples0, nr, amp);
 
 	sound_out_lr(samples0, samples1, nr);
 	
@@ -314,7 +317,8 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
     double ctcss_f, double ctcss_amp,
     int beacon_interval, char *beacon_msg,
     bool emphasis,
-    bool init_output_tone)
+    bool init_output_tone,
+    double analog_amp)
 {
 	beep_1k = beacon_beep_create(hw_rate, 1000.0, 0.45, 0.25, 0.25);
 	beep_1k2 = beacon_beep_create(hw_rate, 1200.0, 0.15, 0.15, 0.25);
@@ -322,6 +326,7 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
 
 	fullduplex = init_fullduplex;
 	output_tone = init_output_tone;
+	amp = analog_amp;
 	
 	tx_state = TX_STATE_OFF;
 	io_hl_ptt_set(false);

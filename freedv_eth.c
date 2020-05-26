@@ -52,6 +52,7 @@ static bool vc_control;
 
 static struct freedv *freedv;
 static int freedv_rx_channel;
+static int freedv_tx_channel;
 static int tx_codecmode;
 
 static int analog_rx_channel;
@@ -340,6 +341,9 @@ int main(int argc, char **argv)
 	vc_control = atoi(freedv_eth_config_value("control_vc", NULL, "0"));
 	char *rig_ptt_type = freedv_eth_config_value("rig_ptt_type", NULL, "NONE");
 	char *rig_dcd_type = freedv_eth_config_value("rig_dcd_type", NULL, "NONE");
+	double analog_tx_amp = atof(freedv_eth_config_value("analog_tx_amp", NULL, "1.0"));
+	double freedv_tx_amp = atof(freedv_eth_config_value("freedv_tx_amp", NULL, "1.0"));
+	char *freedv_tx_sound_channel = freedv_eth_config_value("freedv_tx_sound_channel", NULL, "left");
 	char *freedv_rx_sound_channel = freedv_eth_config_value("freedv_rx_sound_channel", NULL, "left");
 	char *analog_rx_sound_channel = freedv_eth_config_value("analog_rx_sound_channel", NULL, "left");
 	float analog_rx_gain = atof(freedv_eth_config_value("analog_rx_gain", NULL, "1.0"));
@@ -427,6 +431,14 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	
+	if (!strcmp(freedv_tx_sound_channel, "left")) {
+		freedv_tx_channel = 0;
+	} else if (!strcmp(freedv_tx_sound_channel, "right")) {
+		freedv_tx_channel = 1;
+	} else {
+		/* Assume it is a number and limit it to odd or even */
+		freedv_tx_channel = atoi(freedv_tx_sound_channel) & 0x1;
+	}
 	if (!strcmp(freedv_rx_sound_channel, "left")) {
 		freedv_rx_channel = 0;
 	} else if (!strcmp(freedv_rx_sound_channel, "right")) {
@@ -543,7 +555,9 @@ int main(int argc, char **argv)
 		    sound_rate,
 		    tx_tail_msec, tx_delay_msec,
 		    tx_header_msec, tx_header_max_msec,
-		    tx_fprs_msec);
+		    tx_fprs_msec,
+		    freedv_tx_channel,
+		    freedv_tx_amp);
 	} else  if (tx_mode == TX_MODE_ANALOG || tx_mode == TX_MODE_MIXED) {
 		freedv_eth_txa_init(fullduplex, 
 		    sound_rate, 
@@ -551,7 +565,8 @@ int main(int argc, char **argv)
 		    tx_ctcss_f, tx_ctcss_amp,
 		    beacon_interval, beacon_msg,
 		    tx_emphasis,
-		    tx_tone);
+		    tx_tone,
+		    analog_tx_amp);
 	}
 	
 	if (nmeadev) {
@@ -595,7 +610,8 @@ int main(int argc, char **argv)
 				bool tx_v = freedv_eth_txa_ptt();
 				bool tx_d = freedv_eth_tx_ptt();
 
-				if (tx_d || (!tx_v && !q_v && q_d)) {
+				/* voice has preference */
+				if (!tx_v && !q_v && (q_d || tx_d)) {
 					freedv_eth_tx_state_machine();
 				} else {
 					freedv_eth_txa_state_machine();
