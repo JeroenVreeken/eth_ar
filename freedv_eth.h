@@ -142,7 +142,8 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
     double ctcss_f, double ctcss_amp,
     int beacon_interval, char *beacon_msg,
     bool emphasis,
-    bool init_output_tone);
+    bool init_output_tone,
+    double tx_amp);
 void freedv_eth_txa_state_machine(void);
 bool freedv_eth_txa_ptt(void);
 
