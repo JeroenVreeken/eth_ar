@@ -65,7 +65,8 @@ static int tx_sound_out(int16_t *samples0, int16_t *samples1, int nr)
 		samples1 = (int16_t*)packet->data;
 	}
 
-	sound_gain(samples0, nr, amp);
+	if (samples0)
+		sound_gain(samples0, nr, amp);
 
 	sound_out_lr(samples0, samples1, nr);
 	
