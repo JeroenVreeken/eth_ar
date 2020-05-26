@@ -558,7 +558,8 @@ int main(int argc, char **argv)
 		    tx_fprs_msec,
 		    freedv_tx_channel,
 		    freedv_tx_amp);
-	} else  if (tx_mode == TX_MODE_ANALOG || tx_mode == TX_MODE_MIXED) {
+	}
+	if (tx_mode == TX_MODE_ANALOG || tx_mode == TX_MODE_MIXED) {
 		freedv_eth_txa_init(fullduplex, 
 		    sound_rate, 
 		    tx_tail_msec,
