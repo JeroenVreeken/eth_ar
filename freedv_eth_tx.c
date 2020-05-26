@@ -139,7 +139,12 @@ static void data_tx(void)
 		else
 			printf("+");
 	} else {
-		printf("~");
+		if (tx_state == TX_STATE_DELAY)
+			printf(">");
+		else if (tx_state == TX_STATE_TAIL)
+			printf("<");
+		else
+			printf("~");
 	}
 	fflush(NULL);
 }
