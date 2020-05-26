@@ -328,6 +328,10 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
 	fullduplex = init_fullduplex;
 	output_tone = init_output_tone;
 	amp = analog_amp;
+
+	printf("TXA fullduplex: %d\n", fullduplex);
+	printf("TXA output_tone: %d\n", output_tone);
+	printf("TXA analog amp: %f\n", amp);
 	
 	tx_state = TX_STATE_OFF;
 	io_hl_ptt_set(false);
@@ -336,26 +340,29 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate,
 	tx_hadvoice = false;
 
 	int period_msec = 1000 / (FREEDV_ALAW_RATE / FREEDV_ALAW_NR_SAMPLES);
-	printf("TX period: %d msec\n", period_msec);
+	printf("TXA period: %d msec\n", period_msec);
 
 	tx_tail = tx_tail_msec / period_msec;
-	printf("TX tail: %d periods\n", tx_tail);
+	printf("TXA tail: %d periods\n", tx_tail);
 	nr_samples = FREEDV_ALAW_NR_SAMPLES * hw_rate / FREEDV_ALAW_RATE;
 
 	ctcss_destroy(ctcss);
 	ctcss = NULL;
 	if (ctcss_f != 0.0) {
+		printf("TXA CTCSS %fHz, amp %f\n", ctcss_f, ctcss_amp);
 		ctcss = ctcss_init(hw_rate, ctcss_f, ctcss_amp);
 	}
 
 	beacon_destroy(beacon);
 	beacon = NULL;
 	if (beacon_interval) {
+		printf("TXA beacon interval %d, message: %s\n", beacon_interval, beacon_msg);
 		beacon = beacon_init(hw_rate, nr_samples, beacon_interval, beacon_msg);
 	}
 
 	emphasis_destroy(emphasis_p);
 	emphasis_p = NULL;
+	printf("TXA emphasis: %d\n", emphasis);
 	if (emphasis)
 		emphasis_p = emphasis_init();
 
