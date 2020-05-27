@@ -55,7 +55,7 @@ static int cb(uint8_t to[6], uint8_t from[6], uint16_t eth_type, uint8_t *data, 
 static void usage(void)
 {
 	printf("Options:\n");
-	printf("-n [dev]\tNetwork device name (default: \"%s\")\n", netname);
+	printf("-i [dev]\tNetwork device name (default: \"%s\")\n", netname);
 }
 
 
@@ -63,11 +63,15 @@ int main(int argc, char **argv)
 {
 	int opt;
 	int fd_int;
+	bool outgoing = false;
 	
-	while ((opt = getopt(argc, argv, "n:")) != -1) {
+	while ((opt = getopt(argc, argv, "i:t")) != -1) {
 		switch(opt) {
-			case 'n':
+			case 'i':
 				netname = optarg;
+				break;
+			case 't':
+				outgoing = true;
 				break;
 			default:
 				goto err_usage;
@@ -79,6 +83,8 @@ int main(int argc, char **argv)
 		printf("Could not open interface: %s\n", strerror(errno));
 		return -1;
 	}
+	
+	interface_tx_outgoing(outgoing);
 
 	do {
 		fd_set fdr;

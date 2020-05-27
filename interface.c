@@ -32,6 +32,7 @@
 #include <linux/if_tun.h>
 
 static int fd;
+static bool outgoing = false;
 
 int interface_rx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level)
 {
@@ -95,7 +96,7 @@ static int interface_tx_sock(size_t doff, int (*cb)(uint8_t to[ETH_AR_MAC_SIZE],
 	if (len > 16) {
 //		int i;
 		
-	        if (addr.sll_pkttype != PACKET_OUTGOING) {
+	        if (addr.sll_pkttype != PACKET_OUTGOING || outgoing) {
 			uint16_t eth_type = (data[12] << 8) | data[13];
 		
 			return cb(data, data + 6, eth_type, data + doff, len - doff, data[14], data[15]);
@@ -241,4 +242,10 @@ int interface_init(char *name, uint8_t mac[ETH_AR_MAC_SIZE], bool tap, uint16_t 
 		fd = sock_alloc(name, filter_type);
 	
 	return fd;
+}
+
+int interface_tx_outgoing(bool enable)
+{
+	outgoing = enable;
+	return 0;
 }

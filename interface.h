@@ -29,5 +29,6 @@ int interface_rx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uin
 int interface_tx_raw(int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len));
 int interface_tx(int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level));
 int interface_init(char *name, uint8_t mac[ETH_AR_MAC_SIZE], bool tap, uint16_t filter_type);
+int interface_tx_outgoing(bool enable);
 
 #endif /* _INCLUDE_INTERFACE_H_ */
