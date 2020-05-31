@@ -105,7 +105,7 @@ int emphasis_prede_48_gain(struct emphasis *emphasis, int16_t *sound, int nr, do
 		sample *= gain;
 		float f = emphasis->prev_de;
 
-		float absf = fabsf(i) / 100;
+		float absf = fabsf(f) / 100;
 		f = f * (1.0 - absf);
 
 		f += sample / 32;
