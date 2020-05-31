@@ -17,6 +17,7 @@
  */
 
 #include "emphasis.h"
+#include <math.h>
 
 struct emphasis {
 	float prev_de;
@@ -89,6 +90,33 @@ int emphasis_de(struct emphasis *emphasis, int16_t *sound, int nr)
 			sample = -32768;
 
 		sound[i] = sample;
+	}
+	
+	return 0;
+}
+
+/* 48kHz de emphasis used before transmitting */
+int emphasis_prede_48_gain(struct emphasis *emphasis, int16_t *sound, int nr, double gain)
+{
+	int i;
+	
+	for (i = 0; i < nr; i++) {
+		float sample = sound[i] / 32767.0;
+		sample *= gain;
+		float f = emphasis->prev_de;
+
+		float absf = fabsf(i) / 100;
+		f = f * (1.0 - absf);
+
+		f += sample / 32;
+		
+		if (f > 1.0)
+			f = 1.0;
+		if (f < -1.0)
+			f = -1.0;
+		
+		emphasis->prev_de = f;
+		sound[i] = f * 32767.0;
 	}
 	
 	return 0;

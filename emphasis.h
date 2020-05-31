@@ -31,4 +31,6 @@ int emphasis_reset(struct emphasis *emphasis);
 int emphasis_pre(struct emphasis *emphasis, int16_t *sound, int nr);
 int emphasis_de(struct emphasis *emphasis, int16_t *sound, int nr);
 
+int emphasis_prede_48_gain(struct emphasis *emphasis, int16_t *sound, int nr, double gain);
+
 #endif /* _INCLUDE_EMPHASIS_H_ */

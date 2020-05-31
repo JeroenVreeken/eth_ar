@@ -18,8 +18,10 @@
 
 #include "freedv_eth.h"
 #include "sound.h"
-#include "freedv_eth_rx.h"
+//#include "freedv_eth_rx.h"
+#include "freedv_eth_config.h"
 #include "io.h"
+#include "emphasis.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -60,6 +62,8 @@ static int nom_modem_samples;
 static int16_t *mod_out;
 static struct sound_resample *sr0 = NULL;
 static struct sound_resample *sr1 = NULL;
+static bool deemph = false;
+static struct emphasis *deemph_state = NULL;
 
 static int tx_sound_out(int16_t *samples, int nr)
 {
@@ -129,7 +133,11 @@ static void data_tx(void)
 {
 	freedv_datatx(freedv, mod_out);
 	
-	sound_gain(mod_out, nom_modem_samples, tx_amp);
+	if (!deemph) {
+		sound_gain(mod_out, nom_modem_samples, tx_amp);
+	} else {
+		emphasis_prede_48_gain(deemph_state, mod_out, nom_modem_samples, tx_amp);
+	}
 	
 	tx_sound_out(mod_out, nom_modem_samples);
 	
@@ -196,7 +204,11 @@ static void tx_voice(void)
 	} else {
 		freedv_rawdatatx(freedv, mod_out, data);
 			
-		sound_gain(mod_out, nom_modem_samples, tx_amp);
+		if (!deemph) {
+			sound_gain(mod_out, nom_modem_samples, tx_amp);
+		} else {
+			emphasis_prede_48_gain(deemph_state, mod_out, nom_modem_samples, tx_amp);
+		}
 		tx_sound_out(mod_out, nom_modem_samples);
 
 		printf("-");
@@ -425,6 +437,15 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
 	
 	free(mod_out);
 	mod_out = calloc(sizeof(int16_t), nom_modem_samples);
+
+	/* Yes, de-emph to 'fix' transmitters doing emphasis */
+	deemph = atoi(freedv_eth_config_value("freedv_tx_deemph", NULL, "0"));
+	printf("TX de-emph: %d\n", deemph);
+	if (deemph_state)
+		emphasis_destroy(deemph_state);
+	deemph_state = NULL;
+	if (deemph)
+		deemph_state = emphasis_init();
 
 	return 0;
 }
