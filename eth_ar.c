@@ -41,7 +41,7 @@ static char alnum2code[37] = {
 	0
 };
 
-int eth_ar_call2mac(uint8_t mac[6], char *callsign, int ssid, bool multicast)
+int eth_ar_call2mac(uint8_t mac[6], const char *callsign, int ssid, bool multicast)
 {
 	uint64_t add = 0;
 	int i;
@@ -81,7 +81,7 @@ int eth_ar_call2mac(uint8_t mac[6], char *callsign, int ssid, bool multicast)
 	return 0;
 }
 
-int eth_ar_callssid2mac(uint8_t mac[6], char *callsign, bool multicast)
+int eth_ar_callssid2mac(uint8_t mac[6], const char *callsign, bool multicast)
 {
 	int ssid = 0;
 	char call[9];

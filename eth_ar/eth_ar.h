@@ -53,8 +53,8 @@ extern "C" {
 #define ETH_AR_CALL_LEN_MAX	8
 #define ETH_AR_CALL_SIZE	9
 
-int eth_ar_call2mac(uint8_t mac[ETH_AR_MAC_SIZE], char *callsign, int ssid, bool multicast);
-int eth_ar_callssid2mac(uint8_t mac[ETH_AR_MAC_SIZE], char *callsign, bool multicast);
+int eth_ar_call2mac(uint8_t mac[ETH_AR_MAC_SIZE], const char *callsign, int ssid, bool multicast);
+int eth_ar_callssid2mac(uint8_t mac[ETH_AR_MAC_SIZE], const char *callsign, bool multicast);
 int eth_ar_mac2call(char *callsign, int *ssid, bool *multicast, uint8_t mac[ETH_AR_MAC_SIZE]);
 int eth_ar_mac_ssid_mask(uint8_t masked_mac[ETH_AR_MAC_SIZE], const uint8_t mac[ETH_AR_MAC_SIZE]);
 
