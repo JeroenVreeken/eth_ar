@@ -47,7 +47,7 @@ static double level_dbm = -80.0;
 static uint8_t rx_add[6], mac[6];
 
 #define RX_SYNC_ZERO 15.0
-#define RX_SYNC_DATABONUS 45.0
+#define RX_SYNC_DATABONUS 40.0
 #define RX_SYNC_THRESHOLD 90.0
 
 static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -149,7 +149,8 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 
 void freedv_eth_rx_cb_datarx(void *arg, unsigned char *packet, size_t size)
 {
-	rx_sync += RX_SYNC_DATABONUS;
+	if (rx_sync < RX_SYNC_DATABONUS)
+		rx_sync += RX_SYNC_DATABONUS;
 	if (size == 12) {
 		if (memcmp(rx_add, packet + 6, 6)) {
 			char callstr[9];
