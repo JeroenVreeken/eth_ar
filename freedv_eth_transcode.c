@@ -36,6 +36,7 @@ struct freedv_eth_transcode {
 	int trans_enc_mode;
 	int trans_enc_samples_frame;
 	int trans_enc_bytes_frame;
+	int trans_dec_bytes_frame;
 	int trans_rate_native;
 	struct sound_resample *sr;
 	int sr_rate_in;
@@ -106,8 +107,12 @@ int freedv_eth_transcode(struct freedv_eth_transcode *tc, struct tx_packet *pack
 					codec2_destroy(tc->trans_dec);
 				tc->trans_dec_mode = from_codecmode;
 				tc->trans_dec = codec2_create(tc->trans_dec_mode);
+				tc->trans_dec_bytes_frame = codec2_bits_per_frame(tc->trans_dec);
+				tc->trans_dec_bytes_frame += 7;
+				tc->trans_dec_bytes_frame /= 8;
 			}
-			samples_in = codec2_samples_per_frame(tc->trans_dec);
+			int frames = packet->len / tc->trans_dec_bytes_frame;
+			samples_in = codec2_samples_per_frame(tc->trans_dec) * frames;
 			break;
 		}
 	}
@@ -149,9 +154,15 @@ int freedv_eth_transcode(struct freedv_eth_transcode *tc, struct tx_packet *pack
 			}
 			break;
 		}
-		default:
-			codec2_decode(tc->trans_dec, speech_in, packet->data);
+		default: {
+			int cbytes = 0;
+			int i;
+			for (i = 0; i < samples_in; i+= codec2_samples_per_frame(tc->trans_dec)) {
+				codec2_decode(tc->trans_dec, speech_in + i, packet->data + cbytes);
+				cbytes += tc->trans_dec_bytes_frame;
+			}
 			break;
+		}
 	}
 
 	int samples_out = 0;

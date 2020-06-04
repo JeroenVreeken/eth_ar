@@ -164,7 +164,7 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[ETH_AR_MAC_SIZE],
 		val=1;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC, &val);
 		// Add factor 2.0 since speex seems to aim on half the value
-		fval=32768.0 / rx_gain * 2.0;
+		fval=32768.0 / rx_gain;
 		speex_preprocess_ctl(st, SPEEX_PREPROCESS_SET_AGC_LEVEL, &fval);
 		
 		val = 40; // default 12

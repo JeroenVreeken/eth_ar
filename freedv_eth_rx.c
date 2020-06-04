@@ -106,14 +106,11 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 			
 			cdc |= (ret && rx_sync > RX_SYNC_THRESHOLD);
 			if (ret && cdc) {
-				int i;
-				for (i = 0; i < bytes_per_freedv_frame/bytes_per_codec2_frame; i++) {
-					freedv_eth_voice_rx(
-					    bcast, rx_add, eth_type_rx,
-					    packed_codec_bits + i * bytes_per_codec2_frame,
-					    bytes_per_codec2_frame, true,
-					    transmission, level_dbm);
-				}
+				freedv_eth_voice_rx(
+				    bcast, rx_add, eth_type_rx,
+				    packed_codec_bits,
+				    bytes_per_freedv_frame, true,
+				    transmission, level_dbm);
 				printf(".");
 				fflush(NULL);
 				cdc_voice = true;
