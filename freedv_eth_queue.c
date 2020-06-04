@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 #include <string.h>
+#include <math.h>
 
 static _Atomic(struct tx_packet *) tx_packet_pool = NULL;
 
