@@ -57,6 +57,17 @@ fprs_monitor_LDADD = libeth_ar.la
 eth_ar_if_SOURCES = eth_ar_if.c
 eth_ar_if_LDADD = libeth_ar.la
 
+
+if ENABLE_GPS
+
+bin_PROGRAMS += fprs_gps
+
+fprs_gps_SOURCES = fprs_gps.c interface.c
+fprs_gps_LDADD = libeth_ar.la
+fprs_gps_LDFLAGS = -lgps -lm
+
+endif
+
 endif
 
 emphasis_test_SOURCES = emphasis_test.c emphasis.c

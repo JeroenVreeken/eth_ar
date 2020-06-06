@@ -67,6 +67,13 @@ AC_CHECK_DECLS([IFF_UP], [linux_if_found_headers=yes], [],
 AM_CONDITIONAL(ENABLE_INTERFACE, test "x$linux_if_found_headers" = "xyes")
 
 
+# libgpps
+PKG_CHECK_MODULES([LIBGPS], [libgps], [libgps_found=yes], [libgps_found=no])
+
+AM_CONDITIONAL(ENABLE_GPS, test "x$libgps_found" = "xyes")
+
+
+
 AC_OUTPUT([Makefile])
 
 
@@ -75,4 +82,4 @@ echo "    hamlib          : " $hamlib_found_headers
 echo "    libsamplerate   : " $samplerate_found_headers
 echo "    libspeexdsp     : " $speexdsp_found_headers
 echo "    linux/if header : " $linux_if_found_headers
-
+echo "    libgps          : " $libgps_found
