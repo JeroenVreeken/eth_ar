@@ -171,7 +171,7 @@ static void freedv_eth_tx_none(int nr)
 }
 
 
-static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level)
+static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len)
 {
 	struct tx_packet *packet;
 	
@@ -179,11 +179,13 @@ static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE],
 		return 0;
 	
 	if (eth_ar_eth_p_isvoice(eth_type)) {
-		if (len > tx_packet_max())
+		if (len > tx_packet_max() || len < 2)
 			return 0;
+		uint8_t transmission = data[0];
+		uint8_t level = data[15];
 		packet = tx_packet_alloc();
 		packet->len = len;
-		memcpy(packet->data, data, len);
+		memcpy(packet->data, data+2, len-2);
 		memcpy(packet->from, from, 6);
 		
 		freedv_eth_transcode(tc, packet, tx_codecmode, eth_type);
@@ -193,7 +195,7 @@ static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE],
 		if (q && baseband_out) {
 			packet = tx_packet_alloc();
 			packet->len = len;
-			memcpy(packet->data, data, len);
+			memcpy(packet->data, data+2, len-2);
 			memcpy(packet->from, from, 6);
 		
 			freedv_eth_transcode(tc, packet, CODEC_MODE_NATIVE16, eth_type);
@@ -625,7 +627,7 @@ int main(int argc, char **argv)
 				freedv_eth_tx_none(nr_samples);
 		}
 		if (fds[poll_int].revents & POLLIN) {
-			interface_tx(cb_int_tx);
+			interface_tx_raw(cb_int_tx);
 		}
 		if (sound_poll_in_rx(fds + sound_fdc_tx, sound_fdc_rx)) {
 			sound_rx();
