@@ -147,6 +147,7 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[ETH_AR_MAC_SIZE],
 
 	int rxa_delay_msec = atoi(freedv_eth_config_value("rx_delay", NULL, "0"));
 	rxa_dcd_threshold = rxa_delay_msec * msec_samples;
+	printf("RXA rx delay samples: %d\n", rxa_dcd_cnt);
 
 	rxa_dcd_cnt = -rxa_dcd_threshold;
 	cdc = false;
