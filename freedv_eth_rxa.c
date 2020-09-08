@@ -41,6 +41,8 @@ static float rx_gain = 1.0;
 static float limit = 1.0;
 static char dtmf_control_start = '*';
 static char dtmf_control_stop = '#';
+static int rxa_dcd_threshold = 0;
+static int rxa_dcd_cnt = 0;
 
 static uint8_t transmission = 0;
 static double level_dbm = -60;
@@ -105,6 +107,16 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 		queue_voice_end(transmission);
 		transmission++;
 	}
+
+	if (!new_cdc) {
+		rxa_dcd_cnt = -rxa_dcd_threshold;
+		cdc = false;
+	} else {
+		if (rxa_dcd_cnt >= 0) {
+			cdc = true;
+		}
+		rxa_dcd_cnt += nr;
+	}
 	cdc = new_cdc;
 
 	dtmf_rx(samples, nr, cb_control, &detected);
@@ -130,6 +142,13 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[ETH_AR_MAC_SIZE],
 	memcpy(mac, mac_init, 6);
 	printf("Analog rx gain: %f\n", rx_gain);
 
+	int msec_samples = FREEDV_ALAW_RATE / 1000;
+	printf("RXA samples per msec: %d\n", msec_samples);
+
+	int rxa_delay_msec = atoi(freedv_eth_config_value("rx_delay", NULL, "0"));
+	rxa_dcd_threshold = rxa_delay_msec * msec_samples;
+
+	rxa_dcd_cnt = -rxa_dcd_threshold;
 	cdc = false;
 
 	if (!dtmf_initialized) {
