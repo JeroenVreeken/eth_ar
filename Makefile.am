@@ -38,7 +38,7 @@ fprs_test_LDADD = libeth_ar.la
 if ENABLE_INTERFACE
 bin_PROGRAMS += fprs2aprs_gate fprs_request fprs_destination fprs_monitor
 
-test_eth_SOURCES = interface.c beacon.c test_eth.c
+test_eth_SOURCES = interface.c beacon.c test_eth.c freedv_eth_config.c
 test_eth_LDADD = libeth_ar.la
 test_eth_LDFLAGS = -lm
 

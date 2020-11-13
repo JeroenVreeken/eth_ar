@@ -17,6 +17,7 @@
  */
 
 #include "beacon.h"
+#include "freedv_eth_config.h"
 #include <stdio.h>
 
 #include <string.h>
@@ -82,8 +83,6 @@ static char *beacon_morsecode[][2] = {
 #define MORSE_WPM	20
 #define MORSE_PARIS_DOTS	50
 #define MORSE_SINE_FREQ		500
-#define MORSE_SINE_AMP		4096
-#define MORSE_SINE_MUL_SILENCE	4
 #define MORSE_FACTOR_DASH	3
 #define MORSE_FACTOR_IGAP	1
 #define MORSE_FACTOR_LGAP	2 /* I+L = 3 */
@@ -108,6 +107,7 @@ enum morse_state {
 	MORSE_STATE_LGAP,
 };
 
+static int morse_sine_mul_silence = 4;
 
 struct beacon {
 	enum morse_state state;
@@ -153,6 +153,13 @@ struct beacon *beacon_init(int rate, int state_interval, int beacon_interval, ch
 	struct beacon *beacon;
 	int i;
 	
+	float amp = atof(freedv_eth_config_value("analog_tx_beacon_amp", NULL, "1.0"));
+	float amp_busy = atof(freedv_eth_config_value("analog_tx_beacon_amp_busy", NULL, "0.25"));
+
+	int morse_sine_amp = 16384 * amp_busy;
+	
+	morse_sine_mul_silence = (amp / amp_busy) + 0.5;
+
 	beacon = calloc(1, sizeof(struct beacon));
 	if (!beacon)
 		return NULL;
@@ -177,10 +184,10 @@ struct beacon *beacon_init(int rate, int state_interval, int beacon_interval, ch
 		morse_lgap = calloc(sizeof(int16_t), morse_lgap_size);
 		morse_wgap = calloc(sizeof(int16_t), morse_wgap_size);
 		for (i = 0; i < morse_dot_size; i++) {
-			morse_dot[i] = double2int16(sin((M_PI*2*i)/(rate/MORSE_SINE_FREQ))*MORSE_SINE_AMP);
+			morse_dot[i] = double2int16(sin((M_PI*2*i)/(rate/MORSE_SINE_FREQ))*morse_sine_amp);
 		}
 		for (i = 0; i < morse_dash_size; i++) {
-			morse_dash[i] = double2int16(sin((M_PI*2*i)/(rate/MORSE_SINE_FREQ))*MORSE_SINE_AMP);
+			morse_dash[i] = double2int16(sin((M_PI*2*i)/(rate/MORSE_SINE_FREQ))*morse_sine_amp);
 		}
 
 	}
@@ -216,7 +223,7 @@ int beacon_generate(struct beacon *beacon, int16_t *sound, int nr)
 	beacon_generate_add(beacon, sound, nr);
 	
 	for (i = 0; i < nr; i++) {
-		int val = sound[i] * MORSE_SINE_MUL_SILENCE;
+		int val = sound[i] * morse_sine_mul_silence;
 		if (val > 32767)
 			val = 32767;
 		if (val < -32768)
