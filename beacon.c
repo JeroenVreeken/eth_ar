@@ -159,6 +159,7 @@ struct beacon *beacon_init(int rate, int state_interval, int beacon_interval, ch
 	int morse_sine_amp = 16384 * amp_busy;
 	
 	morse_sine_mul_silence = (amp / amp_busy) + 0.5;
+	printf ("Beacon more amp %d, multiply factor for silence: %d\n", morse_sine_amp, morse_sine_mul_silence);
 
 	beacon = calloc(1, sizeof(struct beacon));
 	if (!beacon)
