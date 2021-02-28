@@ -125,10 +125,8 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
     struct nmea_state *init_nmea, bool init_fullduplex,
     int hw_rate,
     int tx_tail_msec, int tx_delay_msec,
-    int tx_header_msec, int tx_header_max_msec,
-    int tx_fprs_msec,
     int tx_channel,
-    double tx_amp);
+    bool modem);
 char freedv_eth_tx_vc_callback(void *arg);
 void freedv_eth_tx_state_machine(void);
 bool freedv_eth_tx_ptt(void);
@@ -138,22 +136,22 @@ void freedv_eth_tx_cb_datatx(void *arg, unsigned char *packet, size_t *size);
 #define FREEDV_ALAW_RATE 8000
 
 int freedv_eth_txa_init(bool init_fullduplex, int hw_rate, 
-    int tx_tail_msec, 
-    double ctcss_f, double ctcss_amp,
-    int beacon_interval, char *beacon_msg,
-    bool emphasis,
-    bool init_output_tone,
-    double tx_amp);
+    int tx_tail_msec);
 void freedv_eth_txa_state_machine(void);
 bool freedv_eth_txa_ptt(void);
 
 bool freedv_eth_rxa_cdc(void);
-int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], 
-    bool emphasis, double ctcss_freq, int dtmf_mute,
-    float rx_gain, int hw_nr);
+int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], int hw_nr);
 void freedv_eth_rxa(int16_t *samples, int nr);
 
 int freedv_eth_bb_in_init(int hw_rate, uint8_t mac_init[6], int nr_hw);
 bool freedv_eth_baseband_in_cdc(void);
+
+int freedv_eth_modem_init(char *modem_file, struct freedv *init_freedv);
+void freedv_eth_modem_poll(short *events);
+void freedv_eth_modem_rx(int fd_modem);
+void freedv_eth_modem_tx(int fd_modem);
+void freedv_eth_modem_tx_add(signed char *tx_sym, size_t nr);
+bool freedv_eth_modem_tx_empty(int fd_modem);
 
 #endif /* _INCLUDE_FREEDV_ETH_H_ */

@@ -62,9 +62,6 @@ static bool baseband_in_tx;
 
 static int tx_delay_msec;
 static int tx_tail_msec;
-static int tx_header_msec = 500;
-static int tx_header_max_msec = 5000;
-static int tx_fprs_msec = 30000;
 static bool freedv_hasdata;
 static uint8_t mac[ETH_AR_MAC_SIZE];
 
@@ -302,18 +299,24 @@ int main(int argc, char **argv)
 {
 	int fd_int;
 	int fd_nmea = -1;
+	int fd_modem = -1;
 	struct pollfd *fds;
-	int sound_fdc_tx;
-	int sound_fdc_rx;
+	int sound_fdc_tx = 0;
+	int sound_fdc_rx = 0;
 	int nfds;
-	int poll_int;
+	int poll_i = 0;
+	int poll_int = 0;
 	int poll_nmea = 0;
+	int poll_modem = 0;
 	uint16_t type;
-	int nr_samples;
-	int freedv_mode;
+	int nr_samples = 0;
+	int freedv_mode = -1;
 	rig_model_t rig_model;
 	ptt_type_t ptt_type = RIG_PTT_NONE;
 	dcd_type_t dcd_type = RIG_DCD_NONE;
+	bool analog_in = false;
+
+	bool need_sound = false;
 
 	if (argc < 2) {
 		usage();
@@ -343,27 +346,20 @@ int main(int argc, char **argv)
 	vc_control = atoi(freedv_eth_config_value("control_vc", NULL, "0"));
 	char *rig_ptt_type = freedv_eth_config_value("rig_ptt_type", NULL, "NONE");
 	char *rig_dcd_type = freedv_eth_config_value("rig_dcd_type", NULL, "NONE");
-	double analog_tx_amp = atof(freedv_eth_config_value("analog_tx_amp", NULL, "1.0"));
-	double freedv_tx_amp = atof(freedv_eth_config_value("freedv_tx_amp", NULL, "1.0"));
 	char *freedv_tx_sound_channel = freedv_eth_config_value("freedv_tx_sound_channel", NULL, "left");
 	char *freedv_rx_sound_channel = freedv_eth_config_value("freedv_rx_sound_channel", NULL, "left");
 	char *analog_rx_sound_channel = freedv_eth_config_value("analog_rx_sound_channel", NULL, "left");
-	float analog_rx_gain = atof(freedv_eth_config_value("analog_rx_gain", NULL, "1.0"));
 	char *tx_mode_str = freedv_eth_config_value("tx_mode", NULL, "freedv");
 	char *rx_mode_str = freedv_eth_config_value("rx_mode", NULL, "freedv");
-	double rx_ctcss_f = atof(freedv_eth_config_value("analog_rx_ctcss_frequency", NULL, "0.0"));
-	double tx_ctcss_f = atof(freedv_eth_config_value("analog_tx_ctcss_frequency", NULL, "0.0"));
-	double tx_ctcss_amp = atof(freedv_eth_config_value("analog_tx_ctcss_amp", NULL, "0.15"));
-	int beacon_interval = atoi(freedv_eth_config_value("analog_tx_beacon_interval", NULL, "0"));
-	char *beacon_msg = freedv_eth_config_value("analog_tx_beacon_message", NULL, "");
-	bool tx_emphasis = atoi(freedv_eth_config_value("analog_tx_emphasis", NULL, "0"));
-	bool rx_emphasis = atoi(freedv_eth_config_value("analog_rx_emphasis", NULL, "0"));
 	int dcd_threshold = atoi(freedv_eth_config_value("analog_rx_dcd_threshold", NULL, "1"));
-	bool tx_tone = atoi(freedv_eth_config_value("analog_tx_tone", NULL, "0"));
-	int dtmf_mute = atoi(freedv_eth_config_value("analog_dtmf_mute", NULL, "1"));
 	baseband_out = atoi(freedv_eth_config_value("baseband_out", NULL, "0"));
 	baseband_in = atoi(freedv_eth_config_value("baseband_in", NULL, "0"));
 	baseband_in_tx = atoi(freedv_eth_config_value("baseband_in_tx", NULL, "0"));
+	char *modem_file = freedv_eth_config_value("external_modem", NULL, NULL);
+
+	if (!modem_file) {
+		need_sound = true;
+	}
 	
 	if (!strcmp(freedv_mode_str, "1600")) {
 		freedv_mode = FREEDV_MODE_1600;
@@ -407,27 +403,35 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	
+	printf("TX mode: %s\n", tx_mode_str);
 	if (!strcmp(tx_mode_str, "none")) {
 		tx_mode = TX_MODE_NONE;
 	} else if (!strcmp(tx_mode_str, "freedv")) {
 		tx_mode = TX_MODE_FREEDV;
 	} else if (!strcmp(tx_mode_str, "analog")) {
 		tx_mode = TX_MODE_ANALOG;
+		need_sound = true;
+		analog_in = true;
 	} else if (!strcmp(rx_mode_str, "mixed")) {
 		tx_mode = RX_MODE_MIXED;
+		need_sound = true;
+		analog_in = true;
 	} else {
 		printf("Invalid tx_mode\n");
 		return -1;
 	}
 	
+	printf("RX mode: %s\n", rx_mode_str);
 	if (!strcmp(rx_mode_str, "none")) {
 		rx_mode = RX_MODE_NONE;
 	} else if (!strcmp(rx_mode_str, "freedv")) {
 		rx_mode = RX_MODE_FREEDV;
 	} else if (!strcmp(rx_mode_str, "analog")) {
 		rx_mode = RX_MODE_ANALOG;
+		need_sound = true;
 	} else if (!strcmp(rx_mode_str, "mixed")) {
 		rx_mode = RX_MODE_MIXED;
+		need_sound = true;
 	} else {
 		printf("Invalid rx_mode\n");
 		return -1;
@@ -510,6 +514,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	
+	printf("Opening freedv: mode %s: %d\n", freedv_mode_str, freedv_mode);
 	freedv = freedv_open(freedv_mode);
 
 	freedv_set_callback_txt(freedv, freedv_eth_rx_vc_callback, freedv_eth_tx_vc_callback, NULL);
@@ -527,26 +532,31 @@ int main(int argc, char **argv)
 		force_channels_in = 2;
 
 	fd_int = interface_init(netname, mac, true, 0);
-	sound_rate = sound_init(sounddev, cb_sound_in, sound_rate, force_channels_in, 2);
-	if (sound_rate < 0)
-		return -1;
-
+	if (need_sound) {
+		sound_rate = sound_init(sounddev, cb_sound_in, sound_rate, force_channels_in, 2);
+		if (sound_rate < 0)
+			return -1;
+	}
+	
 	tc = freedv_eth_transcode_init(sound_rate);
 	tc_iface = freedv_eth_transcode_init(sound_rate);
 	
-	if (tx_mode == TX_MODE_FREEDV) {
-		int freedv_rate = freedv_get_modem_sample_rate(freedv);
-		printf("freedv sample rate: %d\n", freedv_rate);
-		nr_samples = freedv_get_n_nom_modem_samples(freedv) * sound_rate / freedv_rate;
-	} else {
-		nr_samples = FREEDV_ALAW_NR_SAMPLES * sound_rate / FREEDV_ALAW_RATE;
+	if (need_sound) {
+		if (tx_mode == TX_MODE_FREEDV) {
+			int freedv_rate = freedv_get_modem_sample_rate(freedv);
+			printf("freedv sample rate: %d\n", freedv_rate);
+			nr_samples = freedv_get_n_nom_modem_samples(freedv) * sound_rate / freedv_rate;
+		} else {
+			nr_samples = FREEDV_ALAW_NR_SAMPLES * sound_rate / FREEDV_ALAW_RATE;
+		}
+		printf("nom number of modem samples: %d\n", nr_samples);
+
+		sound_set_nr(nr_samples);
 	}
-	printf("nom number of modem samples: %d\n", nr_samples);
-
-	sound_set_nr(nr_samples);
-
+	
 	freedv_eth_rx_init(freedv, mac, sound_rate);
-	freedv_eth_rxa_init(sound_rate, mac, rx_emphasis, rx_ctcss_f, dtmf_mute, analog_rx_gain, nr_samples);
+	if (analog_in)
+		freedv_eth_rxa_init(sound_rate, mac, nr_samples);
 
 	if (baseband_in)
 		freedv_eth_bb_in_init(sound_rate, mac, nr_samples);
@@ -556,20 +566,13 @@ int main(int argc, char **argv)
 		freedv_eth_tx_init(freedv, mac, nmea, fullduplex,
 		    sound_rate,
 		    tx_tail_msec, tx_delay_msec,
-		    tx_header_msec, tx_header_max_msec,
-		    tx_fprs_msec,
 		    freedv_tx_channel,
-		    freedv_tx_amp);
+		    modem_file ? true : false);
 	}
 	if (tx_mode == TX_MODE_ANALOG || tx_mode == TX_MODE_MIXED) {
 		freedv_eth_txa_init(fullduplex, 
 		    sound_rate, 
-		    tx_tail_msec,
-		    tx_ctcss_f, tx_ctcss_amp,
-		    beacon_interval, beacon_msg,
-		    tx_emphasis,
-		    tx_tone,
-		    analog_tx_amp);
+		    tx_tail_msec);
 	}
 	
 	if (nmeadev) {
@@ -577,6 +580,13 @@ int main(int argc, char **argv)
 		if (fd_nmea >= 0) {
 			nmea = nmea_state_create();
 			printf("GPS device: %s\n", nmeadev);
+		}
+	}
+	if (modem_file) {
+		fd_modem = freedv_eth_modem_init(modem_file, freedv);
+		if (fd_modem < 0) {
+			printf("Could not open modem: %s\n", modem_file);
+			return -1;
 		}
 	}
 
@@ -588,25 +598,47 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	sound_fdc_tx = sound_poll_count_tx();
-	sound_fdc_rx = sound_poll_count_rx();
-	nfds = sound_fdc_tx + sound_fdc_rx + 1 + (nmea ? 1 : 0);
+	if (need_sound) {
+		sound_fdc_tx = sound_poll_count_tx();
+		sound_fdc_rx = sound_poll_count_rx();
+	}
+	nfds = sound_fdc_tx + sound_fdc_rx + 1 + (nmea ? 1 : 0) + (modem_file ? 1 : 0);
 	fds = calloc(sizeof(struct pollfd), nfds);
 	
-	sound_poll_fill_tx(fds, sound_fdc_tx);
-	sound_poll_fill_rx(fds + sound_fdc_tx, sound_fdc_rx);
-	poll_int = sound_fdc_tx + sound_fdc_rx;
+	poll_i = 0;
+	if (need_sound) {
+		sound_poll_fill_tx(fds, sound_fdc_tx);
+		sound_poll_fill_rx(fds + sound_fdc_tx, sound_fdc_rx);
+		poll_i += sound_fdc_tx + sound_fdc_rx;
+	}
+	poll_int = poll_i++;
 	fds[poll_int].fd = fd_int;
 	fds[poll_int].events = POLLIN;
 	if (nmea) {
-		poll_nmea = poll_int + 1;
+		poll_nmea = poll_i++;
 		fds[poll_nmea].fd = fd_nmea;
 		fds[poll_nmea].events = POLLIN;
 	}
+	if (modem_file) {
+		poll_modem = poll_i++;
+		fds[poll_modem].fd = fd_modem;
+	}
 	
 	do {
+		if (modem_file) {
+			freedv_eth_modem_poll(&fds[poll_modem].events);
+		}
+		
 		poll(fds, nfds, -1);
-		if (sound_poll_out_tx(fds, sound_fdc_tx)) {
+
+		bool do_tx_state_machine;
+		
+		if (modem_file) {
+			do_tx_state_machine = freedv_eth_modem_tx_empty(fd_modem);
+		} else {
+			do_tx_state_machine = need_sound && sound_poll_out_tx(fds, sound_fdc_tx);
+		}
+		if (do_tx_state_machine) {
 			if (tx_mode == TX_MODE_MIXED) {
 				bool q_v = queue_voice_filled(1);
 				bool q_d = queue_data_filled() || queue_control_filled();
@@ -629,11 +661,19 @@ int main(int argc, char **argv)
 		if (fds[poll_int].revents & POLLIN) {
 			interface_tx_raw(cb_int_tx);
 		}
-		if (sound_poll_in_rx(fds + sound_fdc_tx, sound_fdc_rx)) {
+		if (need_sound && sound_poll_in_rx(fds + sound_fdc_tx, sound_fdc_rx)) {
 			sound_rx();
 		}
 		if (nmea && fds[poll_nmea].revents & POLLIN) {
 			read_nmea(fd_nmea);
+		}
+		if (modem_file) {
+			if (fds[poll_modem].revents & POLLIN) {
+				freedv_eth_modem_rx(fd_modem);
+			}
+			if (fds[poll_modem].revents & POLLOUT) {
+				freedv_eth_modem_tx(fd_modem);
+			}
 		}
 	} while (1);
 	

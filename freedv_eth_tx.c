@@ -58,8 +58,11 @@ static struct nmea_state *nmea;
 
 static struct freedv *freedv = NULL;
 
+static bool modem;
 static int nom_modem_samples;
 static int16_t *mod_out;
+static int modem_symbols;
+static signed char *sym_out = NULL;
 static struct sound_resample *sr0 = NULL;
 static struct sound_resample *sr1 = NULL;
 static bool deemph = false;
@@ -131,15 +134,20 @@ static void check_tx_add(void)
 
 static void data_tx(void)
 {
-	freedv_datatx(freedv, mod_out);
-	
-	if (!deemph) {
-		sound_gain(mod_out, nom_modem_samples, tx_amp);
+	if (modem) {
+		freedv_datasymtx(freedv, sym_out);
+		freedv_eth_modem_tx_add(sym_out, modem_symbols);
 	} else {
-		emphasis_prede_48_gain(deemph_state, mod_out, nom_modem_samples, tx_amp);
-	}
+		freedv_datatx(freedv, mod_out);
 	
-	tx_sound_out(mod_out, nom_modem_samples);
+		if (!deemph) {
+			sound_gain(mod_out, nom_modem_samples, tx_amp);
+		} else {
+			emphasis_prede_48_gain(deemph_state, mod_out, nom_modem_samples, tx_amp);
+		}
+	
+		tx_sound_out(mod_out, nom_modem_samples);
+	}
 	
 	if (tx_state == TX_STATE_ON) {
 		if (queue_voice_filled(bytes_per_freedv_frame))
@@ -202,15 +210,20 @@ static void tx_voice(void)
 	if (send_data_frame) {
 		data_tx();
 	} else {
-		freedv_rawdatatx(freedv, mod_out, data);
-			
-		if (!deemph) {
-			sound_gain(mod_out, nom_modem_samples, tx_amp);
+		if (modem) {
+			freedv_rawdatasymtx(freedv, sym_out, data);
+			freedv_eth_modem_tx_add(sym_out, modem_symbols);
 		} else {
-			emphasis_prede_48_gain(deemph_state, mod_out, nom_modem_samples, tx_amp);
+			freedv_rawdatatx(freedv, mod_out, data);
+			
+			if (!deemph) {
+				sound_gain(mod_out, nom_modem_samples, tx_amp);
+			} else {
+				emphasis_prede_48_gain(deemph_state, mod_out, nom_modem_samples, tx_amp);
+			}
+			tx_sound_out(mod_out, nom_modem_samples);
 		}
-		tx_sound_out(mod_out, nom_modem_samples);
-
+		
 		printf("-");
 		fflush(NULL);
 	}
@@ -242,6 +255,22 @@ char freedv_eth_tx_vc_callback(void *arg)
 	return c;
 }
 
+void tx_idle(void)
+{
+	if (modem) {
+		int nr_sym = freedv_get_n_modem_symbols(freedv);
+		signed char sym_out[nr_sym];
+		int i;
+		signed char sym = 1;
+		for (i = 0; i < nr_sym; i++) {
+			sym_out[i] = sym;
+			sym = -sym;
+		}
+		freedv_eth_modem_tx_add(sym_out, nr_sym);
+	} else {
+		sound_silence();
+	}
+}
 
 void freedv_eth_tx_state_machine(void)
 {
@@ -260,7 +289,7 @@ void freedv_eth_tx_state_machine(void)
 
 				check_tx_add();
 			} else {
-				sound_silence();
+				tx_idle();
 				break;
 			}
 		case TX_STATE_DELAY:
@@ -381,11 +410,16 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
     struct nmea_state *init_nmea, bool init_fullduplex,
     int hw_rate,
     int tx_tail_msec, int tx_delay_msec,
-    int tx_header_msec, int tx_header_max_msec,
-    int tx_fprs_msec,
     int tx_channel_init,
-    double tx_amp_init)
+    bool modem_init)
 {
+	double tx_amp_init = atof(freedv_eth_config_value("freedv_tx_amp", NULL, "1.0"));
+	int tx_fprs_msec = 30000;
+	int tx_header_msec = 500;
+	int tx_header_max_msec = 5000;
+
+	modem = modem_init;
+
 	freedv = init_freedv;
 	nmea = init_nmea;
 	fullduplex = init_fullduplex;
@@ -437,6 +471,11 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
 	
 	free(mod_out);
 	mod_out = calloc(sizeof(int16_t), nom_modem_samples);
+
+	modem_symbols = freedv_get_n_modem_symbols(freedv);
+	
+	free(sym_out);
+	sym_out = calloc(sizeof(signed char), modem_symbols);
 
 	/* Yes, de-emph to 'fix' transmitters doing emphasis */
 	deemph = atoi(freedv_eth_config_value("freedv_tx_deemph", NULL, "0"));

@@ -55,7 +55,7 @@ enum dtmf_state {
 
 static enum dtmf_state dtmf_state = DTMF_IDLE;
 
-SpeexPreprocessState *st = NULL;
+static SpeexPreprocessState *st = NULL;
 
 bool freedv_eth_rxa_cdc(void)
 {
@@ -134,10 +134,13 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	}
 }
 
-int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[ETH_AR_MAC_SIZE], 
-    bool emphasis, double ctcss_freq, int dtmf_mute_init,
-    float rx_gain_init, int hw_nr)
+int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[ETH_AR_MAC_SIZE], int hw_nr)
 {
+	double ctcss_freq = atof(freedv_eth_config_value("analog_rx_ctcss_frequency", NULL, "0.0"));
+	bool emphasis = atoi(freedv_eth_config_value("analog_rx_emphasis", NULL, "0"));
+	float rx_gain_init = atof(freedv_eth_config_value("analog_rx_gain", NULL, "1.0"));
+	int dtmf_mute_init = atoi(freedv_eth_config_value("analog_dtmf_mute", NULL, "1"));
+
 	rx_gain = rx_gain_init;
 	memcpy(mac, mac_init, 6);
 	printf("Analog rx gain: %f\n", rx_gain);

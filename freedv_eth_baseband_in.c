@@ -35,7 +35,7 @@ static uint8_t bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static bool cdc = false;
 static struct sound_resample *sr = NULL;
 static float rx_gain = 1.0;
-SpeexPreprocessState *st;
+static SpeexPreprocessState *st;
 
 static uint8_t transmission = 0;
 static double level_dbm = -10;

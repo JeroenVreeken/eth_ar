@@ -32,4 +32,7 @@ bool freedv_eth_rx_cdc(void);
 void freedv_eth_rx_vc_callback(void *arg, char c);
 void freedv_eth_rx_cb_datarx(void *arg, unsigned char *packet, size_t size);
 
+void freedv_eth_symrx(signed char *rxsym);
+
+
 #endif /* _INCLUDE_FREEDV_ETH_RX_H_ */

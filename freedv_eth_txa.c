@@ -51,6 +51,7 @@ static bool output_tone = false;
 static enum io_hl_ptt ptt = IO_HL_PTT_OFF;
 static bool tx_tail_other = false;
 static double amp = 1.0;
+static int beacon_channel = 0;
 
 struct beacon_sample *beep_1k;
 struct beacon_sample *beep_1k2;
@@ -134,49 +135,59 @@ static void tx_voice(void)
 		if (!beacon) {
 			tx_silence();
 		} else {
-			int16_t buffer[nr_samples];
-			int16_t *bp1 = NULL;
+			int16_t buffer0[nr_samples];
 			int16_t buffer_tone[nr_samples];
+			int16_t *bpb = NULL;
+			int16_t *bpt = NULL;
 			
-			beacon_generate(beacon, buffer, nr_samples);
+			memset(buffer0, 0, sizeof(int16_t)*nr_samples);
+			memset(buffer_tone, 0, sizeof(int16_t)*nr_samples);
+			
+			if (beacon_channel == 0)
+				bpb = buffer0;
+			else
+				bpb = buffer_tone;
+			beacon_generate(beacon, bpb, nr_samples);
+			
 			if (tx_hadvoice) {
 				if (ctcss) {
 					if (output_tone) {
-						bp1 = buffer_tone;
-						memset(buffer_tone, 0, sizeof(int16_t)*nr_samples);
-						ctcss_add(ctcss, buffer_tone, nr_samples);
+						bpt = buffer_tone;
 					} else {
-						ctcss_add(ctcss, buffer, nr_samples);
+						bpt = buffer0;
 					}
+					ctcss_add(ctcss, bpt, nr_samples);
 				}
 			}
 			if (emphasis_p)
-				emphasis_pre(emphasis_p, buffer, nr_samples);
-			tx_sound_out(buffer, bp1, nr_samples);
+				emphasis_pre(emphasis_p, buffer0, nr_samples);
+			tx_sound_out(buffer0, buffer_tone, nr_samples);
 		}
 	} else {
 		int nr = packet->len / sizeof(short);
-		int16_t buffer[nr];
-		int16_t *bp1 = NULL;
+		int16_t buffer0[nr];
 		int16_t buffer_tone[nr];
 
 		tx_hadvoice = true;
-		memcpy(buffer, packet->data, packet->len);
+		memcpy(buffer0, packet->data, packet->len);
+		memset(buffer_tone, 0, packet->len);
 		
-		if (beacon)
-			beacon_generate_add(beacon, buffer, nr);
+		if (beacon) {
+			int16_t *bpb = buffer0;
+			if (beacon_channel == 1)
+				bpb = buffer_tone;
+			beacon_generate_add(beacon, bpb, nr);
+		}
 		if (emphasis_p)
-			emphasis_pre(emphasis_p, buffer, nr);
+			emphasis_pre(emphasis_p, buffer0, nr);
 		if (ctcss) {
 			if (output_tone) {
-				bp1 = buffer_tone;
-				memset(buffer_tone, 0, packet->len);
 				ctcss_add(ctcss, buffer_tone, nr);
 			} else {
-				ctcss_add(ctcss, buffer, nr);
+				ctcss_add(ctcss, buffer0, nr);
 			}
 		}
-		tx_sound_out(buffer, bp1, nr);
+		tx_sound_out(buffer0, buffer_tone, nr);
 
 		packet = dequeue_voice();
 		tx_packet_free(packet);
@@ -313,14 +324,26 @@ bool freedv_eth_txa_ptt(void)
 	return tx_state != TX_STATE_OFF;
 }
 
-int freedv_eth_txa_init(bool init_fullduplex, int hw_rate, 
-    int tx_tail_msec, 
-    double ctcss_f, double ctcss_amp,
-    int beacon_interval, char *beacon_msg,
-    bool emphasis,
-    bool init_output_tone,
-    double analog_amp)
+int freedv_eth_txa_init(bool init_fullduplex, int hw_rate, int tx_tail_msec)
 {
+	double analog_amp = atof(freedv_eth_config_value("analog_tx_amp", NULL, "1.0"));
+	double ctcss_f = atof(freedv_eth_config_value("analog_tx_ctcss_frequency", NULL, "0.0"));
+	double ctcss_amp = atof(freedv_eth_config_value("analog_tx_ctcss_amp", NULL, "0.15"));
+	int beacon_interval = atoi(freedv_eth_config_value("analog_tx_beacon_interval", NULL, "0"));
+	char *beacon_msg = freedv_eth_config_value("analog_tx_beacon_message", NULL, "");
+	bool emphasis = atoi(freedv_eth_config_value("analog_tx_emphasis", NULL, "0"));
+	bool init_output_tone = atoi(freedv_eth_config_value("analog_tx_tone", NULL, "0"));
+	char *beacon_sound_channel = freedv_eth_config_value("analog_tx_beacon_sound_channel", NULL, "left");
+
+	if (!strcmp(beacon_sound_channel, "left")) {
+		beacon_channel = 0;
+	} else if (!strcmp(beacon_sound_channel, "right")) {
+		beacon_channel = 1;
+	} else {
+		/* Assume it is a number and limit it to odd or even */
+		beacon_channel = atoi(beacon_sound_channel) & 0x1;
+	}
+
 	beep_1k = beacon_beep_create(hw_rate, 1000.0, 0.45, 0.25, 0.25);
 	beep_1k2 = beacon_beep_create(hw_rate, 1200.0, 0.15, 0.15, 0.25);
 	beep_2k = beacon_beep_create(hw_rate, 2000.0, 0.10, 0.20, 0.25);

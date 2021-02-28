@@ -57,39 +57,10 @@ bool freedv_eth_rx_cdc(void)
 	return cdc;
 }
 
-
-void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
+static void freedv_eth_rx_rawdata(int ret, unsigned char *packed_codec_bits)
 {
-	int nr;
-	int16_t *samples;
-
-	if (sr) {
-		nr = sound_resample_nr_out(sr, hw_nr);
-		samples = alloca(sizeof(int16_t) * nr);
-		sound_resample_perform(sr, samples, hw_samples, nr, hw_nr);
-	} else {
-		nr = hw_nr;
-		samples = hw_samples;
-	}
-
-	while (nr) {
-		int nin = freedv_nin(freedv);
-		int copy = nin - nr_rx;
-		if (copy > nr)
-			copy = nr;
-
-		memcpy(samples_rx + nr_rx, samples, copy * sizeof(int16_t));
-		samples += copy;
-		nr -= copy;
-		nr_rx += copy;
-		
-		if (nr_rx == nin) {
-			unsigned char packed_codec_bits[bytes_per_freedv_frame];
-			
 			bool old_cdc = cdc;
 			
-			int ret = freedv_rawdatarx(freedv, packed_codec_bits, samples_rx);
-
 			/* Don't 'detect' a voice signal to soon. 
 			 */
 			int sync;
@@ -140,12 +111,54 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 				queue_voice_end(transmission);
 				transmission++;
 			}
+}
 
+void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
+{
+	int nr;
+	int16_t *samples;
+
+	if (sr) {
+		nr = sound_resample_nr_out(sr, hw_nr);
+		samples = alloca(sizeof(int16_t) * nr);
+		sound_resample_perform(sr, samples, hw_samples, nr, hw_nr);
+	} else {
+		nr = hw_nr;
+		samples = hw_samples;
+	}
+
+	while (nr) {
+		int nin = freedv_nin(freedv);
+		int copy = nin - nr_rx;
+		if (copy > nr)
+			copy = nr;
+
+		memcpy(samples_rx + nr_rx, samples, copy * sizeof(int16_t));
+		samples += copy;
+		nr -= copy;
+		nr_rx += copy;
+		
+		if (nr_rx == nin) {
+			unsigned char packed_codec_bits[bytes_per_freedv_frame];
+
+			int ret = freedv_rawdatarx(freedv, packed_codec_bits, samples_rx);
+			
+			freedv_eth_rx_rawdata(ret, packed_codec_bits);
 
 			nr_rx = 0;
 		}
 	}
 }
+
+void freedv_eth_symrx(signed char *rxsym)
+{
+	unsigned char packed_codec_bits[bytes_per_freedv_frame];
+
+	int ret = freedv_rawdatasymrx(freedv, packed_codec_bits, rxsym);
+
+	freedv_eth_rx_rawdata(ret, packed_codec_bits);
+}
+
 
 void freedv_eth_rx_cb_datarx(void *arg, unsigned char *packet, size_t size)
 {
