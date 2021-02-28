@@ -135,7 +135,9 @@ static void check_tx_add(void)
 static void data_tx(void)
 {
 	if (modem) {
+#if defined(FREEDV_MODE_6000)
 		freedv_datasymtx(freedv, sym_out);
+#endif
 		freedv_eth_modem_tx_add(sym_out, modem_symbols);
 	} else {
 		freedv_datatx(freedv, mod_out);
@@ -211,7 +213,9 @@ static void tx_voice(void)
 		data_tx();
 	} else {
 		if (modem) {
+#if defined(FREEDV_MODE_6000)
 			freedv_rawdatasymtx(freedv, sym_out, data);
+#endif
 			freedv_eth_modem_tx_add(sym_out, modem_symbols);
 		} else {
 			freedv_rawdatatx(freedv, mod_out, data);
@@ -258,7 +262,10 @@ char freedv_eth_tx_vc_callback(void *arg)
 void tx_idle(void)
 {
 	if (modem) {
-		int nr_sym = freedv_get_n_modem_symbols(freedv);
+		int nr_sym = 0;
+#if defined(FREEDV_MODE_6000)
+		nr_sym = freedv_get_n_modem_symbols(freedv);
+#endif
 		signed char sym_out[nr_sym];
 		int i;
 		signed char sym = 1;

@@ -381,6 +381,7 @@ int freedv_eth_txa_init(bool init_fullduplex, int hw_rate, int tx_tail_msec)
 	if (beacon_interval) {
 		printf("TXA beacon interval %d, message: %s\n", beacon_interval, beacon_msg);
 		beacon = beacon_init(hw_rate, nr_samples, beacon_interval, beacon_msg);
+		printf("TXA beacon sound channel %d\n", beacon_channel);
 	}
 
 	emphasis_destroy(emphasis_p);
