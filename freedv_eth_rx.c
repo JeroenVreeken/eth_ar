@@ -152,9 +152,9 @@ void freedv_eth_rx(int16_t *hw_samples, int hw_nr)
 
 void freedv_eth_symrx(signed char *rxsym)
 {
+#if defined(FREEDV_MODE_6000)
 	unsigned char packed_codec_bits[bytes_per_freedv_frame];
 
-#if defined(FREEDV_MODE_6000)
 	int ret = freedv_rawdatasymrx(freedv, packed_codec_bits, rxsym);
 
 	freedv_eth_rx_rawdata(ret, packed_codec_bits);
