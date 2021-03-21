@@ -28,6 +28,7 @@ static struct txbuffer *txq = NULL;
 
 int freedv_eth_modem_init(char *modem_file, struct freedv *freedv)
 {
+#if defined(FREEDV_MODE_6000)
 	int fd_modem = open(modem_file, O_RDWR);
 	if (fd_modem < 0) {
 		printf("Could not open modem: %s\n", modem_file);
@@ -45,6 +46,9 @@ int freedv_eth_modem_init(char *modem_file, struct freedv *freedv)
 	rx_sym = realloc(rx_sym, nr_sym);
 	
 	return fd_modem;
+#else
+	return -1;
+#endif
 }
 
 void freedv_eth_modem_poll(short *events)
