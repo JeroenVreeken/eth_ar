@@ -479,7 +479,9 @@ int freedv_eth_tx_init(struct freedv *init_freedv, uint8_t init_mac[6],
 	free(mod_out);
 	mod_out = calloc(sizeof(int16_t), nom_modem_samples);
 
+#if defined(FREEDV_MODE_6000)
 	modem_symbols = freedv_get_n_modem_symbols(freedv);
+#endif
 	
 	free(sym_out);
 	sym_out = calloc(sizeof(signed char), modem_symbols);
