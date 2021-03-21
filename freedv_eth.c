@@ -179,7 +179,7 @@ static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE],
 		if (len > tx_packet_max() || len < 2)
 			return 0;
 		uint8_t transmission = data[0];
-		uint8_t level = data[15];
+		uint8_t level = data[1];
 		packet = tx_packet_alloc();
 		packet->len = len;
 		memcpy(packet->data, data+2, len-2);
