@@ -28,6 +28,8 @@ static struct txbuffer *txq = NULL;
 
 int freedv_eth_modem_init(char *modem_file, struct freedv *freedv)
 {
+	modem_tx = false;
+
 #if defined(FREEDV_MODE_6000)
 	int fd_modem = open(modem_file, O_RDWR);
 	if (fd_modem < 0) {
@@ -39,8 +41,6 @@ int freedv_eth_modem_init(char *modem_file, struct freedv *freedv)
 	//clear: TIOCMBIC
 	ioctl(fd_modem, TIOCMBIC, &(int){TIOCM_DTR});
 	ioctl(fd_modem, TIOCMBIC, &(int){TIOCM_RTS});
-
-	modem_tx = false;
 
 	nr_sym = freedv_get_n_modem_symbols(freedv);
 	rx_sym = realloc(rx_sym, nr_sym);
