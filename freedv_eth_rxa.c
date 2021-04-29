@@ -93,6 +93,14 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 		skip_prep = !new_cdc;
 	}
 
+	dtmf_rx(samples, nr, cb_control, &detected);
+	if (detected) {
+		if ((dtmf_mute == 1) ||
+		    (dtmf_mute == 2 && dtmf_state == DTMF_CONTROL) ||
+		    (dtmf_mute == 2 && dtmf_state == DTMF_CONTROL_TAIL))
+			memset(samples, 0, nr * sizeof(int16_t)); 
+	}
+
 	if (st && !skip_prep)
 		speex_preprocess_run(st, samples);
 
@@ -119,14 +127,6 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 	}
 	cdc = new_cdc;
 
-	dtmf_rx(samples, nr, cb_control, &detected);
-	if (detected) {
-		if ((dtmf_mute == 1) ||
-		    (dtmf_mute == 2 && dtmf_state == DTMF_CONTROL) ||
-		    (dtmf_mute == 2 && dtmf_state == DTMF_CONTROL_TAIL))
-			memset(samples, 0, nr * sizeof(int16_t)); 
-	}
-
 	if (cdc) {
 		freedv_eth_voice_rx(bcast, mac, ETH_P_NATIVE16, (uint8_t *)samples, nr * sizeof(int16_t), true, transmission, level_dbm);
 	} else {
@@ -145,7 +145,7 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[ETH_AR_MAC_SIZE], int hw_n
 	memcpy(mac, mac_init, 6);
 	printf("Analog rx gain: %f\n", rx_gain);
 
-	int msec_samples = FREEDV_ALAW_RATE / 1000;
+	int msec_samples = hw_rate / 1000;
 	printf("RXA samples per msec: %d\n", msec_samples);
 
 	int rxa_delay_msec = atoi(freedv_eth_config_value("rx_delay", NULL, "0"));

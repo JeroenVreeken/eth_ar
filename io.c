@@ -404,6 +404,9 @@ bool io_dmlassoc_get(void)
 
 void io_dmlassoc_set(bool val)
 {
+	if (val != io_dmlassoc) {
+		printf("DMLASSOC state: %d -> %d\n", io_dmlassoc, val);
+	}
 	io_dmlassoc = val;
 }
 

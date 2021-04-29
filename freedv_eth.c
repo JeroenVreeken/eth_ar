@@ -212,7 +212,6 @@ static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE],
 					assoc = true;
 				}
 				io_dmlassoc_set(assoc);
-				printf("DMLASSOC state: %d\n", assoc);
 			}
 			fprs_frame_destroy(frame);
 		}
