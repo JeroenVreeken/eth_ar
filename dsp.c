@@ -78,7 +78,7 @@
  
 
 
-static double DTMF_OPTIMIZED_VALUE =    102;
+static double DTMF_OPTIMIZED_VALUE_8000 =    102;
  
 //#define DTMF_THRESHOLD		8.0e7
 static double DTMF_THRESHOLD =     8000000000.0; // aluigi work-around
@@ -127,6 +127,7 @@ typedef struct
 	int current_hit;
 	double energy;
 	int current_sample;
+	int samples;
 } dtmf_detect_state_t;
 
 
@@ -206,9 +207,11 @@ static void ast_dtmf_detect_init (dtmf_detect_state_t *s, int rate)
 	s->lasthit = 0;
 	s->current_hit = 0;
 	for (i = 0;  i < 4;  i++) {
-		goertzel_init (&s->row_out[i], dtmf_row[i], DTMF_OPTIMIZED_VALUE, rate);
-		goertzel_init (&s->col_out[i], dtmf_col[i], DTMF_OPTIMIZED_VALUE, rate);
+		int opt_samples = DTMF_OPTIMIZED_VALUE_8000 * rate / 8000;
+		goertzel_init (&s->row_out[i], dtmf_row[i], opt_samples, rate);
+		goertzel_init (&s->col_out[i], dtmf_col[i], opt_samples, rate);
 		s->energy = 0.0;
+		s->samples = opt_samples;
 	}
 	s->current_sample = 0;
 }
@@ -254,9 +257,9 @@ static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples,
 	*detected = false;
 	hit = 0;
 	for (sample = 0;  sample < samples;  sample = limit) {
-		/* DTMF_OPTIMIZED_VALUE is optimised to meet the DTMF specs. */
-		if ((samples - sample) >= (DTMF_OPTIMIZED_VALUE - s->dtmf.current_sample))
-			limit = sample + (DTMF_OPTIMIZED_VALUE - s->dtmf.current_sample);
+		/* s->dtmf.samples is optimised to meet the DTMF specs. */
+		if ((samples - sample) >= (s->dtmf.samples - s->dtmf.current_sample))
+			limit = sample + (s->dtmf.samples - s->dtmf.current_sample);
 		else
 			limit = samples;
 		/* The following unrolled loop takes only 35% (rough estimate) of the 
@@ -276,7 +279,7 @@ static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples,
 			goertzel_sample(s->dtmf.col_out + 3, amp[j]);
 		}
 		s->dtmf.current_sample += (limit - sample);
-		if (s->dtmf.current_sample < DTMF_OPTIMIZED_VALUE) {
+		if (s->dtmf.current_sample < s->dtmf.samples) {
 			if (hit && !((digitmode & DSP_DIGITMODE_NOQUELCH))) {
 				/* If we had a hit last time, go ahead and clear this out since likely it
 				   will be another hit */

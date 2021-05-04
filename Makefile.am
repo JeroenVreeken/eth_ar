@@ -11,8 +11,8 @@ libeth_ar_la_LDFLAGS= -fPIC -version-info 1:0:1 -lm
 nobase_include_HEADERS = eth_ar/eth_ar.h eth_ar/fprs.h eth_ar/alaw.h eth_ar/ulaw.h
 
 bin_PROGRAMS = eth_ar_callssid2mac
-noinst_PROGRAMS = eth_ar_if fprs_test emphasis_test eth_ar_test test_eth
-TESTS = fprs_test eth_ar_test
+noinst_PROGRAMS = eth_ar_if fprs_test emphasis_test eth_ar_test test_eth dtmf_test
+TESTS = fprs_test eth_ar_test dtmf_test
 
 if ENABLE_HAMLIB
 if ENABLE_SAMPLERATE
@@ -34,6 +34,8 @@ eth_ar_test_LDADD = libeth_ar.la
 
 fprs_test_SOURCES = nmea.c fprs_test.c
 fprs_test_LDADD = libeth_ar.la
+
+dtmf_test_SOURCES = dsp.c dtmf_test.c
 
 if ENABLE_INTERFACE
 bin_PROGRAMS += fprs2aprs_gate fprs_request fprs_destination fprs_monitor
