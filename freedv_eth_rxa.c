@@ -93,12 +93,14 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 		skip_prep = !new_cdc;
 	}
 
-	dtmf_rx(samples, nr, cb_control, &detected);
-	if (detected) {
-		if ((dtmf_mute == 1) ||
-		    (dtmf_mute == 2 && dtmf_state == DTMF_CONTROL) ||
-		    (dtmf_mute == 2 && dtmf_state == DTMF_CONTROL_TAIL))
-			memset(samples, 0, nr * sizeof(int16_t)); 
+	if (cdc) {
+		dtmf_rx(samples, nr, cb_control, &detected);
+		if (detected) {
+			if ((dtmf_mute == 1) ||
+			    (dtmf_mute == 2 && dtmf_state == DTMF_CONTROL) ||
+			    (dtmf_mute == 2 && dtmf_state == DTMF_CONTROL_TAIL))
+				memset(samples, 0, nr * sizeof(int16_t)); 
+		}
 	}
 
 	if (st && !skip_prep)
