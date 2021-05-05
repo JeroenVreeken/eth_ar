@@ -142,7 +142,7 @@ bool freedv_eth_txa_ptt(void);
 
 bool freedv_eth_rxa_cdc(void);
 int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[6], int hw_nr);
-void freedv_eth_rxa(int16_t *samples, int nr);
+void freedv_eth_rxa(int16_t *samples, int nr, int16_t *samples_other);
 
 int freedv_eth_bb_in_init(int hw_rate, uint8_t mac_init[6], int nr_hw);
 bool freedv_eth_baseband_in_cdc(void);
