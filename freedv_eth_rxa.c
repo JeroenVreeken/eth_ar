@@ -111,7 +111,7 @@ void freedv_eth_rxa(int16_t *samples, int nr, int16_t *samples_other)
 	if (emphasis_d)
 		emphasis_de(emphasis_d, samples, nr);
 //	if (ctcss_sql) {
-		bool ctcss_detect = ctcss_detect_rx(samples, nr);
+		bool ctcss_detect = ctcss_detect_rx(samples_other, nr);
 //		new_cdc = ctcss_detect;
 if (new_cdc) printf("%d %d\n", new_cdc, ctcss_detect);
 //	}
