@@ -82,18 +82,18 @@ static void cb_control(char *ctrl)
 }
 
 
-void freedv_eth_rxa(int16_t *samples, int nr, int16_t *samples_other)
+void freedv_eth_rxa(int16_t *samples, int nr)
 {
 	bool detected;
 	bool new_cdc = false;
 	bool skip_prep = false;
 	
-//	if (!ctcss_sql) {
+	if (!ctcss_sql) {
 		new_cdc = io_hl_dcd_get();
 		skip_prep = !new_cdc;
-//	}
+	}
 
-	if (cdc) {
+	if (dcd) {
 		dtmf_rx(samples, nr, cb_control, &detected);
 		if (detected) {
 			if ((dtmf_mute == 1) ||
@@ -110,11 +110,9 @@ void freedv_eth_rxa(int16_t *samples, int nr, int16_t *samples_other)
 
 	if (emphasis_d)
 		emphasis_de(emphasis_d, samples, nr);
-//	if (ctcss_sql) {
-		bool ctcss_detect = ctcss_detect_rx(samples_other, nr);
-//		new_cdc = ctcss_detect;
-if (new_cdc) printf("%d %d\n", new_cdc, ctcss_detect);
-//	}
+	if (ctcss_sql) {
+		new_cdc = ctcss_detect_rx(samples, nr);
+	}
 	if (cdc && !new_cdc) {
 		queue_voice_end(transmission);
 		transmission++;
@@ -170,10 +168,9 @@ int freedv_eth_rxa_init(int hw_rate, uint8_t mac_init[ETH_AR_MAC_SIZE], int hw_n
 	if (emphasis)
 		emphasis_d = emphasis_init();
 
-	ctcss_freq = 71.9;
 	if (ctcss_freq > 0.0) {
 		ctcss_detect_init(ctcss_freq, hw_rate);
-//		ctcss_sql = true;
+		ctcss_sql = true;
 	} else {
 		ctcss_sql = false;
 	}
