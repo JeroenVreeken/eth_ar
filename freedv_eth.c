@@ -154,9 +154,9 @@ static void cb_sound_in(int16_t *samples_l, int16_t *samples_r, int nr_l, int nr
 	if (rx_mode == RX_MODE_ANALOG ||
 	    rx_mode == RX_MODE_MIXED) {
 		if (analog_rx_channel == 0) {
-			freedv_eth_rxa(samples_l, nr_l, samples_r);
+			freedv_eth_rxa(samples_l, nr_l);
 		} else {
-			freedv_eth_rxa(samples_r, nr_r, samples_l);
+			freedv_eth_rxa(samples_r, nr_r);
 		}
 	}
 }

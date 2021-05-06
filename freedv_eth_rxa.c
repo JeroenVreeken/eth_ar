@@ -93,7 +93,7 @@ void freedv_eth_rxa(int16_t *samples, int nr)
 		skip_prep = !new_cdc;
 	}
 
-	if (dcd) {
+	if (cdc) {
 		dtmf_rx(samples, nr, cb_control, &detected);
 		if (detected) {
 			if ((dtmf_mute == 1) ||
