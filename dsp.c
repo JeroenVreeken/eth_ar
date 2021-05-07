@@ -128,6 +128,7 @@ typedef struct
 	double energy;
 	int current_sample;
 	int samples;
+	double threshold;
 } dtmf_detect_state_t;
 
 
@@ -185,6 +186,7 @@ static inline double goertzel_result(goertzel_state_t *s)
 	r.value = (s->v3 * s->v3) + (s->v2 * s->v2);
 	r.value -= ((s->v2 * s->v3) >> 15) * s->fac;
 	r.power = s->chunky * 2;
+//	printf("val %d power %d\n", r.value, r.power);
 	return (double)r.value * (double)(1 << r.power);
 }
 
@@ -214,6 +216,9 @@ static void ast_dtmf_detect_init (dtmf_detect_state_t *s, int rate)
 		s->samples = opt_samples;
 	}
 	s->current_sample = 0;
+	int rsq = rate / 8000;
+	rsq = rsq * rsq;
+	s->threshold = DTMF_THRESHOLD * rsq;
 }
 
 
@@ -305,8 +310,8 @@ static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples,
 		hit = 0;
 
 		/* Basic signal level test and the twist test */
-		if (row_energy[best_row] >= DTMF_THRESHOLD && 
-		    col_energy[best_col] >= DTMF_THRESHOLD &&
+		if (row_energy[best_row] >= s->dtmf.threshold && 
+		    col_energy[best_col] >= s->dtmf.threshold &&
 //		    col_energy[best_col] < row_energy[best_row] *DTMF_REVERSE_TWIST &&          // aluigi work-around
 		    col_energy[best_col]*DTMF_NORMAL_TWIST > row_energy[best_row]) {
 			/* Relative peak test */
@@ -399,6 +404,7 @@ static int ctcss_samples_cur;
 static unsigned ctcss_result;
 static double ctcss_threshold_level = 4e10;
 static unsigned ctcss_threshold_mask = 0xf;
+static double ctcss_rate_fac = 1;
 
 bool ctcss_detect_rx(short *smp, int nr)
 {
@@ -416,6 +422,8 @@ bool ctcss_detect_rx(short *smp, int nr)
 		if (ctcss_samples_cur == ctcss_samples) {
 			double r = goertzel_result(&ctcss_gs);
 			
+			r *= ctcss_rate_fac;
+			
 			ctcss_result <<= 1;
 			ctcss_result |= r > ctcss_threshold_level;
 			
@@ -432,12 +440,15 @@ bool ctcss_detect_rx(short *smp, int nr)
 
 int ctcss_detect_init(double freq, int rate)
 {
-	ctcss_samples = (rate * 8)/freq;
-	printf("RX CTCSS: %fHz, %d samples in bin (%dms)\n", freq, ctcss_samples, ctcss_samples/8);
+	ctcss_samples = rate / freq * 1;
+	printf("RX CTCSS: %fHz, %d samples in bin (%dms)\n", freq, ctcss_samples, 1000*ctcss_samples/rate);
 	goertzel_init(&ctcss_gs, freq, ctcss_samples, rate);
 	goertzel_reset(&ctcss_gs);
 	ctcss_samples_cur = 0;
 	ctcss_result = 0;
+	
+	double tsq = rate / 8000.0;
+	ctcss_rate_fac = 1 / (tsq * tsq);
 	
 	return 0;
 }
