@@ -53,6 +53,14 @@ extern "C" {
 #define ETH_AR_CALL_LEN_MAX	8
 #define ETH_AR_CALL_SIZE	9
 
+struct eth_ar_voice_header {
+	uint8_t to[ETH_AR_MAC_SIZE];
+	uint8_t from[ETH_AR_MAC_SIZE];
+	uint16_t type;
+	uint8_t nr;
+	uint8_t level;
+} __attribute__((__packed__));
+
 int eth_ar_call2mac(uint8_t mac[ETH_AR_MAC_SIZE], const char *callsign, int ssid, bool multicast);
 int eth_ar_callssid2mac(uint8_t mac[ETH_AR_MAC_SIZE], const char *callsign, bool multicast);
 int eth_ar_mac2call(char *callsign, int *ssid, bool *multicast, uint8_t mac[ETH_AR_MAC_SIZE]);

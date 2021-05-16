@@ -328,14 +328,14 @@ static int dtmf_detect(digit_detect_state_t *s, int16_t amp[], int samples,
 			    (row_energy[best_row] + col_energy[best_col]) > DTMF_TO_TOTAL_ENERGY*s->dtmf.energy*/) {     // aluigi work-around
 				/* Got a hit */
 
-//printf("%e\t%e\t%e\t"
-//"%e %e %e %e | "
-//"%e %e %e %e"
-//"\n", DTMF_THRESHOLD, col_energy[best_col],
-//row_energy[best_row],
-//col_energy[0],col_energy[1],col_energy[2],col_energy[3],
-//row_energy[0],row_energy[1],row_energy[2],row_energy[3]
-//);
+if(0) printf("%e\t%e\t%e\t%f %f\t-"
+"%e %e %e %e | "
+"%e %e %e %e"
+"\n", s->dtmf.threshold, col_energy[best_col], row_energy[best_row],
+col_energy[best_col]/s->dtmf.threshold, row_energy[best_row]/s->dtmf.threshold,
+col_energy[0],col_energy[1],col_energy[2],col_energy[3],
+row_energy[0],row_energy[1],row_energy[2],row_energy[3]
+);
 				hit = dtmf_positions[(best_row << 2) + best_col];
 				if (!(digitmode & DSP_DIGITMODE_NOQUELCH)) {
 					/* Zero out frame data if this is part DTMF */

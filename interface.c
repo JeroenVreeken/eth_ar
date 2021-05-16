@@ -36,19 +36,21 @@ static bool outgoing = false;
 
 int interface_rx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level)
 {
-	uint8_t packet[len + 16];
+	size_t packet_size = len + sizeof(struct eth_ar_voice_header);
+	uint8_t packet[packet_size];
 	
-	memcpy(packet, to, 6);
-	memcpy(packet + 6, from, 6);
-	packet[12] = eth_type >> 8;
-	packet[13] = eth_type & 0xff;
-	packet[14] = transmission;
-	packet[15] = level;
+	struct eth_ar_voice_header *header = (void*)packet;
 	
-	memcpy(packet + 16, data, len);
+	memcpy(header->to, to, 6);
+	memcpy(header->from, from, 6);
+	header->type = htons(eth_type);
+	header->nr = transmission;
+	header->level = level;
 	
-//	printf("Packet to interface %zd\n", sizeof(packet));
-	return write(fd, packet, sizeof(packet)) <= 0;
+	memcpy(packet + sizeof(struct eth_ar_voice_header), data, len);
+	
+//	printf("Packet to interface %zd\n", packet_size);
+	return write(fd, packet, packet_size) <= 0;
 }
 int interface_rx_raw(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len)
 {
@@ -68,14 +70,15 @@ int interface_rx_raw(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE],
 static int interface_tx_tap(size_t doff, int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
 {
 	uint8_t data[2048];
+	struct eth_ar_voice_header *header = (void*)data;
 	size_t len;
 	
 	len = read(fd, data, 2048);
 	if (len > doff) {
 //		int i;
-		uint16_t eth_type = (data[12] << 8) | data[13];
+		uint16_t eth_type = ntohs(header->type);
 		
-		return cb(data, data + 6, eth_type, data + doff, len - doff, data[14], data[15]);
+		return cb(header->to, header->from, eth_type, data + doff, len - doff, header->nr, header->level);
 	}
 	
 	return 0;
@@ -85,6 +88,7 @@ static int interface_tx_tap(size_t doff, int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], 
 static int interface_tx_sock(size_t doff, int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
 {
 	uint8_t data[2048];
+	struct eth_ar_voice_header *header = (void*)data;
 	ssize_t len;
 	
 	struct sockaddr_ll addr;
@@ -93,13 +97,13 @@ static int interface_tx_sock(size_t doff, int (*cb)(uint8_t to[ETH_AR_MAC_SIZE],
 	len = recvfrom(fd, data, 2048, 0, (struct sockaddr*)&addr, &addr_len);
 
 //	len = read(fd, data, 2048);
-	if (len > 16) {
+	if (len > doff) {
 //		int i;
 		
 	        if (addr.sll_pkttype != PACKET_OUTGOING || outgoing) {
-			uint16_t eth_type = (data[12] << 8) | data[13];
+			uint16_t eth_type = ntohs(header->type);
 		
-			return cb(data, data + 6, eth_type, data + doff, len - doff, data[14], data[15]);
+			return cb(header->to, header->from, eth_type, data + doff, len - doff, header->nr, header->level);
 		}
 	}
 	
@@ -111,7 +115,7 @@ static int interface_tx_sock(size_t doff, int (*cb)(uint8_t to[ETH_AR_MAC_SIZE],
 static int (*interface_tx_func)(size_t doff, int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level));
 int interface_tx(int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len, uint8_t transmission, uint8_t level))
 {
-	return interface_tx_func(16, cb);
+	return interface_tx_func(sizeof(struct eth_ar_voice_header), cb);
 }
 int interface_tx_raw(int (*cb)(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE], uint16_t eth_type, uint8_t *data, size_t len))
 {

@@ -181,7 +181,7 @@ static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE],
 		uint8_t transmission = data[0];
 		uint8_t level = data[1];
 		packet = tx_packet_alloc();
-		packet->len = len;
+		packet->len = len-2;
 		memcpy(packet->data, data+2, len-2);
 		memcpy(packet->from, from, 6);
 		
@@ -191,7 +191,7 @@ static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE],
 
 		if (q && baseband_out) {
 			packet = tx_packet_alloc();
-			packet->len = len;
+			packet->len = len-2;
 			memcpy(packet->data, data+2, len-2);
 			memcpy(packet->from, from, 6);
 		
@@ -220,8 +220,8 @@ static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE],
 			/* TODO: send control as DTMF in analog mode */
 			if (eth_type == ETH_P_AR_CONTROL && vc_control) {
 				packet = tx_packet_alloc();
-				memcpy(packet->data, data, len);
-				packet->len = len;
+				memcpy(packet->data, data + 2, len - 2);
+				packet->len = len -2;
 				packet->off = 0;
 			
 				enqueue_control(packet);
