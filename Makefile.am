@@ -20,11 +20,11 @@ bin_PROGRAMS += analog_trx freedv_eth fprs2aprs_gate eth_ar_if fprs_request fprs
 
 analog_trx_SOURCES = sound.c dsp.c io.c interface.c analog_trx.c freedv_eth_config.c
 analog_trx_LDADD = libeth_ar.la
-analog_trx_LDFLAGS = -lcodec2 -lsamplerate -lasound -lhamlib -lpthread -lm
+analog_trx_LDFLAGS = $(CODEC2_LIBS) -lsamplerate -lasound -lhamlib -lpthread -lm $(SPEEXDSP_LIBS)
 
 freedv_eth_SOURCES = sound.c dsp.c io.c interface.c nmea.c freedv_eth.c freedv_eth_modem.c freedv_eth_rx.c freedv_eth_config.c freedv_eth_transcode.c freedv_eth_queue.c freedv_eth_tx.c freedv_eth_txa.c ctcss.c beacon.c emphasis.c freedv_eth_rxa.c freedv_eth_baseband_in.c
 freedv_eth_LDADD = libeth_ar.la
-freedv_eth_LDFLAGS = -lcodec2 -lsamplerate -lasound -lhamlib -lpthread -lm
+freedv_eth_LDFLAGS = $(CODEC2_LIBS) -lsamplerate -lasound -lhamlib -lpthread -lm $(SPEEXDSP_LIBS)
 
 endif
 endif

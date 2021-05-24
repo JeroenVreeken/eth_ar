@@ -277,11 +277,11 @@ int io_hl_init(rig_model_t rig_model, int dcd_th, ptt_type_t ptt, char *ptt_file
 	rig->state.dcdport.type.dcd = dcd_type;
 
 	if (ptt_file)
-		strncpy(rig->state.pttport.pathname, ptt_file, FILPATHLEN - 1);
+		strncpy(rig->state.pttport.pathname, ptt_file, HAMLIB_FILPATHLEN - 1);
 	if (dcd_file)
-		strncpy(rig->state.dcdport.pathname, dcd_file, FILPATHLEN - 1);
+		strncpy(rig->state.dcdport.pathname, dcd_file, HAMLIB_FILPATHLEN - 1);
 	if (rig_file)
-		strncpy(rig->state.rigport.pathname, rig_file, FILPATHLEN - 1);
+		strncpy(rig->state.rigport.pathname, rig_file, HAMLIB_FILPATHLEN - 1);
 
 	char *conf_set = NULL;
 	while ((conf_set = freedv_eth_config_value("rig_conf_set", conf_set, NULL))) {

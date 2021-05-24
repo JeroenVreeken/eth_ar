@@ -9,9 +9,9 @@ AC_CONFIG_MACRO_DIR([m4])
 
 
 dnl Search for libcodec2
-AC_SEARCH_LIBS([freedv_set_data_header], [codec2], [], [
-  AC_MSG_ERROR([unable to find the freedv data channel functions in libcodec2])
-], [-lm])
+PKG_CHECK_MODULES([CODEC2], [codec2], [], [
+  AC_MSG_ERROR([unable to find libcodec2])
+])
 
 AC_CHECK_HEADERS([codec2/codec2.h codec2/freedv_api.h],
         [codec2_found_headers=yes; break;])
@@ -20,8 +20,9 @@ AS_IF([test "x$codec2_found_headers" != "xyes"],
         [AC_MSG_ERROR([Unable to find the codec2 headers])])
 
 
+
 dnl Search for libsamplerate
-AC_SEARCH_LIBS([src_process], [samplerate], [samplerate_found_lib=yes], [], [-lm])
+PKG_CHECK_MODULES([SAMPLERATE], [samplerate], [samplerate_found_lib=yes], [])
 
 AC_CHECK_HEADERS([samplerate.h],
         [samplerate_found_headers=yes; break;])
@@ -31,7 +32,7 @@ AM_CONDITIONAL(ENABLE_SAMPLERATE, test "x$samplerate_found_headers" = "xyes")
 
 
 dnl Search for libspeexdsp
-AC_SEARCH_LIBS([speex_preprocess_state_init], [speexdsp], [speexdsp_found_lib=yes], [], [-lm])
+PKG_CHECK_MODULES([SPEEXDSP], [speexdsp], [speexdsp_found_lib=yes], [])
 
 AC_CHECK_HEADERS([speex/speex_preprocess.h],
         [speexdsp_found_headers=yes; break;])
@@ -41,12 +42,13 @@ AC_CHECK_HEADERS([speex/speex_preprocess.h],
 
 
 dnl Search for hamlib
-AC_SEARCH_LIBS([rig_init], [hamlib], [hamlib_found_lib=yes], [])
+PKG_CHECK_MODULES([HAMLIB], [hamlib], [hamlib_found_lib=yes], [])
 
 AC_CHECK_HEADERS([hamlib/rig.h],
         [hamlib_found_headers=yes; break;])
 
 AM_CONDITIONAL(ENABLE_HAMLIB, test "x$hamlib_found_headers" = "xyes")
+
 
 AS_IF([test "x$hamlib_found_headers" == "xyes"],
         [AC_CHECK_DECLS([RIG_PTT_GPIO], [], [
@@ -72,6 +74,9 @@ PKG_CHECK_MODULES([LIBGPS], [libgps], [libgps_found=yes], [libgps_found=no])
 
 AM_CONDITIONAL(ENABLE_GPS, test "x$libgps_found" = "xyes")
 
+
+
+AC_SEARCH_LIBS([cos], [m])
 
 
 AC_OUTPUT([Makefile])
