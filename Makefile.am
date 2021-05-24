@@ -6,7 +6,7 @@ lib_LTLIBRARIES=libeth_ar.la
 
 libeth_ar_la_SOURCES= eth_ar.c fprs.c fprs2aprs.c alaw.c ulaw.c 
 libeth_ar_la_CFLAGS=-fPIC 
-libeth_ar_la_LDFLAGS= -fPIC -version-info 1:0:1 -lm
+libeth_ar_la_LDFLAGS= -fPIC -version-info 2:0:2 -lm
 
 nobase_include_HEADERS = eth_ar/eth_ar.h eth_ar/fprs.h eth_ar/alaw.h eth_ar/ulaw.h
 

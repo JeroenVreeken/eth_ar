@@ -227,12 +227,12 @@ static int cb_int_tx(uint8_t to[ETH_AR_MAC_SIZE], uint8_t from[ETH_AR_MAC_SIZE],
 				enqueue_control(packet);
 			} else if (freedv_hasdata) {
 				packet = tx_packet_alloc();
-				packet->len = len + 6 + 6 + 2;
-				memcpy(packet->data + 0, to, 6);
-				memcpy(packet->data + 6, from, 6);
-				packet->data[12] = eth_type >> 8;
-				packet->data[13] = eth_type & 0xff;
-				memcpy(packet->data + 14, data, len);
+				struct ether_header *header = (void*)packet->data;
+				packet->len = len + sizeof(struct ether_header);
+				memcpy(header->ether_dhost, to, 6);
+				memcpy(header->ether_shost, from, 6);
+				header->ether_type = htons(eth_type);
+				memcpy(packet->data + sizeof(struct ether_header), data, len);
 
 				enqueue_data(packet);
 			}

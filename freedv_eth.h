@@ -24,6 +24,8 @@
 #include <codec2/codec2.h>
 #include <codec2/freedv_api.h>
 #include <eth_ar/eth_ar.h>
+#include <net/ethernet.h>
+#include <arpa/inet.h>
 #include <stdint.h>
 #include <stdbool.h>
 
