@@ -1,4 +1,4 @@
-AC_INIT([eth_ar], [0.0], [jeroen@vreeken.net], [https://video.vreeken.net/~dml/])
+AC_INIT([eth_ar], [0.2], [jeroen@vreeken.net], [], [https://video.vreeken.net/~dml/])
 AM_INIT_AUTOMAKE([foreign dist-xz])
 AM_SILENT_RULES([yes])
 LT_INIT
@@ -79,7 +79,12 @@ AM_CONDITIONAL(ENABLE_GPS, test "x$libgps_found" = "xyes")
 AC_SEARCH_LIBS([cos], [m])
 
 
-AC_OUTPUT([Makefile])
+AC_CONFIG_FILES([
+Makefile
+eth_ar.pc
+])
+
+AC_OUTPUT
 
 
 echo "Optional libs:"

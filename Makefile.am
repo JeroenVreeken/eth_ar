@@ -2,6 +2,9 @@ ACLOCAL_AMFLAGS=-I m4
 
 CFLAGS+= -Wall -Werror -O3
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = eth_ar.pc
+
 lib_LTLIBRARIES=libeth_ar.la
 
 libeth_ar_la_SOURCES= eth_ar.c fprs.c fprs2aprs.c alaw.c ulaw.c 

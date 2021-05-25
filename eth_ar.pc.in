@@ -1,0 +1,12 @@
+prefix=@prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: @PACKAGE_NAME@
+Description: @PACKAGE_NAME@
+URL: @PACKAGE_URL@
+Version: @PACKAGE_VERSION@
+
+Requires:
+Cflags: -I${includedir}
+Libs: -L${libdir} -leth_ar
