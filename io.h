@@ -24,6 +24,10 @@
 #include <poll.h>
 #include <hamlib/rig.h>
 
+#ifndef HAMLIB_FILPATHLEN
+#define HAMLIB_FILPATHLEN FILPATHLEN
+#endif
+
 int io_init_tty(void);
 int io_init_input(char *device, bool inputtoggle);
 int io_fs_nr(void);
