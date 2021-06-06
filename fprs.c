@@ -923,9 +923,6 @@ char *fprs_element2stra(struct fprs_element *el)
 bool fprs_type_is_unique(enum fprs_type type)
 {
 	switch(type) {
-		case FPRS_OBJECTNAME:
-		case FPRS_DMLSTREAM:
-			return false;
 		case FPRS_ERROR:
 		case FPRS_POSITION:
 		case FPRS_CALLSIGN:
@@ -941,6 +938,10 @@ bool fprs_type_is_unique(enum fprs_type type)
 		case FPRS_MESSAGEID:
 		case FPRS_MESSAGEACK:
 			return true;
+		case FPRS_OBJECTNAME:
+		case FPRS_DMLSTREAM:
+		case FPRS_DMLGROUP:
+			return false;
 	}
 	return true;
 }
@@ -955,6 +956,7 @@ bool fprs_type_is_property(enum fprs_type type)
 		case FPRS_COMMENT:
 		case FPRS_DMLSTREAM:
 		case FPRS_DMLASSOC:
+		case FPRS_DMLGROUP:
 			return true;
 		case FPRS_ERROR:
 		case FPRS_CALLSIGN:

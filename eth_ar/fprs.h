@@ -92,6 +92,7 @@ enum fprs_type {
 
 	FPRS_DMLSTREAM = 21,	/* DML stream name (variable length) */
 	FPRS_DMLASSOC = 22,	/* DML stream name (variable length) */
+	FPRS_DMLGROUP = 23,	/* DML group name (variable length) */
 	
 	FPRS_MESSAGE = 32,	/* Message text */
 	FPRS_MESSAGEID = 33,	/* Message ID */
