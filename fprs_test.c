@@ -253,7 +253,7 @@ int test_request(void)
 	enum fprs_type elements[3] = { 0x00001, 0x0022, 0x0333 };
 	int nr_elements = 3;
 
-	if (fprs_frame_add_request(frame, callsign, elements, nr_elements)) {
+	if (fprs_frame_add_request(frame, FPRS_CALLSIGN, callsign, sizeof(callsign), elements, nr_elements)) {
 		return -1;
 	}
 
@@ -266,12 +266,22 @@ int test_request(void)
 	enum fprs_type elements2[4];
 	int nr_elements2 = 4;
 	uint8_t callsign2[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	size_t callsign2_size = sizeof(callsign2);
+	enum fprs_type search_type = -1;
 	
-	if (fprs_request_dec(callsign2, elements2, &nr_elements2, 
+	if (fprs_request_dec(&search_type, callsign2, &callsign2_size, elements2, &nr_elements2, 
 	    fprs_element_data(element),
 	    fprs_element_size(element))) {
 		fprintf(stderr, "Could not retrieve request contents\n");
 		return -1;
+	}
+	
+	if (search_type != FPRS_CALLSIGN) {
+		fprintf(stderr, "Wrong search type\n");
+		return -1;
+	}
+	if (callsign2_size != sizeof(callsign2)) {
+		fprintf(stderr, "Wrong search data size\n");
 	}
 	
 	if (memcmp(callsign, callsign2, 6)) {

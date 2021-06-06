@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 	struct fprs_frame *frame = fprs_frame_create();
 	
 	fprs_frame_add_callsign(frame, myaddr);
-	fprs_frame_add_request(frame, taddr, &el, 1);
+	fprs_frame_add_request(frame, FPRS_CALLSIGN, taddr, sizeof(taddr), &el, 1);
 	
 	uint8_t *data;
 	size_t size;

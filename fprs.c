@@ -285,40 +285,54 @@ int fprs_frame_add_destination(struct fprs_frame *frame, uint8_t callsign[6])
 	return 0;
 }
 
-int fprs_frame_add_request(struct fprs_frame *frame, uint8_t callsign[6], enum fprs_type *elements, int nr_elements)
+int fprs_frame_add_request(struct fprs_frame *frame, enum fprs_type search_type, void *search_data, size_t search_size, enum fprs_type *elements, int nr_elements)
 {
 	struct fprs_element *element;
 	int i;
+	size_t el_off = 2 + 1 + search_size;
 	
-	element = fprs_frame_element_add(frame, FPRS_REQUEST, 6 + nr_elements * 2);
+	element = fprs_frame_element_add(frame, FPRS_REQUEST, el_off + nr_elements * 2);
 	if (!element)
 		return -1;
 
-	memcpy(fprs_element_data(element), callsign, 6);
+	fprs_element_data(element)[0] = search_type >> 8;
+	fprs_element_data(element)[1] = search_type & 0xff;
+	fprs_element_data(element)[2] = search_size;
+
+	memcpy(&fprs_element_data(element)[3], search_data, search_size);
 	for (i = 0; i < nr_elements; i++) {
-		fprs_element_data(element)[6 + i * 2 + 0] = elements[i] >> 8;
-		fprs_element_data(element)[6 + i * 2 + 1] = elements[i] & 0xff;
+		fprs_element_data(element)[el_off + i * 2 + 0] = elements[i] >> 8;
+		fprs_element_data(element)[el_off + i * 2 + 1] = elements[i] & 0xff;
 	}
 
 	return 0;
 }
 
-int fprs_request_dec(uint8_t callsign[6], enum fprs_type *elements, int *nr_elements, uint8_t *el_data, size_t el_size)
+int fprs_request_dec(enum fprs_type *search_type, void *search_data, size_t *search_size, enum fprs_type *elements, int *nr_elements, uint8_t *el_data, size_t el_size)
 {
 	int nre;
 	int i;
 	
-	if (el_size < 6)
+	if (el_size < 3)
 		return -1;
-	memcpy(callsign, el_data, 6);
+		
+	*search_type = (el_data[0] << 8) | el_data[1];
+	size_t size = el_data[2];
 	
-	nre = (el_size - 6) / 2;
+	if (*search_size < size)
+		return -2;
+	memcpy(search_data, &el_data[3], size);
+	*search_size = size;
+	
+	size_t el_off = 2 + 1 + *search_size;
+	
+	nre = (el_size - el_off) / 2;
 	if (nre > *nr_elements)
 		return -1;
 	
 	for (i = 0; i < nre; i++) {
 		elements[i] = 
-		    (el_data[6 + i * 2 + 0] << 8) | (el_data[6 + i * 2 + 1]);
+		    (el_data[el_off + i * 2 + 0] << 8) | (el_data[el_off + i * 2 + 1]);
 	}
 	*nr_elements = nre;
 	
@@ -816,16 +830,20 @@ char *fprs_element2stra(struct fprs_element *el)
 		}
 		case FPRS_REQUEST: {
 			uint8_t call[6];
-			char callsign[ETH_AR_CALL_SIZE];
+			char callsign[ETH_AR_CALL_SIZE] = "?";
 			int ssid;
 			bool multicast;
 			enum fprs_type elements[128];
 			int nr_elements = 128;
 			char *el_str = NULL;
 			int i;
+			uint8_t search_data[256];
+			size_t search_size = sizeof(search_data);
+			enum fprs_type search_type;
 			
-			fprs_request_dec(call, elements, &nr_elements, el_data, el_size);
-			eth_ar_mac2call(callsign, &ssid, &multicast, call);
+			fprs_request_dec(&search_type, search_data, &search_size, elements, &nr_elements, el_data, el_size);
+			if (search_type == FPRS_CALLSIGN)
+				eth_ar_mac2call(callsign, &ssid, &multicast, call);
 
 			for (i = 0; i < nr_elements; i++) {
 				if (i)
@@ -899,4 +917,55 @@ char *fprs_element2stra(struct fprs_element *el)
 	}
 	
 	return stra;
+}
+
+
+bool fprs_type_is_unique(enum fprs_type type)
+{
+	switch(type) {
+		case FPRS_OBJECTNAME:
+		case FPRS_DMLSTREAM:
+			return false;
+		case FPRS_ERROR:
+		case FPRS_POSITION:
+		case FPRS_CALLSIGN:
+		case FPRS_SYMBOL:
+		case FPRS_ALTITUDE:
+		case FPRS_VECTOR:
+		case FPRS_COMMENT:
+		case FPRS_REQUEST:
+		case FPRS_DESTINATION:
+		case FPRS_TIMESTAMP:
+		case FPRS_DMLASSOC:
+		case FPRS_MESSAGE:
+		case FPRS_MESSAGEID:
+		case FPRS_MESSAGEACK:
+			return true;
+	}
+	return true;
+}
+
+bool fprs_type_is_property(enum fprs_type type)
+{
+	switch (type) {
+		case FPRS_POSITION:
+		case FPRS_SYMBOL:
+		case FPRS_ALTITUDE:
+		case FPRS_VECTOR:
+		case FPRS_COMMENT:
+		case FPRS_DMLSTREAM:
+		case FPRS_DMLASSOC:
+			return true;
+		case FPRS_ERROR:
+		case FPRS_CALLSIGN:
+		case FPRS_OBJECTNAME:
+		case FPRS_REQUEST:
+		case FPRS_DESTINATION:
+		case FPRS_TIMESTAMP:
+		case FPRS_MESSAGE:
+		case FPRS_MESSAGEID:
+		case FPRS_MESSAGEACK:
+			return false;
+	}
+	return false;
 }

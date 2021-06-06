@@ -97,8 +97,8 @@ enum fprs_type {
 	FPRS_MESSAGEID = 33,	/* Message ID */
 	FPRS_MESSAGEACK = 34,	/* Message acknowledge */
 
-	FPRS_TYPE_MAX = 8191
 };
+#define FPRS_TYPE_MAX 8191
 
 char *fprs_type2str(enum fprs_type);
 
@@ -110,6 +110,9 @@ uint8_t *fprs_element_data(struct fprs_element *element);
 
 char *fprs_element2stra(struct fprs_element *el);
 
+bool fprs_type_is_unique(enum fprs_type type);
+bool fprs_type_is_property(enum fprs_type type);
+
 struct fprs_element *fprs_frame_element_add(struct fprs_frame *frame, enum fprs_type type, size_t size);
 
 int fprs_frame_add_position(struct fprs_frame *, double lon, double lat, bool fixed);
@@ -119,8 +122,8 @@ int fprs_position_dec(double *lon, double *lat, bool *fixed, uint8_t dec[7]);
 int fprs_frame_add_callsign(struct fprs_frame *, uint8_t callsign[6]);
 int fprs_frame_add_destination(struct fprs_frame *, uint8_t callsign[6]);
 
-int fprs_frame_add_request(struct fprs_frame *, uint8_t callsign[6], enum fprs_type *elements, int nr_elements);
-int fprs_request_dec(uint8_t callsign[6], enum fprs_type *elements, int *nr_elements, uint8_t *el_data, size_t el_size);
+int fprs_frame_add_request(struct fprs_frame *frame, enum fprs_type search_type, void *search_data, size_t search_size, enum fprs_type *elements, int nr_elements);
+int fprs_request_dec(enum fprs_type *search_type, void *search_data, size_t *search_size, enum fprs_type *elements, int *nr_elements, uint8_t *el_data, size_t el_size);
 
 int fprs_frame_add_symbol(struct fprs_frame *frame, uint8_t symbol[2]);
 
