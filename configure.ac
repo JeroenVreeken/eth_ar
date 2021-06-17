@@ -22,7 +22,7 @@ AS_IF([test "x$codec2_found_headers" != "xyes"],
 
 
 dnl Search for libsamplerate
-PKG_CHECK_MODULES([SAMPLERATE], [samplerate], [samplerate_found_lib=yes], [])
+PKG_CHECK_MODULES([SAMPLERATE], [samplerate], [samplerate_found_lib=yes], [samplerate_found_lib=no])
 
 AC_CHECK_HEADERS([samplerate.h],
         [samplerate_found_headers=yes; break;])
@@ -32,7 +32,7 @@ AM_CONDITIONAL(ENABLE_SAMPLERATE, test "x$samplerate_found_headers" = "xyes")
 
 
 dnl Search for libspeexdsp
-PKG_CHECK_MODULES([SPEEXDSP], [speexdsp], [speexdsp_found_lib=yes], [])
+PKG_CHECK_MODULES([SPEEXDSP], [speexdsp], [speexdsp_found_lib=yes], [speexdsp_found_lib=no])
 
 AC_CHECK_HEADERS([speex/speex_preprocess.h],
         [speexdsp_found_headers=yes; break;])
@@ -42,7 +42,7 @@ AC_CHECK_HEADERS([speex/speex_preprocess.h],
 
 
 dnl Search for hamlib
-PKG_CHECK_MODULES([HAMLIB], [hamlib], [hamlib_found_lib=yes], [])
+PKG_CHECK_MODULES([HAMLIB], [hamlib], [hamlib_found_lib=yes], [hamlib_found_lib=no])
 
 AC_CHECK_HEADERS([hamlib/rig.h],
         [hamlib_found_headers=yes; break;])
