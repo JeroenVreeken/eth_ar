@@ -9,15 +9,11 @@ AC_CONFIG_MACRO_DIR([m4])
 
 
 dnl Search for libcodec2
-PKG_CHECK_MODULES([CODEC2], [codec2], [], [
-  AC_MSG_ERROR([unable to find libcodec2])
-])
+PKG_CHECK_MODULES([CODEC2], [codec2], [codec2_found_lib=yes], [codec2_found_lib=no])
 
 AC_CHECK_HEADERS([codec2/codec2.h codec2/freedv_api.h],
         [codec2_found_headers=yes; break;])
 
-AS_IF([test "x$codec2_found_headers" != "xyes"],
-        [AC_MSG_ERROR([Unable to find the codec2 headers])])
 
 
 
@@ -27,7 +23,6 @@ PKG_CHECK_MODULES([SAMPLERATE], [samplerate], [samplerate_found_lib=yes], [sampl
 AC_CHECK_HEADERS([samplerate.h],
         [samplerate_found_headers=yes; break;])
 
-AM_CONDITIONAL(ENABLE_SAMPLERATE, test "x$samplerate_found_headers" = "xyes")
 
 
 
@@ -47,7 +42,6 @@ PKG_CHECK_MODULES([HAMLIB], [hamlib], [hamlib_found_lib=yes], [hamlib_found_lib=
 AC_CHECK_HEADERS([hamlib/rig.h],
         [hamlib_found_headers=yes; break;])
 
-AM_CONDITIONAL(ENABLE_HAMLIB, test "x$hamlib_found_headers" = "xyes")
 
 
 AS_IF([test "x$hamlib_found_headers" == "xyes"],
@@ -66,13 +60,11 @@ AS_IF([test "x$hamlib_found_headers" == "xyes"],
 AC_CHECK_DECLS([IFF_UP], [linux_if_found_headers=yes], [],
 	[[#include <linux/if.h>]])
 
-AM_CONDITIONAL(ENABLE_INTERFACE, test "x$linux_if_found_headers" = "xyes")
 
 
 # libgpps
 PKG_CHECK_MODULES([LIBGPS], [libgps], [libgps_found=yes], [libgps_found=no])
 
-AM_CONDITIONAL(ENABLE_GPS, test "x$libgps_found" = "xyes")
 
 
 
@@ -84,10 +76,18 @@ Makefile
 eth_ar.pc
 ])
 
+
+AM_CONDITIONAL(ENABLE_CODEC2, test "x$codec2_found_headers" = "xyes")
+AM_CONDITIONAL(ENABLE_HAMLIB, test "x$hamlib_found_headers" = "xyes")
+AM_CONDITIONAL(ENABLE_SAMPLERATE, test "x$samplerate_found_headers" = "xyes")
+AM_CONDITIONAL(ENABLE_INTERFACE, test "x$linux_if_found_headers" = "xyes")
+AM_CONDITIONAL(ENABLE_GPS, test "x$libgps_found" = "xyes")
+
 AC_OUTPUT
 
 
 echo "Optional libs:"
+echo "    codec2          : " $codec2_found_headers
 echo "    hamlib          : " $hamlib_found_headers
 echo "    libsamplerate   : " $samplerate_found_headers
 echo "    libspeexdsp     : " $speexdsp_found_headers

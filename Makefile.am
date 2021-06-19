@@ -17,6 +17,7 @@ bin_PROGRAMS = eth_ar_callssid2mac
 noinst_PROGRAMS = eth_ar_if fprs_test emphasis_test eth_ar_test test_eth dtmf_test ctcss_test
 TESTS = fprs_test eth_ar_test dtmf_test ctcss_test
 
+if ENABLE_CODEC2
 if ENABLE_HAMLIB
 if ENABLE_SAMPLERATE
 bin_PROGRAMS += analog_trx freedv_eth fprs2aprs_gate eth_ar_if fprs_request fprs_destination fprs_monitor eth_ar_callssid2mac
@@ -31,6 +32,8 @@ freedv_eth_LDFLAGS = $(CODEC2_LIBS) -lsamplerate -lasound -lhamlib -lpthread -lm
 
 endif
 endif
+endif
+
 
 eth_ar_test_SOURCES = eth_ar_test.c
 eth_ar_test_LDADD = libeth_ar.la
