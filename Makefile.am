@@ -14,10 +14,13 @@ libeth_ar_la_LDFLAGS= -fPIC -version-info 3:0:0 -lm
 nobase_include_HEADERS = eth_ar/eth_ar.h eth_ar/fprs.h eth_ar/alaw.h eth_ar/ulaw.h
 
 bin_PROGRAMS = eth_ar_callssid2mac
-noinst_PROGRAMS = eth_ar_if fprs_test emphasis_test eth_ar_test test_eth dtmf_test ctcss_test
+noinst_PROGRAMS = eth_ar_if fprs_test emphasis_test eth_ar_test dtmf_test ctcss_test
 TESTS = fprs_test eth_ar_test dtmf_test ctcss_test
 
 if ENABLE_CODEC2
+
+noinst_PROGRAMS += test_eth
+
 if ENABLE_HAMLIB
 if ENABLE_SAMPLERATE
 bin_PROGRAMS += analog_trx freedv_eth fprs2aprs_gate eth_ar_if fprs_request fprs_destination fprs_monitor eth_ar_callssid2mac
